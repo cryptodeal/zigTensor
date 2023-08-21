@@ -85,14 +85,19 @@ pub fn build(b: *std.Build) !void {
 // TODO: add flexibility, enable linking various backends
 fn linkBackend(compile: *std.Build.Step.Compile) void {
     const target = (std.zig.system.NativeTargetInfo.detect(compile.target) catch @panic("failed to detect native target info!")).target;
-
+    std.debug.print("cpu type: {any}\n", .{target.cpu});
     if (target.os.tag == .linux) {
         // TODO: support linux
     } else if (target.os.tag == .windows) {
         // TODO: support windows
     } else if (target.isDarwin()) {
-        compile.addIncludePath(.{ .path = "/opt/homebrew/include" });
-        compile.addLibraryPath(.{ .path = "/opt/homebrew/lib" });
+        if (target.cpu == .aarch64) {
+            compile.addIncludePath(.{ .path = "/opt/homebrew/include" });
+            compile.addLibraryPath(.{ .path = "/opt/homebrew/lib" });
+        } else {
+            compile.addIncludePath(.{ .path = "/usr/local/include" });
+            compile.addLibraryPath(.{ .path = "/usr/local/lib" });
+        }
         compile.linkSystemLibrary("afcpu");
     }
 }

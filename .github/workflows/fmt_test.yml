@@ -4,14 +4,17 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [macos-latest]
     runs-on: ${{matrix.os}}
     steps:
       - uses: actions/checkout@v3
       - uses: goto-bus-stop/setup-zig@v2
+      - uses: ConorMacBride/install-package@v1
+        with:
+          brew: arrayfire
       - run: zig build test
   lint:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
       - uses: goto-bus-stop/setup-zig@v2
@@ -23,7 +26,7 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
