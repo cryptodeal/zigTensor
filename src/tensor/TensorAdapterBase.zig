@@ -1,0 +1,1 @@
+pub const TensorAdapterBase = struct {};

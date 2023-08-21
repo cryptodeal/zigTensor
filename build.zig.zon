@@ -1,0 +1,10 @@
+.{
+    .name = "zigTensor",
+    .version = "0.0.1",
+    .dependencies = .{
+        .zigrc = .{
+            .url = "https://github.com/cryptodeal/zigrc/archive/9065c38e79b613043aa728ea3f97218a93d9450e.tar.gz",
+            .hash = "1220e1cec640c0232fa592a6e666133e02dba68b21f0f9e360a5d68a870332f0dc28",
+        },
+    },
+}
