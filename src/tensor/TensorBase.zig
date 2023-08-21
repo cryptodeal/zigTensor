@@ -1,6 +1,6 @@
-const adapter_base = @import("TensorAdapterBase.zig");
+const adapter = @import("TensorAdapter.zig");
 
-const TensorAdapterBase = adapter_base.TensorAdapterBase;
+const TensorAdapterBase = adapter.TensorAdapterBase;
 
 /// Enum for various tensor backends.
 pub const TensorBackendType = enum { ArrayFire };

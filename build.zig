@@ -70,6 +70,16 @@ pub fn build(b: *std.Build) !void {
     // This will evaluate the `test` step rather than the default, which is "install".
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&run_main_tests.step);
+
+    // Docs
+    const zigTensor_docs = main_tests;
+    const build_docs = b.addInstallDirectory(.{
+        .source_dir = zigTensor_docs.getEmittedDocs(),
+        .install_dir = .prefix,
+        .install_subdir = "../docs",
+    });
+    const build_docs_step = b.step("docs", "Build the zigTensor library docs");
+    build_docs_step.dependOn(&build_docs.step);
 }
 
 // TODO: add flexibility, enable linking various backends

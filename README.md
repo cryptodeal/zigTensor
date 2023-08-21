@@ -9,3 +9,68 @@ library.
 The project is in the incredibly early stages of development and not enough of the core
 functionality has been implemented for the library to be usable. Currently, development
 is solely focused on OSx and leveraging ArrayFire for the backend.
+
+### Roadmap
+
+- [ ] autograd
+- [ ] common
+- [ ] contrib
+- [ ] dataset
+- [ ] distributed
+- [ ] meter
+- [ ] nn
+- [ ] optim
+- [ ] runtime
+  - [ ] CUDADevice
+  - [ ] CUDAStream
+  - [ ] CUDAUtils
+  - [ ] Device (WIP)
+  - [ ] DeviceManager (WIP)
+  - [x] DeviceType
+  - [ ] Stream
+  - [ ] SynchronousStream
+- [ ] tensor
+  - [ ] backend
+    - [ ] ArrayFire (current focus - WIP)
+      - [ ] mem
+        - [ ] CachingMemoryManager
+        - [ ] DefaultMemoryManager
+        - [ ] MemoryManagerAdapter
+        - [ ] MemoryManagerAdapterDeviceInterface
+        - [ ] MemoryManagerInstaller
+      - [ ] AdvancedIndex
+      - [ ] ArrayFireBLAS
+      - [ ] ArrayFireBackend
+      - [ ] ArrayFireBinaryOps
+      - [ ] ArrayFireCPUStream
+      - [ ] ArrayFireReductions
+      - [ ] ArrayFireShapeAndIndex
+      - [ ] ArrayFireTensor
+      - [ ] ArrayFireUnaryOps
+      - [ ] Utils (WIP)
+    - [ ] JIT
+    - [ ] oneDNN
+    - [ ] Stub
+  - [ ] CUDAProfile
+  - [ ] Compute
+  - [ ] DefaultTensorType (WIP)
+  - [ ] Index
+  - [ ] Init
+  - [ ] Profile
+  - [ ] Random
+  - [x] Shape
+  - [ ] TensorAdapter (WIP)
+  - [ ] TensorBackend (WIP)
+  - [ ] TensorBase (WIP)
+  - [ ] TensorExtension
+  - [x] Types
+
+### Backend Roadmap
+
+- [ ] ArrayFire (current focus - WIP)
+  - [ ] CPU (priority 1 - supports OSx)
+  - [ ] OpenCL
+  - [ ] CUDA
+- [ ] JIT
+- [ ] oneDNN
+- [ ] Stub
