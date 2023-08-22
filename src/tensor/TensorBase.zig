@@ -21,6 +21,16 @@ pub const MatrixProperty = enum(u8) { None = 0, Transpose = 1 };
 /// Sorting mode for sorting-related functions.
 pub const SortMode = enum(u8) { Descending = 0, Ascending = 1 };
 
+/// Padding types for the pad operator.
+pub const PadType = enum {
+    /// pad with a constant zero value.
+    Constant,
+    /// pad with the values at the edges of the tensor.
+    Edge,
+    /// pad with a reflection of the tensor mirrored along each edge.
+    Symmetric,
+};
+
 pub const Tensor = struct {
     impl_: *TensorAdapterBase,
 };

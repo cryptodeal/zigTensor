@@ -9,6 +9,8 @@ const DType = @import("../../Types.zig").DType;
 const MatrixProperty = tensor_base.MatrixProperty;
 const StorageType = tensor_base.StorageType;
 const SortMode = tensor_base.SortMode;
+const Location = tensor_base.Location;
+const PadType = tensor_base.PadType;
 
 pub const AfDims4 = struct {
     dims: [4]af.dim_t = [_]af.dim_t{0} ** 4,
@@ -28,7 +30,9 @@ pub const AfDims4 = struct {
 
 pub fn AF_CHECK(v: af.af_err, src: std.builtin.SourceLocation) !void {
     if (v != af.AF_SUCCESS) {
-        std.debug.print("ArrayFire error: {s}:{d} - {s}\n", .{ src.file, src.line, af.af_err_to_string(v) });
+        var err_string: [*c]const u8 = af.af_err_to_string(v);
+        std.debug.print("ArrayFire error: {s}:{d} - {s}\n", .{ src.file, src.line, std.mem.span(err_string) });
+
         return error.ArrayFireError;
     }
 }
@@ -173,6 +177,26 @@ pub fn condenseDims(dims: AfDims4) AfDims4 {
     return new_dims;
 }
 
+// TODO: condenseIndices
+// pub fn condenseIndices(arr: af.af_array, keep_dims: bool, ... ) af.af_array {}
+
+pub fn ztToAfLocation(location: Location) af.af_source {
+    return switch (location) {
+        .Host => af.afHost,
+        .Device => af.afDevice,
+    };
+}
+
+// TODO: fromZtData
+
+pub fn ztToAfPadType(pad_type: PadType) af.af_border_type {
+    return switch (pad_type) {
+        .Constant => af.AF_PAD_ZERO,
+        .Edge => af.AF_PAD_CLAMP_TO_EDGE,
+        .Symmetric => af.AF_PAD_SYM,
+    };
+}
+
 test "ztToAfType" {
     try std.testing.expect(ztToAfType(.f16) == AfDType.f16);
     try std.testing.expect(ztToAfType(.f32) == AfDType.f32);
@@ -276,4 +300,15 @@ test "afToZtDims" {
     var exp4 = [_]Dim{ 2, 3, 4, 5 };
     try std.testing.expectEqualSlices(Dim, &exp4, shape.dims_.items);
     shape.deinit();
+}
+
+test "ztToAfLocation" {
+    try std.testing.expect(ztToAfLocation(.Host) == af.afHost);
+    try std.testing.expect(ztToAfLocation(.Device) == af.afDevice);
+}
+
+test "ztToAfPadType" {
+    try std.testing.expect(ztToAfPadType(.Constant) == af.AF_PAD_ZERO);
+    try std.testing.expect(ztToAfPadType(.Edge) == af.AF_PAD_CLAMP_TO_EDGE);
+    try std.testing.expect(ztToAfPadType(.Symmetric) == af.AF_PAD_SYM);
 }

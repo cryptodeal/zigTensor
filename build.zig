@@ -4,26 +4,29 @@ const std = @import("std");
 // declaratively construct a build graph that will be executed by an external
 // runner.
 pub fn build(b: *std.Build) !void {
-    const use_cuda = b.option(bool, "ZT_BACKEND_CUDA", "Use CUDA backend") orelse false;
-    const af_use_opencl = b.option(bool, "ZT_ARRAYFIRE_USE_OPENCL", "Use ArrayFire with OpenCL backend") orelse false;
+    // capture build cli flags
+    const ZT_BACKEND_CUDA = b.option(bool, "ZT_BACKEND_CUDA", "Use CUDA backend") orelse false;
+    const ZT_BACKEND_CPU = b.option(bool, "ZT_BACKEND_CPU", "Use CPU backend") orelse false;
+    const ZT_ARRAYFIRE_USE_CPU = b.option(bool, "ZT_ARRAYFIRE_USE_CPU", "Use ArrayFire with CPU backend") orelse false;
+    const ZT_ARRAYFIRE_USE_OPENCL = b.option(bool, "ZT_ARRAYFIRE_USE_OPENCL", "Use ArrayFire with OpenCL backend") orelse false;
+    const ZT_ARRAYFIRE_USE_CUDA = b.option(bool, "ZT_ARRAYFIRE_USE_CUDA", "Use ArrayFire with CUDA backend") orelse false;
+    const ZT_USE_ARRAYFIRE = if (ZT_ARRAYFIRE_USE_CUDA or ZT_ARRAYFIRE_USE_OPENCL or ZT_ARRAYFIRE_USE_CPU) true else false;
+    const ZT_USE_ONEDNN = b.option(bool, "ZT_USE_ONEDNN", "Use ArrayFire with CUDA backend") orelse false;
 
-    // Standard target options allows the person running `zig build` to choose
-    // what target to build for. Here we do not override the defaults, which
-    // means any target is allowed, and the default is native. Other options
-    // for restricting supported target set are available.
     const target = b.standardTargetOptions(.{});
-
-    // Standard optimization options allow the person running `zig build` to select
-    // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall. Here we do not
-    // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
     const opts = .{ .target = target, .optimize = optimize };
     const zigrc_module = b.dependency("zigrc", opts).module("zigrc");
 
     var shared_opts = b.addOptions();
-    shared_opts.addOption(bool, "ZT_BACKEND_CUDA", use_cuda);
-    shared_opts.addOption(bool, "ZT_ARRAYFIRE_USE_OPENCL", af_use_opencl);
+    shared_opts.addOption(bool, "ZT_BACKEND_CUDA", ZT_BACKEND_CUDA);
+    shared_opts.addOption(bool, "ZT_BACKEND_CPU", ZT_BACKEND_CPU);
+    shared_opts.addOption(bool, "ZT_ARRAYFIRE_USE_CPU", ZT_ARRAYFIRE_USE_CPU);
+    shared_opts.addOption(bool, "ZT_ARRAYFIRE_USE_OPENCL", ZT_ARRAYFIRE_USE_OPENCL);
+    shared_opts.addOption(bool, "ZT_ARRAYFIRE_USE_CUDA", ZT_ARRAYFIRE_USE_CUDA);
+    shared_opts.addOption(bool, "ZT_USE_ARRAYFIRE", ZT_USE_ARRAYFIRE);
+    shared_opts.addOption(bool, "ZT_USE_ONEDNN", ZT_USE_ONEDNN);
 
     var dependencies = std.ArrayList(std.Build.ModuleDependency).init(b.allocator);
     defer dependencies.deinit();
@@ -39,8 +42,6 @@ pub fn build(b: *std.Build) !void {
 
     const lib = b.addStaticLibrary(.{
         .name = "zigTensor",
-        // In this case the main source file is merely a path, however, in more
-        // complicated build scripts, this could be a generated file.
         .root_source_file = main_module.source_file,
         .target = target,
         .optimize = optimize,
@@ -49,14 +50,12 @@ pub fn build(b: *std.Build) !void {
     linkBackend(lib);
     b.installArtifact(lib);
 
-    // Creates a step for unit testing. This only builds the test executable
-    // but does not run it.
+    // Unit Tests
     const main_tests = b.addTest(.{
         .root_source_file = main_module.source_file,
         .target = target,
         .optimize = optimize,
     });
-    // TODO: these should o
     main_tests.linkLibC();
     linkBackend(main_tests);
 
@@ -65,9 +64,6 @@ pub fn build(b: *std.Build) !void {
 
     const run_main_tests = b.addRunArtifact(main_tests);
 
-    // This creates a build step. It will be visible in the `zig build --help` menu,
-    // and can be selected like this: `zig build test`
-    // This will evaluate the `test` step rather than the default, which is "install".
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&run_main_tests.step);
 

@@ -1,6 +1,7 @@
 //! The standard TensorBackend implementation.
 
 const std = @import("std");
+const zigrc = @import("zigrc");
 const DType = @import("types.zig");
 const base = @import("TensorBase.zig");
 
@@ -8,7 +9,7 @@ const assert = std.debug.assert;
 const Tensor = base.Tensor;
 const TensorBackendType = base.TensorBackendType;
 
-const TensorBackend = struct {
+pub const TensorBackend = struct {
     const Self = @This();
 
     // The type erased pointer to the TensorBackend implementation
@@ -16,10 +17,15 @@ const TensorBackend = struct {
     vtable: *const VTable,
 
     pub const VTable = struct {
+        clone: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) Self,
         backendType: *const fn (ctx: *anyopaque) TensorBackendType,
         eval: *const fn (ctx: *anyopaque) void,
         supportsDataType: *const fn (ctx: *anyopaque, data_type: DType) bool,
     };
+
+    pub fn clone(self: *Self, allocator: std.mem.Allocator) zigrc.Arc(Self) {
+        return self.vtable.clone(self.ptr, allocator);
+    }
 
     pub fn backendType(self: *Self) TensorBackendType {
         return self.vtable.backendType(self.ptr);
@@ -40,6 +46,11 @@ const TensorBackend = struct {
         assert(PtrInfo.Pointer.size == .One); // Must be a single-item pointer
         assert(@typeInfo(PtrInfo.Pointer.child) == .Struct); // Must point to a struct
         const impl = struct {
+            fn clone(ctx: *anyopaque, allocator: std.mem.Allocator) zigrc.Arc(Self) {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return zigrc.Arc(Self).init(allocator, Self.init(self.clone(allocator)));
+            }
+
             fn backendType(ctx: *anyopaque) TensorBackendType {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.trialRunStarted();
@@ -58,6 +69,7 @@ const TensorBackend = struct {
         return .{
             .ptr = backend_impl,
             .vtable = &.{
+                .clone = impl.clone,
                 .backendType = impl.backendType,
                 .eval = impl.eval,
                 .supportsDataType = impl.supportsDataType,

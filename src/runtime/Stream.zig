@@ -28,3 +28,20 @@ pub const Stream = struct {
         return (@as(T, @ptrCast(self))).*;
     }
 };
+
+pub fn StreamTrait(Derived: type) type {
+    _ = Derived;
+    return struct {
+        const Self = @This();
+
+        allocator: std.mem.Allocator,
+
+        pub fn init(allocator: std.mem.Allocator) !*Self {
+            var self = try allocator.create(Self);
+            self.* = .{
+                .allocator = allocator,
+            };
+            return self;
+        }
+    };
+}
