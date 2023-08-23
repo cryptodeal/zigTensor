@@ -64,7 +64,7 @@ pub const ArrayFireBackend = struct {
         }
 
         // TODO: finish implementation
-        std.log.err("Returning ArrayFireBackendImpl\n", .{});
+
         return self;
     }
 

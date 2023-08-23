@@ -5,6 +5,7 @@ const deviceType = @import("DeviceType.zig");
 const cuda = @import("CUDAUtils.zig");
 const ZT_BACKEND_CUDA = @import("build_options").ZT_BACKEND_CUDA;
 
+const Arc = rc.Arc;
 const Device = device.Device;
 const DeviceType = deviceType.DeviceType;
 
@@ -27,14 +28,14 @@ fn getActiveDeviceId(device_type: DeviceType) !usize {
 }
 
 pub const DeviceManager = struct {
-    pub const DeviceTypeInfo = std.AutoHashMap(usize, rc.Arc(*Device));
+    pub const DeviceTypeInfo = std.AutoHashMap(usize, Arc(*Device));
 
-    deviceTypeToInfo_: std.AutoHashMap(DeviceType, DeviceTypeInfo),
+    deviceTypeToInfo_: std.EnumMap(DeviceType, DeviceTypeInfo),
 
     pub fn init(allocator: std.mem.Allocator) DeviceManager {
         var x64Info = DeviceTypeInfo.init(allocator);
         _ = x64Info;
-        //try x64Info.put()
+        // try x64Info.put(kX64DeviceId, Arc())
         return .{};
     }
 };

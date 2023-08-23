@@ -18,7 +18,14 @@
 /// called, the functions therein remain unset.
 ///
 /// For documentation of methods, refer to
-/// [ArrayFire's memory header](ttps://git.io/Jv7do) for full specs.
+/// [ArrayFire's memory header](https://git.io/Jv7do) for full specs.
 pub const MemoryManagerDeviceInterface = struct {
-    const Self = @This();
+    // native memory management functions
+    getActiveDeviceId: *const fn () c_int,
+    getMaxMemorySize: *const fn (device: c_int) usize,
+    nativeAlloc: *const fn (len: usize) *anyopaque,
+    nativeFree: *const fn (ptr: *anyopaque) void,
+    // memory pressure functions
+    getMemoryPressureThreshold: *const fn () f64,
+    setMemoryPressureThreshold: *const fn (threshold: f64) void,
 };
