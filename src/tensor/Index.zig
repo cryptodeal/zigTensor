@@ -203,7 +203,7 @@ test "IndexTest Range" {
     try std.testing.expect(s4.stride() == 2);
 }
 
-test "IndexTest Range eql" {
+test "IndexTest Range.eql" {
     var r1 = Range.initEnd(4);
     var r2 = Range.initEnd(4);
     try std.testing.expect(r1.eql(&r2));
@@ -221,7 +221,7 @@ test "IndexTest Range eql" {
     try std.testing.expect(r1.eql(&r2));
 }
 
-test "IndexTest Index.type" {
+test "IndexTest Index.idxType" {
     const idx1 = Index.initDim(1);
     try std.testing.expect(idx1.idxType() == .Literal);
 

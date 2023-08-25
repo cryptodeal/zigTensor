@@ -23,9 +23,9 @@ is solely focused on OSx and leveraging ArrayFire for the backend.
 - [ ] runtime
   - [ ] CUDADevice
   - [ ] CUDAStream
-  - [ ] CUDAUtils
+  - [ ] CUDAUtils (WIP)
   - [ ] Device (WIP)
-  - [ ] DeviceManager (WIP)
+  - [x] DeviceManager
   - [x] DeviceType
   - [ ] Stream
   - [ ] SynchronousStream
@@ -40,12 +40,12 @@ is solely focused on OSx and leveraging ArrayFire for the backend.
         - [ ] MemoryManagerInstaller
       - [ ] AdvancedIndex
       - [ ] ArrayFireBLAS
-      - [ ] ArrayFireBackend
+      - [ ] ArrayFireBackend (WIP)
       - [ ] ArrayFireBinaryOps
       - [ ] ArrayFireCPUStream
       - [ ] ArrayFireReductions
       - [ ] ArrayFireShapeAndIndex
-      - [ ] ArrayFireTensor
+      - [ ] ArrayFireTensor (WIP)
       - [ ] ArrayFireUnaryOps
       - [ ] Utils (WIP)
     - [ ] JIT
@@ -54,8 +54,8 @@ is solely focused on OSx and leveraging ArrayFire for the backend.
   - [ ] CUDAProfile
   - [ ] Compute
   - [ ] DefaultTensorType (WIP)
-  - [ ] Index
-  - [ ] Init
+  - [x] Index
+  - [ ] Init (WIP)
   - [ ] Profile
   - [ ] Random
   - [x] Shape
