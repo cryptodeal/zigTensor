@@ -1,15 +1,15 @@
 const std = @import("std");
 const rc = @import("zigrc");
-const device = @import("Device.zig");
-const deviceType = @import("DeviceType.zig");
+const rt_device = @import("Device.zig");
+const rt_device_type = @import("DeviceType.zig");
 // const cuda = @import("CUDAUtils.zig");
 const ZT_BACKEND_CUDA = @import("build_options").ZT_BACKEND_CUDA;
 
-const Device = device.Device;
+const Device = rt_device.Device;
 const Arc = rc.Arc;
-const X64Device = device.X64Device;
-const DeviceType = deviceType.DeviceType;
-const getDeviceTypes = deviceType.getDeviceTypes;
+const X64Device = rt_device.X64Device;
+const DeviceType = rt_device_type.DeviceType;
+const getDeviceTypes = rt_device_type.getDeviceTypes;
 
 /// Device id for the single CPU device.
 pub const kX64DeviceId: c_int = 0;

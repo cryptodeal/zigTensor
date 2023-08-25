@@ -1,13 +1,16 @@
 const std = @import("std");
 const rc = @import("zigrc");
-const device_type = @import("DeviceType.zig");
+const rt_device_type = @import("DeviceType.zig");
 const rt_stream = @import("Stream.zig");
+const rt_device_mgr = @import("DeviceManager.zig");
 
 const assert = std.debug.assert;
 const kX64DeviceId = @import("DeviceManager.zig").kX64DeviceId;
 const Arc = rc.Arc;
-const DeviceType = device_type.DeviceType;
+const DeviceType = rt_device_type.DeviceType;
+const getDeviceTypes = rt_device_type.getDeviceTypes;
 const Stream = rt_stream.Stream;
+const DeviceManager = rt_device_mgr.DeviceManager;
 
 /// Throws an error and logs with a descriptive message
 /// if the given types don't match
@@ -34,7 +37,6 @@ pub const Device = struct {
         deviceType: *const fn (ctx: *anyopaque) DeviceType,
         setActive: *const fn (ctx: *anyopaque) anyerror!void,
         addSetActiveCallback: *const fn (ctx: *anyopaque, callback: *const fn (id: c_int) anyerror!void) anyerror!void,
-        // getImpl: *const fn (ctx: *anyopaque, comptime T: type) anyerror!*anyopaque,
         deinit: *const fn (ctx: *anyopaque) void,
     };
 
@@ -84,17 +86,18 @@ pub const Device = struct {
     //
     // Throws if the specified type does not match the actual
     // derived device type.
-    // pub fn getImpl(ctx: *Self, comptime T: type) !*T {
-    // return ctx.vtable.getImpl(ctx.ptr, T);
-    // }
+    pub fn getImpl(ctx: *Self, comptime T: type) *T {
+        if (T.type_ != DeviceType.x64)
+            return @ptrCast(@alignCast(ctx.ptr));
+    }
 
     /// Frees all associated memory from the implementation.
     pub fn deinit(ctx: *Self) void {
         return ctx.vtable.deinit(ctx.ptr);
     }
 
-    pub fn init(backend_impl: anytype) Self {
-        const Ptr = @TypeOf(backend_impl);
+    pub fn init(device_impl: anytype) Self {
+        const Ptr = @TypeOf(device_impl);
         const PtrInfo = @typeInfo(Ptr);
         assert(PtrInfo == .Pointer); // Must be a pointer
         assert(PtrInfo.Pointer.size == .One); // Must be a single-item pointer
@@ -140,18 +143,13 @@ pub const Device = struct {
                 try self.addSetActiveCallback(callback);
             }
 
-            // fn getImpl(ctx: *anyopaque, comptime T: type) !*T {
-            // const self: Ptr = @ptrCast(@alignCast(ctx));
-            // return self.getImpl(T);
-            // }
-
             fn deinit(ctx: *anyopaque) void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 self.deinit();
             }
         };
         return .{
-            .ptr = backend_impl,
+            .ptr = device_impl,
             .vtable = &.{
                 .setActiveImpl = impl.setActiveImpl,
                 .getStreams = impl.getStreams,
@@ -161,7 +159,6 @@ pub const Device = struct {
                 .deviceType = impl.deviceType,
                 .setActive = impl.setActive,
                 .addSetActiveCallback = impl.addSetActiveCallback,
-                // .getImpl = impl.getImpl,
                 .deinit = impl.deinit,
             },
         };
@@ -171,7 +168,7 @@ pub const Device = struct {
 pub const StreamErrors = error{DeviceMustOwnStream} || std.mem.Allocator.Error;
 
 pub const X64Device = struct {
-    pub const device_type: DeviceType = .x64;
+    pub const type_: DeviceType = .x64;
     /// Tracks Streams from the Device.
     streams_: std.AutoHashMap(Arc(Stream), void),
     /// Used to update internal backend state for active device, thereby
@@ -227,7 +224,7 @@ pub const X64Device = struct {
     }
 
     pub fn deviceType(_: *X64Device) DeviceType {
-        return X64Device.device_type;
+        return X64Device.type_;
     }
 
     pub fn setActive(self: *X64Device) !void {
@@ -246,3 +243,51 @@ pub const X64Device = struct {
     // return self;
     // }
 };
+
+test "Device deviceType" {
+    const allocator = std.testing.allocator;
+    var mgr = try DeviceManager.getInstance(allocator);
+    defer mgr.deinit();
+    var device_types = getDeviceTypes();
+    var iterator = device_types.iterator();
+    while (iterator.next()) |d_type| {
+        if (mgr.isDeviceTypeAvailable(d_type)) {
+            var devices = try mgr.getDevicesOfType(allocator, d_type);
+            defer allocator.free(devices);
+            for (devices) |dev| {
+                try std.testing.expect(dev.deviceType() == d_type);
+            }
+        }
+    }
+}
+
+test "Device nativeId" {
+    const allocator = std.testing.allocator;
+    var mgr = try DeviceManager.getInstance(allocator);
+    defer mgr.deinit();
+
+    var devices = try mgr.getDevicesOfType(allocator, .x64);
+    defer allocator.free(devices);
+    for (devices) |dev| {
+        try std.testing.expect(dev.nativeId() == kX64DeviceId);
+    }
+}
+
+test "Device setActive" {
+    const allocator = std.testing.allocator;
+    var mgr = try DeviceManager.getInstance(allocator);
+    defer mgr.deinit();
+
+    var device_types = getDeviceTypes();
+    var iterator = device_types.iterator();
+    while (iterator.next()) |d_type| {
+        if (mgr.isDeviceTypeAvailable(d_type)) {
+            var devices = try mgr.getDevicesOfType(allocator, d_type);
+            defer allocator.free(devices);
+            for (devices) |dev| {
+                try dev.setActive();
+                try std.testing.expectEqual(try mgr.getActiveDevice(d_type), dev.*);
+            }
+        }
+    }
+}
