@@ -14,12 +14,19 @@ const DeviceManager = rt_device_mgr.DeviceManager;
 
 /// Throws an error and logs with a descriptive message
 /// if the given types don't match
-pub fn deviceImplCheck(comptime expect: type, comptime actual: type) !void {
+fn deviceImplCheck(comptime expect: type, comptime actual: type) !void {
     if (expect != actual) {
         std.debug.print("[zt.Device.impl] specified device type: [{any}] doesn't match actual device type: [{any}]\n", .{expect});
         return error.DeviceTypeMismatch;
     }
 }
+
+const CallbackCtx = struct {
+    func: *const fn (data: ?*anyopaque, id: c_int) anyerror!void,
+    data: ?*anyopaque,
+};
+
+pub const DeviceErrors = error{DeviceMustOwnStream} || std.mem.Allocator.Error;
 
 pub const Device = struct {
     const Self = @This();
@@ -31,12 +38,12 @@ pub const Device = struct {
     pub const VTable = struct {
         setActiveImpl: *const fn (ctx: *anyopaque) void,
         getStreams: *const fn (ctx: *anyopaque) std.AutoHashMap(Arc(Stream), void),
-        // addStream: *const fn (ctx: *anyopaque, stream: Arc(Stream)) StreamErrors!void,
-        sync: *const fn (ctx: *anyopaque) void,
+        addStream: *const fn (ctx: *anyopaque, stream: Arc(Stream)) DeviceErrors!void,
+        sync: *const fn (ctx: *anyopaque) anyerror!void,
         nativeId: *const fn (ctx: *anyopaque) c_int,
         deviceType: *const fn (ctx: *anyopaque) DeviceType,
         setActive: *const fn (ctx: *anyopaque) anyerror!void,
-        addSetActiveCallback: *const fn (ctx: *anyopaque, callback: *const fn (id: c_int) anyerror!void) anyerror!void,
+        addSetActiveCallback: *const fn (ctx: *anyopaque, callback: *const fn (data: ?*anyopaque, id: c_int) anyerror!void, data: ?*anyopaque) DeviceErrors!void,
         deinit: *const fn (ctx: *anyopaque) void,
     };
 
@@ -51,13 +58,13 @@ pub const Device = struct {
     }
 
     // Let this device manage given stream. Do nothing if it was already added.
-    // pub fn addStream(ctx: *Self, stream: Arc(Stream)) !void {
-    // return ctx.vtable.addStream(ctx.ptr, stream);
-    // }
+    pub fn addStream(ctx: *Self, stream: Arc(Stream)) !void {
+        return ctx.vtable.addStream(ctx.ptr, stream);
+    }
 
     /// Block calling thread and synchronize with regard to all streams on this device.
-    pub fn sync(ctx: *Self) void {
-        return ctx.vtable.sync(ctx.ptr);
+    pub fn sync(ctx: *Self) !void {
+        try ctx.vtable.sync(ctx.ptr);
     }
 
     /// Returns the native ID of this device (semantics are implementation-dependent).
@@ -78,17 +85,21 @@ pub const Device = struct {
     /// Lets this device keep track of the given callback (along with previously
     /// added ones), which will be invoked with the device's native ID after
     /// setting the device active.
-    pub fn addSetActiveCallback(ctx: *Self, callback: *const fn (id: c_int) anyerror!void) !void {
-        return ctx.vtable.addSetActiveCallback(ctx.ptr, callback);
+    pub fn addSetActiveCallback(ctx: *Self, callback: *const fn (data: ?*anyopaque, id: c_int) anyerror!void, data: ?*anyopaque) DeviceErrors!void {
+        return ctx.vtable.addSetActiveCallback(ctx.ptr, callback, data);
     }
 
     // Returns the underlying implementation of this device.
     //
     // Throws if the specified type does not match the actual
     // derived device type.
-    pub fn getImpl(ctx: *Self, comptime T: type) *T {
-        if (T.type_ != DeviceType.x64)
-            return @ptrCast(@alignCast(ctx.ptr));
+    pub fn getImpl(ctx: *Self, comptime T: type) !*T {
+        var actual_type = ctx.deviceType();
+        if (T.type_ != actual_type) {
+            std.log.err("[zt.Device.getImpl] specified device type: [{s}] doesn't match actual device type: [{s}]\n", .{ @tagName(T.type_), @tagName(actual_type) });
+            return error.FailedDeviceGetImpl;
+        }
+        return @ptrCast(@alignCast(ctx.ptr));
     }
 
     /// Frees all associated memory from the implementation.
@@ -113,14 +124,14 @@ pub const Device = struct {
                 return self.getStreams();
             }
 
-            // fn addStream(ctx: *anyopaque, stream: Arc(Stream)) !void {
-            // const self: Ptr = @ptrCast(@alignCast(ctx));
-            // try self.addStream(stream);
-            // }
-
-            fn sync(ctx: *anyopaque) void {
+            fn addStream(ctx: *anyopaque, stream: Arc(Stream)) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                self.sync();
+                try self.addStream(stream);
+            }
+
+            fn sync(ctx: *anyopaque) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                try self.sync();
             }
 
             fn nativeId(ctx: *anyopaque) c_int {
@@ -138,9 +149,9 @@ pub const Device = struct {
                 try self.setActive();
             }
 
-            fn addSetActiveCallback(ctx: *anyopaque, callback: *const fn (id: c_int) anyerror!void) !void {
+            fn addSetActiveCallback(ctx: *anyopaque, callback: *const fn (data: ?*anyopaque, id: c_int) anyerror!void, data: ?*anyopaque) DeviceErrors!void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                try self.addSetActiveCallback(callback);
+                try self.addSetActiveCallback(callback, data);
             }
 
             fn deinit(ctx: *anyopaque) void {
@@ -153,7 +164,7 @@ pub const Device = struct {
             .vtable = &.{
                 .setActiveImpl = impl.setActiveImpl,
                 .getStreams = impl.getStreams,
-                // .addStream = impl.addStream,
+                .addStream = impl.addStream,
                 .sync = impl.sync,
                 .nativeId = impl.nativeId,
                 .deviceType = impl.deviceType,
@@ -165,15 +176,13 @@ pub const Device = struct {
     }
 };
 
-pub const StreamErrors = error{DeviceMustOwnStream} || std.mem.Allocator.Error;
-
 pub const X64Device = struct {
     pub const type_: DeviceType = .x64;
     /// Tracks Streams from the Device.
     streams_: std.AutoHashMap(Arc(Stream), void),
     /// Used to update internal backend state for active device, thereby
     /// eliminating the `setActive --> AnyTensorBackendImpl` dependency(s).
-    setActiveCallbacks_: std.ArrayList(*const fn (id: c_int) anyerror!void),
+    setActiveCallbacks_: std.ArrayList(CallbackCtx),
 
     allocator: std.mem.Allocator,
 
@@ -182,7 +191,7 @@ pub const X64Device = struct {
         self.* = .{
             .allocator = allocator,
             .streams_ = std.AutoHashMap(Arc(Stream), void).init(allocator),
-            .setActiveCallbacks_ = std.ArrayList(*const fn (id: c_int) anyerror!void).init(allocator),
+            .setActiveCallbacks_ = std.ArrayList(CallbackCtx).init(allocator),
         };
         return self;
     }
@@ -201,21 +210,19 @@ pub const X64Device = struct {
     }
 
     // TODO: finish implementing Stream
-    // pub fn addStream(self: *X64Device, stream: Arc(Stream)) StreamErrors!void {
-    // if (!self.eql(stream.device())) {
-    // std.log.err("[Device.addStream] Must add stream to owner device\n", .{});
-    // return StreamErrors.DeviceMustOwnStream;
-    // }
-    // try self.streams_.put(stream, void);
-    // }
+    pub fn addStream(self: *X64Device, stream: Arc(Stream)) DeviceErrors!void {
+        if (@intFromPtr(self) != @intFromPtr((stream.value.device()).ptr)) {
+            std.log.err("[Device.addStream] Must add stream to owner device\n", .{});
+            return DeviceErrors.DeviceMustOwnStream;
+        }
+        try self.streams_.put(stream, {});
+    }
 
-    pub fn sync(self: *X64Device) void {
+    pub fn sync(self: *X64Device) !void {
         self.setActiveImpl();
         var iterator = self.streams_.keyIterator();
         while (iterator.next()) |stream| {
-            _ = stream;
-            // TODO: finish implementing `Stream` interface/impl
-            // stream.value.sync();
+            try stream.value.sync();
         }
     }
 
@@ -230,18 +237,13 @@ pub const X64Device = struct {
     pub fn setActive(self: *X64Device) !void {
         self.setActiveImpl();
         for (self.setActiveCallbacks_.items) |callback| {
-            try callback(self.nativeId());
+            try callback.func(callback.data, self.nativeId());
         }
     }
 
-    pub fn addSetActiveCallback(self: *X64Device, callback: *const fn (id: c_int) anyerror!void) StreamErrors!void {
-        try self.setActiveCallbacks_.append(callback);
+    pub fn addSetActiveCallback(self: *X64Device, callback: *const fn (data: ?*anyopaque, id: c_int) anyerror!void, data: ?*anyopaque) DeviceErrors!void {
+        try self.setActiveCallbacks_.append(.{ .func = callback, .data = data });
     }
-
-    // pub fn getImpl(self: *X64Device, comptime T: type) !*T {
-    // try deviceImplCheck(X64Device, T);
-    // return self;
-    // }
 };
 
 test "Device deviceType" {
@@ -287,6 +289,81 @@ test "Device setActive" {
             for (devices) |dev| {
                 try dev.setActive();
                 try std.testing.expectEqual(try mgr.getActiveDevice(d_type), dev.*);
+            }
+        }
+    }
+}
+
+const CbCtxTest = struct {
+    count: c_int = 0,
+};
+
+fn device_cb_test(data: ?*anyopaque, _: c_int) !void {
+    var ctx: *CbCtxTest = @ptrCast(@alignCast(data));
+    ctx.count += 1;
+}
+
+test "Device addSetActiveCallback" {
+    const allocator = std.testing.allocator;
+    var mgr = try DeviceManager.getInstance(allocator);
+    defer mgr.deinit();
+
+    var device_types = getDeviceTypes();
+    var iterator = device_types.iterator();
+    while (iterator.next()) |d_type| {
+        if (mgr.isDeviceTypeAvailable(d_type)) {
+            var devices = try mgr.getDevicesOfType(allocator, d_type);
+            defer allocator.free(devices);
+            for (devices) |dev| {
+                var ctx = CbCtxTest{};
+                try dev.addSetActiveCallback(device_cb_test, &ctx);
+                try dev.setActive();
+                try std.testing.expect(ctx.count == 1);
+            }
+        }
+    }
+}
+
+test "Device sync" {
+    const allocator = std.testing.allocator;
+    var mgr = try DeviceManager.getInstance(allocator);
+    defer mgr.deinit();
+
+    var device_types = getDeviceTypes();
+    var iterator = device_types.iterator();
+    while (iterator.next()) |d_type| {
+        if (mgr.isDeviceTypeAvailable(d_type)) {
+            var devices = try mgr.getDevicesOfType(allocator, d_type);
+            defer allocator.free(devices);
+            for (devices) |dev| {
+                var threw_err = false;
+                dev.sync() catch {
+                    threw_err = true;
+                };
+                try std.testing.expect(!threw_err);
+            }
+        }
+    }
+}
+
+test "Device getStreams" {
+    const allocator = std.testing.allocator;
+    var mgr = try DeviceManager.getInstance(allocator);
+    defer mgr.deinit();
+
+    var device_types = getDeviceTypes();
+    var iterator = device_types.iterator();
+    while (iterator.next()) |d_type| {
+        if (mgr.isDeviceTypeAvailable(d_type)) {
+            var devices = try mgr.getDevicesOfType(allocator, d_type);
+            defer allocator.free(devices);
+            for (devices) |dev| {
+                const streams = dev.getStreams();
+                var stream_iterator = streams.keyIterator();
+                while (stream_iterator.next()) |stream| {
+                    var stream_dev = stream.value.device();
+                    try std.testing.expect(dev.ptr == stream_dev.ptr);
+                }
             }
         }
     }

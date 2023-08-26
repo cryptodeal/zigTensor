@@ -3,13 +3,23 @@ const af = @import("../../../backends/ArrayFire.zig");
 const base = @import("../../TensorBase.zig");
 const zt_types = @import("../../Types.zig");
 const build_options = @import("build_options");
+const rt_stream = @import("../../../runtime/Stream.zig");
+const rt_device_manager = @import("../../../runtime/DeviceManager.zig");
+const zigrc = @import("zigrc");
+const rt_device_type = @import("../../../runtime/DeviceType.zig");
+const getDeviceTypes = rt_device_type.getDeviceTypes;
 
+const ArrayFireCPUStream = @import("ArrayFireCPUStream.zig").ArrayFireCPUStream;
+const Arc = zigrc.Arc;
 const toArray = @import("ArrayFireTensor.zig").toArray;
 const ZT_BACKEND_CUDA = build_options.ZT_BACKEND_CUDA;
 const ZT_ARRAYFIRE_USE_CUDA = build_options.ZT_ARRAYFIRE_USE_CUDA;
+const ZT_ARRAYFIRE_USE_CPU = build_options.ZT_ARRAYFIRE_USE_CPU;
 const ZT_BACKEND_CPU = build_options.ZT_BACKEND_CPU;
 const TensorBackendType = base.TensorBackendType;
+const Stream = rt_stream.Stream;
 const DType = zt_types.DType;
+const DeviceManager = rt_device_manager.DeviceManager;
 const Tensor = base.Tensor;
 
 const AF_CHECK = @import("Utils.zig").AF_CHECK;
@@ -27,6 +37,37 @@ fn init() void {
     }
 }
 
+fn getOrWrapAfDeviceStream(allocator: std.mem.Allocator, afId: c_int, nativeId: c_int, afIdToStream: *std.AutoHashMap(c_int, Arc(Stream))) !*Stream {
+    _ = nativeId;
+    var iter = afIdToStream.get(afId);
+    if (iter != null) {
+        return iter.?.value;
+    }
+
+    if (ZT_ARRAYFIRE_USE_CPU) {
+        var stream = try ArrayFireCPUStream.create(allocator);
+        try afIdToStream.put(afId, stream);
+        return stream.value;
+    }
+    //  else if (ZT_ARRAYFIRE_USE_CUDA) {
+    //      TODO: add CUDA support
+    //  }
+    else {
+        std.log.err("ArrayFireBackend was not compiled with support for CPU or GPU\n", .{});
+        return error.ArrayFireBackendNoDeviceType;
+    }
+}
+
+fn setActiveCallback(data: ?*anyopaque, id: c_int) !void {
+    var self: *ArrayFireBackend = @ptrCast(@alignCast(data.?));
+    const afId = self.nativeIdToId_.get(id).?;
+    try AF_CHECK(af.af_set_device(afId), @src());
+    // this is the latest point we can lazily wrap the AF stream, which may get
+    // lazily intialized anytime in AF internally, e.g., via tensor computation.
+    _ = try getOrWrapAfDeviceStream(self.allocator, afId, id, self.afIdToStream_.value);
+    std.log.err("executed `setActiveCallback` after activating device\n", .{});
+}
+
 // TODO: add ArrayFire CUDA support
 /// A tensor backend implementation of the ArrayFire tensor library.
 ///
@@ -38,13 +79,16 @@ pub const ArrayFireBackend = struct {
     allocator: std.mem.Allocator,
     nativeIdToId_: std.AutoHashMap(c_int, c_int),
     idToNativeId_: std.AutoHashMap(c_int, c_int),
+    afIdToStream_: Arc(std.AutoHashMap(c_int, Arc(Stream))),
 
     pub fn init(allocator: std.mem.Allocator) !*ArrayFireBackend {
-        var self = try allocator.create(ArrayFireBackend);
+        var self: *ArrayFireBackend = try allocator.create(ArrayFireBackend);
+        var map = std.AutoHashMap(c_int, Arc(Stream)).init(allocator);
         self.* = .{
             .allocator = allocator,
             .nativeIdToId_ = std.AutoHashMap(c_int, c_int).init(allocator),
             .idToNativeId_ = std.AutoHashMap(c_int, c_int).init(allocator),
+            .afIdToStream_ = try Arc(std.AutoHashMap(c_int, Arc(Stream))).init(allocator, map),
         };
         try AF_CHECK(af.af_init(), @src());
         memoryInitFlag.call();
@@ -63,7 +107,17 @@ pub const ArrayFireBackend = struct {
             try self.idToNativeId_.put(id, native_id);
         }
 
-        // TODO: finish implementation
+        var mgr = try DeviceManager.getInstance(allocator);
+
+        // This callback ensures consistency of AF internal state on active device.
+        // Capturing by value to avoid destructor race hazard for static objects.
+
+        if (ZT_ARRAYFIRE_USE_CPU) {
+            var device = try mgr.getActiveDevice(.x64);
+            try device.addSetActiveCallback(setActiveCallback, self);
+        } else if (ZT_ARRAYFIRE_USE_CUDA) {
+            // TODO: add CUDA support
+        }
 
         return self;
     }
@@ -72,6 +126,15 @@ pub const ArrayFireBackend = struct {
     pub fn deinit(self: *ArrayFireBackend) void {
         self.idToNativeId_.deinit();
         self.nativeIdToId_.deinit();
+        var map = self.afIdToStream_.tryUnwrap().?;
+        var iterator = map.valueIterator();
+        while (iterator.next()) |stream| {
+            var s = stream.tryUnwrap();
+            if (s != null) {
+                s.?.deinit();
+            }
+        }
+        map.deinit();
         self.allocator.destroy(self);
     }
 
@@ -151,6 +214,22 @@ test "ArrayFireBackend supportsDataType" {
     var allocator = std.testing.allocator;
     var backend = try ArrayFireBackend.init(allocator);
     defer backend.deinit();
+
+    // access and release singleton here so test doesn't leak
+    var mgr = try DeviceManager.getInstance(allocator);
+    defer mgr.deinit();
+
+    var device_types = getDeviceTypes();
+    var iterator = device_types.iterator();
+    while (iterator.next()) |d_type| {
+        if (mgr.isDeviceTypeAvailable(d_type)) {
+            var devices = try mgr.getDevicesOfType(allocator, d_type);
+            defer allocator.free(devices);
+            for (devices) |dev| {
+                try dev.setActive();
+            }
+        }
+    }
 
     try std.testing.expect(try backend.supportsDataType(.f16));
 }

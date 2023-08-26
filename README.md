@@ -24,11 +24,11 @@ is solely focused on OSx and leveraging ArrayFire for the backend.
   - [ ] CUDADevice
   - [ ] CUDAStream
   - [ ] CUDAUtils (WIP)
-  - [ ] Device (WIP)
+  - [x] Device
   - [x] DeviceManager
   - [x] DeviceType
-  - [ ] Stream
-  - [ ] SynchronousStream
+  - [x] Stream
+  - [x] SynchronousStream
 - [ ] tensor
   - [ ] backend
     - [ ] ArrayFire (current focus - WIP)
@@ -42,7 +42,7 @@ is solely focused on OSx and leveraging ArrayFire for the backend.
       - [ ] ArrayFireBLAS
       - [ ] ArrayFireBackend (WIP)
       - [ ] ArrayFireBinaryOps
-      - [ ] ArrayFireCPUStream
+      - [ ] ArrayFireCPUStream (WIP)
       - [ ] ArrayFireReductions
       - [ ] ArrayFireShapeAndIndex
       - [ ] ArrayFireTensor (WIP)
