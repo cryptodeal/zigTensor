@@ -4,6 +4,18 @@ zigTensor is a fast, flexible machine learning library written entirely in Zig;
 the design is heavily inspired by the [Flashlight](https://github.com/flashlight/flashlight)
 library.
 
+## Minimum Requirements
+
+| Requirement | Notes                    |
+| ----------- | ------------------------ |
+| Zig version | 0.12.0-dev.167+dd6a9caea |
+
+Install with [zigup](https://github.com/marler8997/zigup):
+
+```bash
+zigup 0.12.0-dev.167+dd6a9caea
+```
+
 ### Status
 
 The project is in the incredibly early stages of development and not enough of the core

@@ -86,12 +86,12 @@ pub const DeviceManager = struct {
     }
 
     pub fn getDeviceCount(self: *DeviceManager, device_type: DeviceType) !u32 {
-        try self.enforceDeviceTypeAvailable("[DeviceManager::getDeviceCount]", device_type);
+        try self.enforceDeviceTypeAvailable("[DeviceManager.getDeviceCount]", device_type);
         return self.deviceTypeToInfo_.get(device_type).?.count();
     }
 
     pub fn getDevicesOfType(self: *DeviceManager, allocator: std.mem.Allocator, device_type: DeviceType) ![]*Device {
-        try self.enforceDeviceTypeAvailable("[DeviceManager::getDevicesOfType]", device_type);
+        try self.enforceDeviceTypeAvailable("[DeviceManager.getDevicesOfType]", device_type);
         var device_list = std.ArrayList(*Device).init(allocator);
         var devices = self.deviceTypeToInfo_.get(device_type).?;
         var device_iterator = devices.valueIterator();
@@ -102,7 +102,7 @@ pub const DeviceManager = struct {
     }
 
     pub fn getDevice(self: *DeviceManager, device_type: DeviceType, id: c_int) !Device {
-        try self.enforceDeviceTypeAvailable("[DeviceManager::getDevice]", device_type);
+        try self.enforceDeviceTypeAvailable("[DeviceManager.getDevice]", device_type);
         var idToDevice = self.deviceTypeToInfo_.get(device_type).?;
         if (!idToDevice.contains(id)) {
             std.log.err("[DeviceManager::getDevice] unknown device id: [{d}]\n", .{id});
@@ -112,7 +112,7 @@ pub const DeviceManager = struct {
     }
 
     pub fn getActiveDevice(self: *DeviceManager, device_type: DeviceType) !Device {
-        try self.enforceDeviceTypeAvailable("[DeviceManager::getActiveDevice]", device_type);
+        try self.enforceDeviceTypeAvailable("[DeviceManager.getActiveDevice]", device_type);
         const active_device_id = try getActiveDeviceId(device_type);
         return self.deviceTypeToInfo_.get(device_type).?.get(active_device_id).?;
     }

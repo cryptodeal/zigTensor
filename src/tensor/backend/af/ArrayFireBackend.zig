@@ -119,6 +119,8 @@ pub const ArrayFireBackend = struct {
             // TODO: add CUDA support
         }
 
+        // Active device is never set explicitly, so we must wrap its stream eagerly.
+
         return self;
     }
 
@@ -130,9 +132,7 @@ pub const ArrayFireBackend = struct {
         var iterator = map.valueIterator();
         while (iterator.next()) |stream| {
             var s = stream.tryUnwrap();
-            if (s != null) {
-                s.?.deinit();
-            }
+            if (s != null) s.?.deinit();
         }
         map.deinit();
         self.allocator.destroy(self);
