@@ -11,9 +11,8 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.12.0-dev.167+dd6a9caea
-      - uses: ConorMacBride/install-package@v1
-        with:
-          brew: arrayfire
+      - name: "Install ArrayFire CPU backend with OpenBLAS runtime"
+        run: brew install arrayfire
       - run: zig build test
   lint:
     runs-on: macos-latest
@@ -39,9 +38,8 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.12.0-dev.167+dd6a9caea
-      - uses: ConorMacBride/install-package@v1
-        with:
-          brew: arrayfire
+      - name: "Install ArrayFire CPU backend with OpenBLAS runtime"
+        run: brew install arrayfire
       - run: zig build docs
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v2
