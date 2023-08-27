@@ -28,7 +28,7 @@ pub const TensorAdapterBase = struct {
         backend: *const fn (ctx: *anyopaque) TensorBackend,
         copy: *const fn (ctx: *anyopaque) Tensor,
         shallowCopy: *const fn (ctx: *anyopaque) Tensor,
-        shape: *const fn (ctx: *anyopaque) Shape,
+        shape: *const fn (ctx: *anyopaque) *const Shape,
         dtype: *const fn (ctx: *anyopaque) DType,
         isSparse: *const fn (ctx: *anyopaque) bool,
         location: *const fn (ctx: *anyopaque) Location,
@@ -49,7 +49,7 @@ pub const TensorAdapterBase = struct {
         asContiguousTensor: *const fn (ctx: *anyopaque) Tensor,
         setContext: *const fn (ctx: *anyopaque, comptime T: type, context: *anyopaque) void,
         getContext: *const fn (ctx: *anyopaque, comptime T: type) ?*anyopaque,
-        toString: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!std.ArrayList(u8),
+        toString: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror![]const u8,
         // TODO: format: *const fn (value: *anyopaque, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) anyerror!void,
         assign: *const fn (ctx: *anyopaque, comptime T: type, value: anytype) void,
         inPlaceAdd: *const fn (ctx: *anyopaque, comptime T: type, value: anytype) void,
@@ -81,8 +81,8 @@ pub const TensorAdapterBase = struct {
     }
 
     /// Deep copy the tensor, including underlying data.
-    pub fn copy(self: *Self, allocator: std.mem.Allocator) Tensor {
-        return self.vtable.copy(self.ptr, allocator);
+    pub fn copy(self: *Self) Tensor {
+        return self.vtable.copy(self.ptr);
     }
 
     /// Shallow copy the tensor -- returns a tensor that points
@@ -92,11 +92,11 @@ pub const TensorAdapterBase = struct {
     }
 
     /// Returns the shape of the tensor.
-    pub fn shape(self: *Self) Shape {
+    pub fn shape(self: *Self) *const Shape {
         return self.vtable.shape(self.ptr);
     }
 
-    /// Retusn the data type (DType) of the tensor.
+    /// Returns the data type (DType) of the tensor.
     pub fn dtype(self: *Self) DType {
         return self.vtable.dtype(self.ptr);
     }
@@ -186,7 +186,7 @@ pub const TensorAdapterBase = struct {
 
     /// Returns a string representation of a tensor. Not intended to be
     /// portable across backends.
-    pub fn toString(self: *Self, allocator: std.mem.Allocator) anyerror!std.ArrayList(u8) {
+    pub fn toString(self: *Self, allocator: std.mem.Allocator) anyerror![]const u8 {
         return self.vtable.toString(self.ptr, allocator);
     }
 
@@ -243,9 +243,9 @@ pub const TensorAdapterBase = struct {
                 return self.backend();
             }
 
-            fn copy(ctx: *anyopaque, allocator: std.mem.Allocator) Tensor {
+            fn copy(ctx: *anyopaque) Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.copy(allocator);
+                return self.copy();
             }
 
             fn shallowCopy(ctx: *anyopaque) Tensor {
@@ -253,7 +253,7 @@ pub const TensorAdapterBase = struct {
                 return self.shallowCopy();
             }
 
-            fn shape(ctx: *anyopaque) Shape {
+            fn shape(ctx: *anyopaque) *const Shape {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.shape();
             }
@@ -323,7 +323,7 @@ pub const TensorAdapterBase = struct {
                 return self.getContext(T);
             }
 
-            fn toString(ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!std.ArrayList(u8) {
+            fn toString(ctx: *anyopaque, allocator: std.mem.Allocator) anyerror![]const u8 {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.toString(allocator);
             }

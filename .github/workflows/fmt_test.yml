@@ -13,7 +13,7 @@ jobs:
           version: 0.12.0-dev.167+dd6a9caea
       - name: "Install ArrayFire CPU backend with OpenBLAS runtime"
         run: brew install arrayfire
-      - run: zig build test
+      - run: zig build test -DZT_ARRAYFIRE_USE_CPU
   lint:
     runs-on: macos-latest
     steps:

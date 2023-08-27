@@ -1,12 +1,14 @@
 const std = @import("std");
 const af = @import("../../../backends/ArrayFire.zig");
 const base = @import("../../TensorBase.zig");
+const zt_shape = @import("../../Shape.zig");
 const zt_types = @import("../../Types.zig");
 const build_options = @import("build_options");
 const rt_stream = @import("../../../runtime/Stream.zig");
 const rt_device_manager = @import("../../../runtime/DeviceManager.zig");
 const zigrc = @import("zigrc");
 const rt_device_type = @import("../../../runtime/DeviceType.zig");
+const af_utils = @import("Utils.zig");
 const getDeviceTypes = rt_device_type.getDeviceTypes;
 
 const ArrayFireCPUStream = @import("ArrayFireCPUStream.zig").ArrayFireCPUStream;
@@ -21,11 +23,15 @@ const Stream = rt_stream.Stream;
 const DType = zt_types.DType;
 const DeviceManager = rt_device_manager.DeviceManager;
 const Tensor = base.Tensor;
-
-const AF_CHECK = @import("Utils.zig").AF_CHECK;
+const Shape = zt_shape.Shape;
+const ztToAfDims = af_utils.ztToAfDims;
+const ztToAfType = af_utils.ztToAfType;
+const AF_CHECK = af_utils.AF_CHECK;
 
 var memoryInitFlag = std.once(init);
 
+// Intentionally private. Only one instance should exist/it should be accessed
+// via getInstance().
 fn init() void {
     // TODO: remove this temporary workaround for TextDatasetTest crash on CPU
     // backend when tearing down the test environment. This is possibly due to
@@ -68,6 +74,8 @@ fn setActiveCallback(data: ?*anyopaque, id: c_int) !void {
     std.log.err("executed `setActiveCallback` after activating device\n", .{});
 }
 
+var ArrayFireBackendSingleton: ?*ArrayFireBackend = null;
+
 // TODO: add ArrayFire CUDA support
 /// A tensor backend implementation of the ArrayFire tensor library.
 ///
@@ -81,7 +89,7 @@ pub const ArrayFireBackend = struct {
     idToNativeId_: std.AutoHashMap(c_int, c_int),
     afIdToStream_: Arc(std.AutoHashMap(c_int, Arc(Stream))),
 
-    pub fn init(allocator: std.mem.Allocator) !*ArrayFireBackend {
+    fn init(allocator: std.mem.Allocator) !*ArrayFireBackend {
         var self: *ArrayFireBackend = try allocator.create(ArrayFireBackend);
         var map = std.AutoHashMap(c_int, Arc(Stream)).init(allocator);
         self.* = .{
@@ -111,7 +119,6 @@ pub const ArrayFireBackend = struct {
 
         // This callback ensures consistency of AF internal state on active device.
         // Capturing by value to avoid destructor race hazard for static objects.
-
         if (ZT_ARRAYFIRE_USE_CPU) {
             var device = try mgr.getActiveDevice(.x64);
             try device.addSetActiveCallback(setActiveCallback, self);
@@ -120,6 +127,9 @@ pub const ArrayFireBackend = struct {
         }
 
         // Active device is never set explicitly, so we must wrap its stream eagerly.
+        var activeAfId: c_int = undefined;
+        try AF_CHECK(af.af_get_device(&activeAfId), @src());
+        _ = try getOrWrapAfDeviceStream(allocator, activeAfId, self.idToNativeId_.get(activeAfId).?, self.afIdToStream_.value);
 
         return self;
     }
@@ -132,15 +142,20 @@ pub const ArrayFireBackend = struct {
         var iterator = map.valueIterator();
         while (iterator.next()) |stream| {
             var s = stream.tryUnwrap();
-            if (s != null) s.?.deinit();
+            if (s != null) {
+                s.?.deinit();
+            }
         }
         map.deinit();
         self.allocator.destroy(self);
+        ArrayFireBackendSingleton = null;
     }
 
-    pub fn getInstance(self: *ArrayFireBackend) ArrayFireBackend {
-        const instance = self.*;
-        return instance;
+    pub fn getInstance(allocator: std.mem.Allocator) !*ArrayFireBackend {
+        if (ArrayFireBackendSingleton == null) {
+            ArrayFireBackendSingleton = try ArrayFireBackend.init(allocator);
+        }
+        return ArrayFireBackendSingleton.?;
     }
 
     pub fn backendType(_: *ArrayFireBackend) TensorBackendType {
@@ -153,7 +168,14 @@ pub const ArrayFireBackend = struct {
         try AF_CHECK(af.af_eval(try toArray(tensor)), @src());
     }
 
-    // TODO: pub fn getStreamOfArray(arr: af.af_array) *Stream {}
+    pub fn getStreamOfArray(self: *ArrayFireBackend, allocator: std.mem.Allocator, arr: af.af_array) !*Stream {
+        // TODO once we enforce integrate Device.setDevice into fl.setDevice, each
+        // array's stream should always be wrapped already (via setDevice callback).
+        var afId: c_int = undefined;
+        try AF_CHECK(af.af_get_device_id(&afId, arr), @src());
+        const nativeId = self.idToNativeId_.get(afId).?;
+        return getOrWrapAfDeviceStream(allocator, afId, nativeId, self.afIdToStream_.value);
+    }
 
     pub fn supportsDataType(_: *ArrayFireBackend, dtype: DType) !bool {
         return switch (dtype) {
@@ -162,6 +184,8 @@ pub const ArrayFireBackend = struct {
                 try AF_CHECK(af.af_get_device(&device), @src());
                 var half_support: bool = undefined;
                 try AF_CHECK(af.af_get_half_support(&half_support, device), @src());
+                // f16 isn't [yet] supported with the CPU backend per onednn
+                // limitations
                 return half_support and !ZT_BACKEND_CPU;
             },
             else => true,
@@ -177,13 +201,23 @@ pub const ArrayFireBackend = struct {
     // TODO: pub fn setMemMgrFlushInterval()
 
     // -------------------------- Rand Functions --------------------------
-    pub fn setSeed(seed: u64) void {
-        af.af_set_seed(@intCast(seed));
+    pub fn setSeed(seed: u64) !void {
+        try AF_CHECK(af.af_set_seed(@intCast(seed)));
     }
 
-    // TODO: pub fn randn()
+    pub fn randn(shape: *const Shape, dtype: DType) !Tensor {
+        var dims = try ztToAfDims(shape);
+        var arr: af.af_array = undefined;
+        try AF_CHECK(af.af_randn(&arr, @intCast(shape.ndim()), &dims.dims, @enumFromInt(ztToAfType(dtype))), @src());
+        // TODO: coerce af.af_array to Tensor
+    }
 
-    // TODO: pub fn rand()
+    pub fn rand(shape: *const Shape, dtype: DType) !Tensor {
+        var dims = try ztToAfDims(shape);
+        var arr: af.af_array = undefined;
+        try AF_CHECK(af.af_randu(&arr, @intCast(shape.ndim()), &dims.dims, @enumFromInt(ztToAfType(dtype))), @src());
+        // TODO: coerce af.af_array to Tensor
+    }
 
     // --------------------------- Tensor Operators ---------------------------
 
@@ -212,10 +246,10 @@ pub const ArrayFireBackend = struct {
 
 test "ArrayFireBackend supportsDataType" {
     var allocator = std.testing.allocator;
-    var backend = try ArrayFireBackend.init(allocator);
+    var backend = try ArrayFireBackend.getInstance(allocator);
     defer backend.deinit();
 
-    // access and release singleton here so test doesn't leak
+    // access and release DeviceManager singleton here so test doesn't leak
     var mgr = try DeviceManager.getInstance(allocator);
     defer mgr.deinit();
 
@@ -232,4 +266,18 @@ test "ArrayFireBackend supportsDataType" {
     }
 
     try std.testing.expect(try backend.supportsDataType(.f16));
+}
+
+test "ArrayFireBackend getInstance (singleton)" {
+    var allocator = std.testing.allocator;
+    var b1 = try ArrayFireBackend.getInstance(allocator);
+    defer b1.deinit();
+
+    // access and release DeviceManager singleton here so test doesn't leak
+    var mgr = try DeviceManager.getInstance(allocator);
+    defer mgr.deinit();
+
+    // b2 doesn't need `deinit` called as it's a singleton
+    var b2 = try ArrayFireBackend.getInstance(allocator);
+    try std.testing.expect(b1 == b2);
 }

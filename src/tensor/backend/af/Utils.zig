@@ -13,7 +13,7 @@ const Location = tensor_base.Location;
 const PadType = tensor_base.PadType;
 
 pub const AfDims4 = struct {
-    dims: [4]af.dim_t = [_]af.dim_t{0} ** 4,
+    dims: [4]af.dim_t = [_]af.dim_t{1} ** 4,
 
     pub fn init(dims: ?[4]af.dim_t) AfDims4 {
         var self: AfDims4 = .{};
@@ -109,7 +109,7 @@ pub fn ztToAfTopKSortMode(sort_mode: SortMode) af.af_topk_function {
     };
 }
 
-pub fn ztToAfDims(shape: *Shape) !AfDims4 {
+pub fn ztToAfDims(shape: *const Shape) !AfDims4 {
     if (shape.ndim() > 4) {
         std.log.err("ztToAfDims: ArrayFire shapes can't be more than 4 dimensions\n", .{});
         return error.ArrayFireCannotExceed4Dimensions;
@@ -187,7 +187,25 @@ pub fn ztToAfLocation(location: Location) af.af_source {
     };
 }
 
-// TODO: fromZtData
+pub fn fromZtData(shape: *const Shape, ptr: ?*anyopaque, dtype: DType) !af.af_array {
+    var dims = try ztToAfDims(shape);
+    var af_dtype = ztToAfType(dtype);
+    var res: af.af_array = undefined;
+    switch (dtype) {
+        .f32, .f64, .s32, .u32, .s64, .u64, .s16, .u16, .b8, .u8 => try AF_CHECK(af.af_create_array(
+            &res,
+            ptr,
+            @intCast(shape.ndim()),
+            &dims.dims,
+            @intFromEnum(af_dtype),
+        ), @src()),
+        else => {
+            std.log.err("fromZtData: can't construct ArrayFire array from given type.\n", .{});
+            return error.UnsupportedArrayFireType;
+        },
+    }
+    return res;
+}
 
 pub fn ztToAfPadType(pad_type: PadType) af.af_border_type {
     return switch (pad_type) {
@@ -195,6 +213,19 @@ pub fn ztToAfPadType(pad_type: PadType) af.af_border_type {
         .Edge => af.AF_PAD_CLAMP_TO_EDGE,
         .Symmetric => af.AF_PAD_SYM,
     };
+}
+
+test "af.af_create_array" {
+    const allocator = std.testing.allocator;
+    var data = try allocator.alloc(f32, 100);
+    defer allocator.free(data);
+    @memset(data, 100);
+    var dim = [_]Dim{100};
+    var shape = try Shape.init(allocator, &dim);
+    defer shape.deinit();
+
+    var arr_ptr = try fromZtData(&shape, data.ptr, DType.f32);
+    try AF_CHECK(af.af_release_array(arr_ptr), @src());
 }
 
 test "ztToAfType" {

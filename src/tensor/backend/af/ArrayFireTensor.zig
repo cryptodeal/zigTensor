@@ -47,7 +47,7 @@ pub const ArrayFireTensor = struct {
     /// requirements per returning a const reference.
     /// `af.af_get_numdims` should be used for internal
     /// computation where shape/dimensions are needed.
-    shape_: Shape,
+    shape_: Shape = undefined,
 
     /// The number of dimensions in this ArrayFire tensor
     /// that are "expected" per interoperability with other
@@ -82,10 +82,16 @@ pub const ArrayFireTensor = struct {
     /// Initializes a new ArrayFireTensor from an ArrayFire array
     /// handle without copying the handle. Used for creating
     /// gauranteed shallow-copies.
-    pub fn init_shallow(allocator: std.mem.Allocator, arr: zigrc.Arc(af.af_array), num_dims: usize) !*ArrayFireTensor {
+    pub fn initFromShared(allocator: std.mem.Allocator, arr: zigrc.Arc(af.af_array), num_dims: usize) !*ArrayFireTensor {
         _ = num_dims;
         _ = arr;
         _ = allocator;
+    }
+
+    pub fn initFromArray(allocator: std.mem.Allocator, arr: af.af_array, num_dims: usize) !*ArrayFireTensor {
+        _ = allocator;
+        _ = arr;
+        _ = num_dims;
     }
 
     pub fn initRaw(allocator: std.mem.Allocator) !*ArrayFireTensor {

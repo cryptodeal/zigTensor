@@ -31,7 +31,7 @@ pub const DType = enum(u8) {
     u32 = 9, // 32-bit unsigned integer
     u64 = 10, // 64-bit unsigned integer
 
-    pub fn toString(self: *DType) ![]const u8 {
+    pub fn toString(self: *DType) []const u8 {
         return switch (self) {
             .f16 => "f16",
             .f32 => "f32",
@@ -44,12 +44,26 @@ pub const DType = enum(u8) {
             .u16 => "u16",
             .u32 => "u32",
             .u64 => "u64",
-            else => return DTypeError.InvalidTypeQueried,
         };
     }
 
-    pub fn stringToDtype(_self: *DType, string: []const u8) !DType {
-        _ = _self;
+    pub fn getSize(self: *DType) usize {
+        return switch (self) {
+            .f16 => @sizeOf(f16),
+            .f32 => @sizeOf(f32),
+            .f64 => @sizeOf(f64),
+            .b8 => @sizeOf(u8),
+            .s16 => @sizeOf(i16),
+            .s32 => @sizeOf(i32),
+            .s64 => @sizeOf(i64),
+            .u8 => @sizeOf(u8),
+            .u16 => @sizeOf(u16),
+            .u32 => @sizeOf(u32),
+            .u64 => @sizeOf(u64),
+        };
+    }
+
+    pub fn stringToDtype(_: *DType, string: []const u8) !DType {
         if (kStringToType.has(string)) {
             return kStringToType.get(string).?;
         }

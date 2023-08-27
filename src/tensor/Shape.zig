@@ -56,7 +56,7 @@ pub const Shape = struct {
 
     /// Check if a dimension is valid (i.e. in bounds) given the
     /// current size of the shape. If not valid, throws an error.
-    pub fn checkDimsOrThrow(self: *Shape, dimension: usize) !void {
+    pub fn checkDimsOrThrow(self: *const Shape, dimension: usize) !void {
         if (dimension > self.ndim() - 1) {
             std.log.err("Shape index {d} out of bounds for shape with {d} dimensions.\n", .{ dimension, self.dims_.items.len });
             return ShapeErrors.InvalidDimension;
@@ -64,7 +64,7 @@ pub const Shape = struct {
     }
 
     /// Returns the number of elements in a tensor of this shape.
-    pub fn elements(self: *Shape) Dim {
+    pub fn elements(self: *const Shape) Dim {
         if (self.dims_.items.len == 0) {
             return kEmptyShapeNumberOfElements;
         }
@@ -74,7 +74,7 @@ pub const Shape = struct {
     }
 
     /// Returns the number of dimensions in the shape.
-    pub fn ndim(self: *Shape) usize {
+    pub fn ndim(self: *const Shape) usize {
         return self.dims_.items.len;
     }
 
@@ -83,13 +83,13 @@ pub const Shape = struct {
     /// dimensions.
     ///
     /// Returns the number of elements at the given dimension.
-    pub fn dim(self: *Shape, dimension: usize) !Dim {
+    pub fn dim(self: *const Shape, dimension: usize) !Dim {
         try self.checkDimsOrThrow(dimension);
         return self.dims_.items[dimension];
     }
 
     /// Compares two shapes. Returns true if their dimensions are equal.
-    pub fn eql(self: *Shape, other: *Shape) bool {
+    pub fn eql(self: *const Shape, other: *const Shape) bool {
         return std.mem.eql(Dim, self.dims_.items, other.dims_.items);
     }
 
