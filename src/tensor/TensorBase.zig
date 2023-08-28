@@ -13,7 +13,7 @@ const Dim = zt_shape.Dim;
 const TensorAdapterBase = adapter.TensorAdapterBase;
 
 /// Enum for various tensor backends.
-pub const TensorBackendType = enum { ArrayFire };
+pub const TensorBackendType = enum { Stub, Tracer, ArrayFire, OneDnn, Jit };
 
 /// Location of memory or tensors.
 pub const Location = enum { Host, Device };

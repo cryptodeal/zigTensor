@@ -43,6 +43,8 @@ fn init() void {
     }
 }
 
+/// Get the stream associated with given device in the given map; if it's not in
+/// the map, initialize it (by wrapping or creating) and put it into the map.
 fn getOrWrapAfDeviceStream(allocator: std.mem.Allocator, afId: c_int, nativeId: c_int, afIdToStream: *std.AutoHashMap(c_int, Arc(Stream))) !*Stream {
     _ = nativeId;
     var iter = afIdToStream.get(afId);
@@ -77,6 +79,7 @@ fn setActiveCallback(data: ?*anyopaque, id: c_int) !void {
 var ArrayFireBackendSingleton: ?*ArrayFireBackend = null;
 
 // TODO: add ArrayFire CUDA support
+
 /// A tensor backend implementation of the ArrayFire tensor library.
 ///
 /// Since ArrayFire has an internal DeviceManager singleton to manage
@@ -85,10 +88,18 @@ var ArrayFireBackendSingleton: ?*ArrayFireBackend = null;
 /// on global tensor functions to their ArrayFire counterparts.
 pub const ArrayFireBackend = struct {
     allocator: std.mem.Allocator,
+    /// Maps ArrayFire Native Device ID to zigTensor Device ID.
     nativeIdToId_: std.AutoHashMap(c_int, c_int),
+    /// Maps zigTensor Device ID to ArrayFire Native Device ID.
     idToNativeId_: std.AutoHashMap(c_int, c_int),
+    /// Tracks the individual active stream on each ArrayFire device
+    /// N.B. using a shared pointer see `zigrc` to allow its capture
+    /// in setActive callback; see constructor for details.
     afIdToStream_: Arc(std.AutoHashMap(c_int, Arc(Stream))),
 
+    /// Private function to initialize a new ArrayFireBackend instance.
+    /// Should not be called directly as only one instance should exist;
+    /// use `ArrayFireBackend.getInstance` instead.
     fn init(allocator: std.mem.Allocator) !*ArrayFireBackend {
         var self: *ArrayFireBackend = try allocator.create(ArrayFireBackend);
         var map = std.AutoHashMap(c_int, Arc(Stream)).init(allocator);
@@ -151,6 +162,8 @@ pub const ArrayFireBackend = struct {
         ArrayFireBackendSingleton = null;
     }
 
+    /// Returns the singleton instance of the ArrayFireBackend; if
+    /// no instance exists, initializes a new one.
     pub fn getInstance(allocator: std.mem.Allocator) !*ArrayFireBackend {
         if (ArrayFireBackendSingleton == null) {
             ArrayFireBackendSingleton = try ArrayFireBackend.init(allocator);
@@ -158,16 +171,19 @@ pub const ArrayFireBackend = struct {
         return ArrayFireBackendSingleton.?;
     }
 
+    /// Returns the enum value indicating the backend type.
     pub fn backendType(_: *ArrayFireBackend) TensorBackendType {
         return .ArrayFire;
     }
 
     // -------------------------- Compute Functions --------------------------
 
-    pub fn eval(tensor: *Tensor) !void {
+    /// Evaluate any expressions in the ArrayFire array backing the tensor.
+    pub fn eval(tensor: Tensor) !void {
         try AF_CHECK(af.af_eval(try toArray(tensor)), @src());
     }
 
+    /// Returns the stream from which the given array was created.
     pub fn getStreamOfArray(self: *ArrayFireBackend, allocator: std.mem.Allocator, arr: af.af_array) !*Stream {
         // TODO once we enforce integrate Device.setDevice into fl.setDevice, each
         // array's stream should always be wrapped already (via setDevice callback).

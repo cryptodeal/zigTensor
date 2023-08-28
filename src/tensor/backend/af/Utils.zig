@@ -2,7 +2,9 @@ const std = @import("std");
 const af = @import("../../../backends/ArrayFire.zig");
 const tensor_base = @import("../../TensorBase.zig");
 const zt_shape = @import("../../Shape.zig");
+const zt_index = @import("../../Index.zig");
 
+const IndexType = zt_index.IndexType;
 const Shape = zt_shape.Shape;
 const Dim = zt_shape.Dim;
 const DType = @import("../../Types.zig").DType;
@@ -51,6 +53,10 @@ pub const AfDType = enum(af.af_dtype) {
     s16,
     u16,
     f16,
+
+    pub fn value(self: *AfDType) af.af_dtype {
+        return @intFromEnum(self);
+    }
 };
 
 pub fn ztToAfType(data_type: DType) AfDType {
@@ -178,7 +184,21 @@ pub fn condenseDims(dims: AfDims4) AfDims4 {
 }
 
 // TODO: condenseIndices
-// pub fn condenseIndices(arr: af.af_array, keep_dims: bool, ... ) af.af_array {}
+pub fn condenseIndices(arr: af.af_array, keep_dims: bool, index_types: ?*std.ArrayList(IndexType), is_flat: bool) af.af_array {
+    _ = index_types;
+    _ = is_flat;
+    // Fast path - return the Array as is if keepDims - don't consolidate
+    if (keep_dims) {
+        return arr;
+    }
+
+    // Fast path - Array has zero elements or a dim of size zero
+    var elements: af.dim_t = undefined;
+    try AF_CHECK(af.af_get_elements(&elements, arr), @src());
+    if (elements == 0) {
+        return arr;
+    }
+}
 
 pub fn ztToAfLocation(location: Location) af.af_source {
     return switch (location) {
@@ -187,7 +207,7 @@ pub fn ztToAfLocation(location: Location) af.af_source {
     };
 }
 
-pub fn fromZtData(shape: *const Shape, ptr: ?*anyopaque, dtype: DType) !af.af_array {
+pub fn fromZtData(shape: *const Shape, ptr: ?*const anyopaque, dtype: DType) !af.af_array {
     var dims = try ztToAfDims(shape);
     var af_dtype = ztToAfType(dtype);
     var res: af.af_array = undefined;
@@ -215,6 +235,12 @@ pub fn ztToAfPadType(pad_type: PadType) af.af_border_type {
     };
 }
 
+pub fn createAfIndexers() ![]af.af_index_t {
+    var indexers: [*c]af.af_index_t = undefined;
+    try AF_CHECK(af.af_create_indexers(&indexers), @src());
+    return indexers[0..3];
+}
+
 test "af.af_create_array" {
     const allocator = std.testing.allocator;
     var data = try allocator.alloc(f32, 100);
@@ -226,6 +252,11 @@ test "af.af_create_array" {
 
     var arr_ptr = try fromZtData(&shape, data.ptr, DType.f32);
     try AF_CHECK(af.af_release_array(arr_ptr), @src());
+}
+
+test "af.af_create_indexers" {
+    var indexers = try createAfIndexers();
+    try AF_CHECK(af.af_release_indexers(indexers.ptr), @src());
 }
 
 test "ztToAfType" {

@@ -5,7 +5,11 @@ const zt_types = @import("../../Types.zig");
 const zt_idx = @import("../../Index.zig");
 const zt_shape = @import("../../Shape.zig");
 const zigrc = @import("zigrc");
+const af_utils = @import("Utils.zig");
 
+const fromZtData = af_utils.fromZtData;
+const createAfIndexers = af_utils.createAfIndexers;
+const AF_CHECK = af_utils.AF_CHECK;
 const Tensor = zt_base.Tensor;
 const Location = zt_base.Location;
 const TensorBackendType = zt_base.TensorBackendType;
@@ -14,6 +18,7 @@ const IndexType = zt_idx.IndexType;
 const Shape = zt_shape.Shape;
 const Dim = zt_shape.Dim;
 const DType = zt_types.DType;
+const Arc = zigrc.Arc;
 
 pub fn toArray(tensor: *Tensor) !af.af_array {
     if (tensor.backendType() != .ArrayFire) {
@@ -26,13 +31,39 @@ pub fn toArray(tensor: *Tensor) !af.af_array {
 /// Tensor adapter for the internal ArrayFire array. Maps operations
 /// expressed in zigTensor tensors to ArrayFire.
 pub const ArrayFireTensor = struct {
+    pub const ComponentTypeTag = enum { array, indexedArray };
+
+    /// To be visited when this tensor is to be indexed. Indexes the underlying
+    /// af.af_array, and returns the proxy to be used as a temporary lvalue.
+    pub const IndexedArrayComponent = struct {
+        isFlat_: bool,
+
+        pub fn init(_isFlat: bool) IndexedArrayComponent {
+            return .{ .isFlat = _isFlat };
+        }
+
+        pub fn get(inst: *const ArrayFireTensor) !af.af_array {
+            var res: af.af_array = undefined;
+            try AF_CHECK(af.af_index_gen(&res, try inst.getHandle(), @intCast(inst.numDims_), inst.indices_.?.ptr), @src());
+            return res;
+        }
+    };
+
+    /// To be visited when this tensor is holding an array without needing
+    /// indexing. Passthrough - returns the array directly.
+    pub const ArrayComponent = struct {
+        pub fn get(inst: *const ArrayFireTensor) af.af_array {
+            return inst.arrayHandle_.value.*;
+        }
+    };
+
     /// A pointer to the internal ArrayFire array. Shared
     /// amongst tensors that are shallow-copied.
-    arrayHandle_: zigrc.Arc(af.af_array),
+    arrayHandle_: Arc(af.af_array),
 
     /// Indices in the event that this tensor is about to be indexed. Cleared
     /// the next time this array handle is acquired (see `getHandle`).
-    indices_: ?std.ArrayList(*Index) = null,
+    indices_: ?[]af.af_index_t = null,
 
     /// Necessary to maintain the types of each index, as ArrayFire
     /// doesn't distinguish between an integer index literal and
@@ -62,15 +93,13 @@ pub const ArrayFireTensor = struct {
     /// The TensorBackendType enum value for the ArrayFireTensor implementation.
     tensorBackendType_: TensorBackendType = .ArrayFire,
 
-    // TODO: finish implementing this
-    /// To be visited when this tensor is holding an array
-    /// without needing indexing. Passthrough - returns the
-    /// array directly.
-    pub const IndexedArrayComponent = struct {};
+    // An interface to visit when getting an array handle. Indexes lazily
+    // because we can't store an af::array::proxy as an lvalue. See getHandle().
+    handle_: union(ComponentTypeTag) { array: ArrayComponent, indexedArray: IndexedArrayComponent },
 
     /// Initializes a new ArrayFireTensor that will be lazily indexed.
     /// Intended for internal use only.
-    pub fn initLazyIndexing(allocator: std.mem.Allocator, handle: zigrc.Arc(af.af_array), af_indices: std.ArrayList(*Index), index_types: std.ArrayList(IndexType), num_dims: usize, is_flat: bool) !*ArrayFireTensor {
+    pub fn initLazyIndexing(allocator: std.mem.Allocator, handle: Arc(af.af_array), af_indices: std.ArrayList(*Index), index_types: std.ArrayList(IndexType), num_dims: usize, is_flat: bool) !*ArrayFireTensor {
         _ = is_flat;
         _ = num_dims;
         _ = index_types;
@@ -82,7 +111,7 @@ pub const ArrayFireTensor = struct {
     /// Initializes a new ArrayFireTensor from an ArrayFire array
     /// handle without copying the handle. Used for creating
     /// gauranteed shallow-copies.
-    pub fn initFromShared(allocator: std.mem.Allocator, arr: zigrc.Arc(af.af_array), num_dims: usize) !*ArrayFireTensor {
+    pub fn initFromShared(allocator: std.mem.Allocator, arr: Arc(af.af_array), num_dims: usize) !*ArrayFireTensor {
         _ = num_dims;
         _ = arr;
         _ = allocator;
@@ -100,12 +129,14 @@ pub const ArrayFireTensor = struct {
         return self;
     }
 
-    pub fn init(allocator: std.mem.Allocator, shape: *Shape, data_type: DType, ptr: *anyopaque, memory_location: Location) !*ArrayFireTensor {
-        _ = memory_location;
-        _ = ptr;
-        _ = data_type;
-        _ = shape;
-        _ = allocator;
+    pub fn init(allocator: std.mem.Allocator, shape: *const Shape, data_type: DType, ptr: ?*const anyopaque) !*ArrayFireTensor {
+        var self = try allocator.create(ArrayFireTensor);
+        self.* = .{
+            .arrayHandle_ = try Arc(af.af_array).init(allocator, try fromZtData(shape, ptr, data_type)),
+            .numDims_ = shape.ndim(),
+            .handle_ = .{ .array = ArrayComponent{} },
+        };
+        return self;
     }
 
     pub fn initComplex(allocator: std.mem.Allocator, n_rows: Dim, n_cols: Dim, values: *Tensor, row_idx: *Tensor, col_idx: *Tensor) !*ArrayFireTensor {
@@ -124,8 +155,6 @@ pub const ArrayFireTensor = struct {
     pub fn numDims(self: *ArrayFireTensor) usize {
         return self.numDims_;
     }
-
-    // TODO: pub fn getHandle
 
     // TODO: pub fn clone
 
