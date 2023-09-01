@@ -4,10 +4,10 @@ const af = @import("ArrayFire.zig");
 pub const Features = struct {
     const Self = @This();
 
-    feats_: af.AF_Features,
+    feats_: af.af_features,
     allocator: std.mem.Allocator,
 
-    pub fn initFromFeatures(allocator: std.mem.Allocator, features: af.AF_Features) !*Self {
+    pub fn initFromFeatures(allocator: std.mem.Allocator, features: af.af_features) !*Self {
         var self = try allocator.create(Self);
         self.* = .{ .feats_ = features, .allocator = allocator };
         return self;

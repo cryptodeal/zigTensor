@@ -1259,6 +1259,10 @@ pub inline fn convolve2GradientNN(
     return af.Array.init(allocator, res);
 }
 
+// TODO: pub inline fn randomUniform
+
+// TODO: pub inline fn randomNormal
+
 // unit tests
 
 test "createArray" {

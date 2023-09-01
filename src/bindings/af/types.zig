@@ -41,6 +41,8 @@ pub const Dtype = enum(af.af_dtype) {
     /// 16-bit floating point values.
     f16,
 
+    /// Returns value as `af.af_dtype` for calling
+    /// directly into ArrayFire.
     pub fn value(self: Dtype) af.af_dtype {
         return @intFromEnum(self);
     }
@@ -76,6 +78,12 @@ pub const Source = enum(af.af_source) {
             Source.Device => Location.Device,
         };
     }
+
+    /// Returns value as `af.af_source` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: Source) af.af_source {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Interpolation Type type wrapped as zig enum.
@@ -100,6 +108,12 @@ pub const InterpType = enum(af.af_interp_type) {
     CubicSpline = af.AF_INTERP_CUBIC_SPLINE,
     /// Bicubic Interpolation with Catmull-Rom splines.
     BicubicSpline = af.AF_INTERP_BICUBIC_SPLINE,
+
+    /// Returns value as `af.af_interp_type` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: InterpType) af.af_interp_type {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Border Type type wrapped as zig enum.
@@ -122,6 +136,12 @@ pub const BorderType = enum(af.af_border_type) {
             else => error.UnsupportedPadType,
         };
     }
+
+    /// Returns value as `af.af_border_type` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: BorderType) af.af_border_type {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Connectivity type wrapped as zig enum.
@@ -133,6 +153,12 @@ pub const Connectivity = enum(af.af_connectivity) {
     /// and also those on Northeast, Northwest, Southeast
     /// and Southwest.
     Connectivity8 = af.AF_CONNECTIVITY_8,
+
+    /// Returns value as `af.af_connectivity` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: Connectivity) af.af_connectivity {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Conv Mode type wrapped as zig enum.
@@ -141,6 +167,12 @@ pub const ConvMode = enum(af.af_conv_mode) {
     Default = af.AF_CONV_DEFAULT,
     /// Output of the convolution is signal_len + filter_len - 1.
     Expand = af.AF_CONV_EXPAND,
+
+    /// Returns value as `af.af_conv_mode` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: ConvMode) af.af_conv_mode {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Conv Domain type wrapped as zig enum.
@@ -152,6 +184,12 @@ pub const ConvDomain = enum(af.af_conv_domain) {
     Spatial = af.AF_CONV_SPATIAL,
     /// Perform convolution in frequency domain.
     Freq = af.AF_CONV_FREQ,
+
+    /// Returns value as `af.af_conv_domain` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: ConvDomain) af.af_conv_domain {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Match Type type wrapped as zig enum.
@@ -174,6 +212,12 @@ pub const MatchType = enum(af.af_match_type) {
     ZNCC = af.AF_ZNCC,
     /// Match based on Sum of Hamming Distances (SHD).
     SHD = af.AF_SHD,
+
+    /// Returns value as `af.af_match_type` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: MatchType) af.af_match_type {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFires YCC Standard type wrapped as zig enum.
@@ -187,6 +231,12 @@ pub const YCCStandard = enum(af.af_ycc_std) {
     YCC709 = af.AF_YCC_709,
     /// ITU-R BT.2020 standard.
     YCC2020 = af.AF_YCC_2020,
+
+    /// Returns value as `af.af_ycc_std` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: YCCStandard) af.af_ycc_std {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's CSpace T wrapped as zig enum.
@@ -199,6 +249,12 @@ pub const CSpaceT = enum(af.af_cspace_t) {
     HSV = af.AF_HSV,
     /// 3-channel YCbCr
     YCbCr = af.AF_YCbCr,
+
+    /// Returns value as `af.af_cspace_t` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: CSpaceT) af.af_cspace_t {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Mat Prop type wrapped as zig enum.
@@ -236,6 +292,12 @@ pub const MatProp = enum(af.af_mat_prop) {
             else => error.UnsupportedMatrixProperty,
         };
     }
+
+    /// Returns value as `af.af_mat_prop` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: MatProp) af.af_mat_prop {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Norm type wrapped as zig enum.
@@ -261,6 +323,12 @@ pub const NormType = enum(af.af_norm_type) {
     Matrix2 = af.AF_NORM_MATRIX_2,
     /// Returns Lpq-norm
     MatrixLPQ = af.AF_NORM_MATRIX_L_PQ,
+
+    /// Returns value as `af.af_norm_type` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: NormType) af.af_norm_type {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Image Format type wrapped as zig enum.
@@ -279,6 +347,12 @@ pub const ImageFormat = enum(af.af_image_format) {
     EXR = af.AF_FIF_EXR,
     JP2 = af.AF_FIF_JP2,
     RAW = af.AF_FIF_RAW,
+
+    /// Returns value as `af.af_image_format` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: ImageFormat) af.af_image_format {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Moment Type type wrapped as zig enum.
@@ -288,6 +362,12 @@ pub const MomentType = enum(af.af_moment_type) {
     M10 = af.AF_MOMENT_M10,
     M11 = af.AF_MOMENT_M11,
     FirstOrder = af.AF_MOMENT_FIRST_ORDER,
+
+    /// Returns value as `af.af_moment_type` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: MomentType) af.af_moment_type {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Homography Type type wrapped as zig enum.
@@ -296,6 +376,12 @@ pub const HomographyType = enum(af.af_homography_type) {
     RANSAC = af.AF_HOMOGRAPHY_RANSAC,
     /// Computes homography using Least Median of Squares.
     LMEDS = af.AF_HOMOGRAPHY_LMEDS,
+
+    /// Returns value as `af.af_homography_type` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: HomographyType) af.af_homography_type {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Backend type wrapped as zig enum.
@@ -304,6 +390,12 @@ pub const Backend = enum(af.af_backend) {
     CPU = af.AF_BACKEND_CPU,
     CUDA = af.AF_BACKEND_CUDA,
     OpenCL = af.AF_BACKEND_OPENCL,
+
+    /// Returns value as `af.af_backend` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: Backend) af.af_backend {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Binary Op type wrapped as zig enum.
@@ -312,6 +404,12 @@ pub const BinaryOp = enum(af.af_binary_op) {
     Mul = af.AF_BINARY_MUL,
     Min = af.AF_BINARY_MIN,
     Max = af.AF_BINARY_MAX,
+
+    /// Returns value as `af.af_binary_op` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: BinaryOp) af.af_binary_op {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Random Engine Type type wrapped as zig enum.
@@ -319,6 +417,12 @@ pub const RandomEngineType = enum(af.af_random_engine_type) {
     DEFAULT = af.AF_RANDOM_ENGINE_DEFAULT,
     THREEFRY = af.AF_RANDOM_ENGINE_THREEFRY,
     MERSENNE = af.AF_RANDOM_ENGINE_MERSENNE,
+
+    /// Returns value as `af.af_random_engine_type` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: RandomEngineType) af.af_random_engine_type {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's ColorMap type wrapped as zig enum.
@@ -345,6 +449,12 @@ pub const ColorMap = enum(af.af_colormap) {
     Plasma = af.AF_COLORMAP_PLASMA,
     /// Perceptually uniform shades of blue-green-yellow.
     Viridis = af.AF_COLORMAP_VIRIDIS,
+
+    /// Returns value as `af.af_colormap` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: ColorMap) af.af_colormap {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Marker Type type wrapped as zig enum.
@@ -357,12 +467,24 @@ pub const MarkerType = enum(af.af_marker_type) {
     Cross = af.AF_MARKER_CROSS,
     Plus = af.AF_MARKER_PLUS,
     Star = af.AF_MARKER_STAR,
+
+    /// Returns value as `af.af_marker_type` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: MarkerType) af.af_marker_type {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Canny Threshold wrapped as zig enum.
 pub const CannyThreshold = enum(af.af_canny_threshold) {
     Manual = af.AF_CANNY_THRESHOLD_MANUAL,
     Otsu = af.AF_CANNY_THRESHOLD_AUTO_OTSU,
+
+    /// Returns value as `af.af_canny_threshold` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: CannyThreshold) af.af_canny_threshold {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Storage type wrapped as zig enum.
@@ -384,6 +506,12 @@ pub const Storage = enum(af.af_storage) {
             .COO => StorageType.COO,
         };
     }
+
+    /// Returns value as `af.af_storage` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: Storage) af.af_storage {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Flux Function type wrapped as zig enum.
@@ -394,6 +522,12 @@ pub const FluxFunction = enum(af.af_flux_function) {
     Exp = af.AF_FLUX_EXPONENTIAL,
     /// Default flux function is exponential.
     Default = af.AF_FLUX_DEFAULT,
+
+    /// Returns value as `af.af_topk_function` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: FluxFunction) af.af_flux_function {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Diffusion Eq type wrapped as zig enum.
@@ -404,6 +538,12 @@ pub const DiffusionEq = enum(af.af_diffusion_eq) {
     MCDE = af.AF_DIFFUSION_MCDE,
     /// Default option is same as `AfDiffusionEq.Grad`.
     Default = af.AF_DIFFUSION_DEFAULT,
+
+    /// Returns value as `af.af_topk_function` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: DiffusionEq) af.af_diffusion_eq {
+        return @intFromEnum(self);
+    }
 };
 
 /// ArrayFire's Topk Function type wrapped as zig enum.
@@ -415,6 +555,7 @@ pub const TopkFn = enum(af.af_topk_function) {
     /// Top k default values, which is the same as `AfTopkFn.Max`.
     Default = af.AF_TOPK_DEFAULT,
 
+    /// Returns the equivalent SortMode.
     pub fn toZtSortMode(self: TopkFn) SortMode {
         return switch (self) {
             .Min => SortMode.Ascending,
@@ -422,8 +563,70 @@ pub const TopkFn = enum(af.af_topk_function) {
             .Default => SortMode.Descending,
         };
     }
+
+    /// Returns value as `af.af_topk_function` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: TopkFn) af.af_topk_function {
+        return @intFromEnum(self);
+    }
 };
 
+/// ArrayFire's Var Bias type wrapped as zig enum.
+pub const VarBias = enum(af.af_var_bias) {
+    Default = af.AF_VARIANCE_DEFAULT,
+    Sample = af.AF_VARIANCE_SAMPLE,
+    Population = af.AF_VARIANCE_POPULATION,
+
+    /// Returns value as `af.af_var_bias` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: VarBias) af.af_var_bias {
+        return @intFromEnum(self);
+    }
+};
+
+/// ArrayFire's Iterative Deconv Algo type wrapped as zig enum.
+pub const IterativeDeconvAlgo = enum(af.af_iterative_deconv_algo) {
+    /// Landweber Deconvolution.
+    Landweber,
+    /// Richardson-Lucy Deconvolution.
+    RichardsonLucy,
+    /// Richardson-Lucy Deconvolution.
+    Default,
+
+    /// Returns value as `af.af_iterative_deconv_algo` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: IterativeDeconvAlgo) af.af_iterative_deconv_algo {
+        return @intFromEnum(self);
+    }
+};
+
+/// ArrayFire's Inverse Deconv Algo type wrapped as zig enum.
+pub const InverseDeconvAlgo = enum(af.af_inverse_deconv_algo) {
+    Tikhonov = af.AF_INVERSE_DECONV_TIKHONOV,
+    Default = af.AF_INVERSE_DECONV_DEFAULT,
+
+    /// Returns value as `af.af_inverse_deconv_algo` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: InverseDeconvAlgo) af.af_inverse_deconv_algo {
+        return @intFromEnum(self);
+    }
+};
+
+/// ArrayFire's Conv Gradient Type type wrapped as zig enum.
+pub const ConvGradientType = enum(af.af_conv_gradient_type) {
+    Default = af.AF_CONV_GRADIENT_DEFAULT,
+    Filter = af.AF_CONV_GRADIENT_FILTER,
+    Data = af.AF_CONV_GRADIENT_DATA,
+    Bias = af.AF_CONV_GRADIENT_BIAS,
+
+    /// Returns value as `af.af_conv_gradient_type` for calling
+    /// directly into ArrayFire.
+    pub fn value(self: ConvGradientType) af.af_conv_gradient_type {
+        return @intFromEnum(self);
+    }
+};
+
+/// ArrayFire's
 pub const Dims4 = struct {
     dims: [4]af.dim_t = [_]af.dim_t{1} ** 4,
 

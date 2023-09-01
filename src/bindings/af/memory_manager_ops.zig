@@ -76,19 +76,19 @@ pub inline fn createMemMgr(allocator: std.mem.Allocator) !*af.MemoryManager {
 
 /// Destroys an `af.MemoryManager` handle.
 pub inline fn releaseMemMgr(mgr: *af.MemoryManager) !void {
-    try af.AF_CHECK(af.af_release_memory_manager(mgr.memMgr_), @src());
+    try af.AF_CHECK(af.af_release_memory_manager(mgr.memoryManager_), @src());
 }
 
 /// Sets an `af.MemoryManager` to be the default memory manager
 /// for non-pinned memory allocations in ArrayFire.
 pub inline fn setMemMgr(mgr: *af.MemoryManager) !void {
-    try af.AF_CHECK(af.af_set_memory_manager(mgr.memMgr_), @src());
+    try af.AF_CHECK(af.af_set_memory_manager(mgr.memoryManager_), @src());
 }
 
 /// Sets an `af.MemoryManager` to be the default memory manager
 /// for pinned memory allocations in ArrayFire.
 pub inline fn setMemMgrPinned(mgr: *af.MemoryManager) !void {
-    try af.AF_CHECK(af.af_set_memory_manager_pinned(mgr.memMgr_), @src());
+    try af.AF_CHECK(af.af_set_memory_manager_pinned(mgr.memoryManager_), @src());
 }
 
 /// Reset the memory manager being used in ArrayFire to the default
@@ -107,119 +107,119 @@ pub inline fn unsetMemMgrPinned() !void {
 /// Returns the payload ptr from an `af.MemoryManager`.
 pub inline fn memMgrGetPayload(handle: *af.MemoryManager) !?*anyopaque {
     var payload: ?*anyopaque = undefined;
-    try af.AF_CHECK(af.af_memory_manager_get_payload(&payload, handle.memMgr_), @src());
+    try af.AF_CHECK(af.af_memory_manager_get_payload(&payload, handle.memoryManager_), @src());
     return payload;
 }
 
 /// Sets the payload ptr from an `af.MemoryManager`.
 pub inline fn memMgrSetPayload(handle: *af.MemoryManager, payload: ?*anyopaque) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_payload(handle.memMgr_, payload), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_payload(handle.memoryManager_, payload), @src());
 }
 
 /// Sets an `MemMgrInitializeFn` for a memory manager.
 pub inline fn memMgrSetInitializeFn(handle: *af.MemoryManager, func: MemMgrInitializeFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_initialize_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_initialize_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrShutdownFn` for a memory manager.
 pub inline fn memMgrSetShutdownFn(handle: *af.MemoryManager, func: MemMgrShutdownFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_shutdown_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_shutdown_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrAllocFn` for a memory manager.
 pub inline fn memMgrSetAllocFn(handle: *af.MemoryManager, func: MemMgrAllocFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_alloc_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_alloc_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrAllocatedFn` for a memory manager.
 pub inline fn memMgrSetAllocatedFn(handle: *af.MemoryManager, func: MemMgrAllocatedFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_allocated_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_allocated_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrUnlockFn` for a memory manager.
 pub inline fn memMgrSetUnlockFn(handle: *af.MemoryManager, func: MemMgrUnlockFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_unlock_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_unlock_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrSignalMemCleanupFn` for a memory manager.
 pub inline fn memMgrSetSignalMemCleanupFn(handle: *af.MemoryManager, func: MemMgrSignalMemCleanupFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_signal_memory_cleanup_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_signal_memory_cleanup_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrPrintInfoFn` for a memory manager.
-pub inline fn memMgrPrintInfoFn(handle: *af.MemoryManager, func: MemMgrPrintInfoFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_print_info_fn(handle.memMgr_, func), @src());
+pub inline fn memMgrSetPrintInfoFn(handle: *af.MemoryManager, func: MemMgrPrintInfoFn) !void {
+    try af.AF_CHECK(af.af_memory_manager_set_print_info_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrUserLockFn` for a memory manager.
 pub inline fn memMgrSetUserLockFn(handle: *af.MemoryManager, func: MemMgrUserLockFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_user_lock_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_user_lock_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrUserUnlockFn` for a memory manager.
 pub inline fn memMgrSetUserUnlockFn(handle: *af.MemoryManager, func: MemMgrUserUnlockFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_user_unlock_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_user_unlock_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrIsUserLockedFn` for a memory manager.
 pub inline fn memMgrSetIsUserLockedFn(handle: *af.MemoryManager, func: MemMgrIsUserLockedFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_is_user_locked_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_is_user_locked_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrGetMemPressureFn` for a memory manager.
 pub inline fn memMgrSetGetMemPressureFn(handle: *af.MemoryManager, func: MemMgrGetMemPressureFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_get_memory_pressure_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_get_memory_pressure_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrJitTreeExceedsMemPressureFn` for a memory manager.
 pub inline fn memMgrSetJitTreeExceedsMemPressureFn(handle: *af.MemoryManager, func: MemMgrJitTreeExceedsMemPressureFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_jit_tree_exceeds_memory_pressure_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_jit_tree_exceeds_memory_pressure_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrAddMemMgmtFn` for a memory manager.
 pub inline fn memMgrSetAddMemMgmtFn(handle: *af.MemoryManager, func: MemMgrAddMemMgmtFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_add_memory_management_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_add_memory_management_fn(handle.memoryManager_, func), @src());
 }
 
 /// Sets an `MemMgrRemoveMemMgmtFn` for a memory manager.
 pub inline fn memMgrSetRemoveMemMgmtFn(handle: *af.MemoryManager, func: MemMgrRemoveMemMgmtFn) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_remove_memory_management_fn(handle.memMgr_, func), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_remove_memory_management_fn(handle.memoryManager_, func), @src());
 }
 
 /// Returns the id of the currently-active device.
 pub inline fn memMgrGetActiveDeviceId(handle: *af.MemoryManager) !i32 {
     var id: c_int = undefined;
-    try af.AF_CHECK(af.af_memory_manager_get_active_device_id(&id, handle.memMgr_), @src());
+    try af.AF_CHECK(af.af_memory_manager_get_active_device_id(&id, handle.memoryManager_), @src());
     return @intCast(id);
 }
 
 /// Allocates memory with a native memory function for the active backend.
 pub inline fn memMgrNativeAlloc(handle: *af.MemoryManager, size: usize) !?*anyopaque {
     var ptr: ?*anyopaque = undefined;
-    try af.AF_CHECK(af.af_memory_manager_native_alloc(&ptr, handle.memMgr_, size), @src());
+    try af.AF_CHECK(af.af_memory_manager_native_alloc(&ptr, handle.memoryManager_, size), @src());
     return ptr;
 }
 
 /// Frees a pointer with a native memory function for the active backend.
 pub inline fn memMgrNativeFree(handle: *af.MemoryManager, ptr: ?*anyopaque) !void {
-    try af.AF_CHECK(af.af_memory_manager_native_free(handle.memMgr_, ptr), @src());
+    try af.AF_CHECK(af.af_memory_manager_native_free(handle.memoryManager_, ptr), @src());
 }
 
 /// Returns the maximum memory size for a managed device.
 pub inline fn memMgrGetMaxMemSize(handle: *af.MemoryManager, id: i32) !usize {
     var size: usize = undefined;
-    try af.AF_CHECK(af.af_memory_manager_get_max_memory_size(&size, handle.memMgr_, @intCast(id)), @src());
+    try af.AF_CHECK(af.af_memory_manager_get_max_memory_size(&size, handle.memoryManager_, @intCast(id)), @src());
     return size;
 }
 
 /// Returns the memory pressure threshold for a memory manager.
 pub inline fn memMgrGetMemPressureThreshold(handle: *af.MemoryManager) !f32 {
     var threshold: f32 = undefined;
-    try af.AF_CHECK(af.af_memory_manager_get_memory_pressure_threshold(handle.memMgr_, threshold), @src());
+    try af.AF_CHECK(af.af_memory_manager_get_memory_pressure_threshold(handle.memoryManager_, threshold), @src());
     return threshold;
 }
 
 /// Sets the memory pressure threshold for a memory manager.
 pub inline fn memMgrSetMemPressureThreshold(handle: *af.MemoryManager, value: f32) !void {
-    try af.AF_CHECK(af.af_memory_manager_set_memory_pressure_threshold(handle.memMgr_, value), @src());
+    try af.AF_CHECK(af.af_memory_manager_set_memory_pressure_threshold(handle.memoryManager_, value), @src());
 }

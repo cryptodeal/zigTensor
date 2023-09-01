@@ -14,6 +14,7 @@ pub const ops = struct {
     pub usingnamespace @import("utils.zig");
 };
 pub usingnamespace @import("Array.zig");
+pub usingnamespace @import("Event.zig");
 pub usingnamespace @import("Features.zig");
 pub usingnamespace @import("MemoryManager.zig");
 pub usingnamespace @import("RandomEngine.zig");
