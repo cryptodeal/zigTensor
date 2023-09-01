@@ -1,5 +1,5 @@
 const std = @import("std");
-const af = @import("../../../backends/ArrayFire.zig");
+const af = @import("../../../bindings/af/ArrayFire.zig");
 const base = @import("../../TensorBase.zig");
 const zt_shape = @import("../../Shape.zig");
 const zt_types = @import("../../Types.zig");
@@ -8,7 +8,6 @@ const rt_stream = @import("../../../runtime/Stream.zig");
 const rt_device_manager = @import("../../../runtime/DeviceManager.zig");
 const zigrc = @import("zigrc");
 const rt_device_type = @import("../../../runtime/DeviceType.zig");
-const af_utils = @import("Utils.zig");
 const getDeviceTypes = rt_device_type.getDeviceTypes;
 
 const ArrayFireCPUStream = @import("ArrayFireCPUStream.zig").ArrayFireCPUStream;
@@ -24,9 +23,6 @@ const DType = zt_types.DType;
 const DeviceManager = rt_device_manager.DeviceManager;
 const Tensor = base.Tensor;
 const Shape = zt_shape.Shape;
-const ztToAfDims = af_utils.ztToAfDims;
-const ztToAfType = af_utils.ztToAfType;
-const AF_CHECK = af_utils.AF_CHECK;
 
 var memoryInitFlag = std.once(init);
 
@@ -45,7 +41,7 @@ fn init() void {
 
 /// Get the stream associated with given device in the given map; if it's not in
 /// the map, initialize it (by wrapping or creating) and put it into the map.
-fn getOrWrapAfDeviceStream(allocator: std.mem.Allocator, afId: c_int, nativeId: c_int, afIdToStream: *std.AutoHashMap(c_int, Arc(Stream))) !*Stream {
+fn getOrWrapAfDeviceStream(allocator: std.mem.Allocator, afId: i32, nativeId: i32, afIdToStream: *std.AutoHashMap(i32, Arc(Stream))) !*Stream {
     _ = nativeId;
     var iter = afIdToStream.get(afId);
     if (iter != null) {
@@ -69,11 +65,10 @@ fn getOrWrapAfDeviceStream(allocator: std.mem.Allocator, afId: c_int, nativeId: 
 fn setActiveCallback(data: ?*anyopaque, id: c_int) !void {
     var self: *ArrayFireBackend = @ptrCast(@alignCast(data.?));
     const afId = self.nativeIdToId_.get(id).?;
-    try AF_CHECK(af.af_set_device(afId), @src());
+    try af.ops.setDevice(afId);
     // this is the latest point we can lazily wrap the AF stream, which may get
     // lazily intialized anytime in AF internally, e.g., via tensor computation.
     _ = try getOrWrapAfDeviceStream(self.allocator, afId, id, self.afIdToStream_.value);
-    std.log.err("executed `setActiveCallback` after activating device\n", .{});
 }
 
 var ArrayFireBackendSingleton: ?*ArrayFireBackend = null;
@@ -89,36 +84,35 @@ var ArrayFireBackendSingleton: ?*ArrayFireBackend = null;
 pub const ArrayFireBackend = struct {
     allocator: std.mem.Allocator,
     /// Maps ArrayFire Native Device ID to zigTensor Device ID.
-    nativeIdToId_: std.AutoHashMap(c_int, c_int),
+    nativeIdToId_: std.AutoHashMap(i32, i32),
     /// Maps zigTensor Device ID to ArrayFire Native Device ID.
-    idToNativeId_: std.AutoHashMap(c_int, c_int),
+    idToNativeId_: std.AutoHashMap(i32, i32),
     /// Tracks the individual active stream on each ArrayFire device
     /// N.B. using a shared pointer see `zigrc` to allow its capture
     /// in setActive callback; see constructor for details.
-    afIdToStream_: Arc(std.AutoHashMap(c_int, Arc(Stream))),
+    afIdToStream_: Arc(std.AutoHashMap(i32, Arc(Stream))),
 
     /// Private function to initialize a new ArrayFireBackend instance.
     /// Should not be called directly as only one instance should exist;
     /// use `ArrayFireBackend.getInstance` instead.
     fn init(allocator: std.mem.Allocator) !*ArrayFireBackend {
         var self: *ArrayFireBackend = try allocator.create(ArrayFireBackend);
-        var map = std.AutoHashMap(c_int, Arc(Stream)).init(allocator);
+        var map = std.AutoHashMap(i32, Arc(Stream)).init(allocator);
         self.* = .{
             .allocator = allocator,
-            .nativeIdToId_ = std.AutoHashMap(c_int, c_int).init(allocator),
-            .idToNativeId_ = std.AutoHashMap(c_int, c_int).init(allocator),
-            .afIdToStream_ = try Arc(std.AutoHashMap(c_int, Arc(Stream))).init(allocator, map),
+            .nativeIdToId_ = std.AutoHashMap(i32, i32).init(allocator),
+            .idToNativeId_ = std.AutoHashMap(i32, i32).init(allocator),
+            .afIdToStream_ = try Arc(std.AutoHashMap(i32, Arc(Stream))).init(allocator, map),
         };
-        try AF_CHECK(af.af_init(), @src());
+        try af.ops.init();
         memoryInitFlag.call();
 
         // segfaults here
-        var device_count: c_int = undefined;
-        try AF_CHECK(af.af_get_device_count(&device_count), @src());
-        for (0..@intCast(device_count)) |i| {
-            const id: c_int = @intCast(i);
+        const device_count = try af.ops.getDeviceCount();
+        for (0..device_count) |i| {
+            const id: i32 = @intCast(i);
             // TODO investigate how OpenCL fits into this.
-            var native_id: c_int = id;
+            var native_id: i32 = id;
             if (ZT_ARRAYFIRE_USE_CUDA) {
                 // TODO: native_id = try AF_CHECK(af.afcu_get_native_id(&native_id, id));
             }
@@ -138,8 +132,7 @@ pub const ArrayFireBackend = struct {
         }
 
         // Active device is never set explicitly, so we must wrap its stream eagerly.
-        var activeAfId: c_int = undefined;
-        try AF_CHECK(af.af_get_device(&activeAfId), @src());
+        var activeAfId: i32 = try af.ops.getDevice();
         _ = try getOrWrapAfDeviceStream(allocator, activeAfId, self.idToNativeId_.get(activeAfId).?, self.afIdToStream_.value);
 
         return self;
@@ -180,15 +173,15 @@ pub const ArrayFireBackend = struct {
 
     /// Evaluate any expressions in the ArrayFire array backing the tensor.
     pub fn eval(tensor: Tensor) !void {
-        try AF_CHECK(af.af_eval(try toArray(tensor)), @src());
+        try af.AF_CHECK(af.af_eval(try toArray(tensor)), @src());
     }
 
     /// Returns the stream from which the given array was created.
     pub fn getStreamOfArray(self: *ArrayFireBackend, allocator: std.mem.Allocator, arr: af.af_array) !*Stream {
         // TODO once we enforce integrate Device.setDevice into fl.setDevice, each
         // array's stream should always be wrapped already (via setDevice callback).
-        var afId: c_int = undefined;
-        try AF_CHECK(af.af_get_device_id(&afId, arr), @src());
+        var afId: i32 = undefined;
+        try af.AF_CHECK(af.af_get_device_id(&afId, arr), @src());
         const nativeId = self.idToNativeId_.get(afId).?;
         return getOrWrapAfDeviceStream(allocator, afId, nativeId, self.afIdToStream_.value);
     }
@@ -196,11 +189,8 @@ pub const ArrayFireBackend = struct {
     pub fn supportsDataType(_: *ArrayFireBackend, dtype: DType) !bool {
         return switch (dtype) {
             .f16 => {
-                var device: c_int = undefined;
-                try AF_CHECK(af.af_get_device(&device), @src());
-                var half_support: bool = undefined;
-                try AF_CHECK(af.af_get_half_support(&half_support, device), @src());
-                // f16 isn't [yet] supported with the CPU backend per onednn
+                var half_support: bool = try af.ops.getHalfSupport(try af.ops.getDevice());
+                // f16 isn't (yet) supported with the CPU backend per OneDNN
                 // limitations
                 return half_support and !ZT_BACKEND_CPU;
             },
@@ -218,20 +208,20 @@ pub const ArrayFireBackend = struct {
 
     // -------------------------- Rand Functions --------------------------
     pub fn setSeed(seed: u64) !void {
-        try AF_CHECK(af.af_set_seed(@intCast(seed)));
+        try af.AF_CHECK(af.af_set_seed(@intCast(seed)));
     }
 
     pub fn randn(shape: *const Shape, dtype: DType) !Tensor {
-        var dims = try ztToAfDims(shape);
+        var dims = try af.ztToAfDims(shape);
         var arr: af.af_array = undefined;
-        try AF_CHECK(af.af_randn(&arr, @intCast(shape.ndim()), &dims.dims, @enumFromInt(ztToAfType(dtype))), @src());
+        try af.AF_CHECK(af.af_randn(&arr, @intCast(shape.ndim()), &dims.dims, dtype.toAfDtype()), @src());
         // TODO: coerce af.af_array to Tensor
     }
 
     pub fn rand(shape: *const Shape, dtype: DType) !Tensor {
-        var dims = try ztToAfDims(shape);
+        var dims = try shape.toAfDims();
         var arr: af.af_array = undefined;
-        try AF_CHECK(af.af_randu(&arr, @intCast(shape.ndim()), &dims.dims, @enumFromInt(ztToAfType(dtype))), @src());
+        try af.AF_CHECK(af.af_randu(&arr, @intCast(shape.ndim()), &dims.dims, dtype.toAfDtype()), @src());
         // TODO: coerce af.af_array to Tensor
     }
 

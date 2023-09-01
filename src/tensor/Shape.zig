@@ -1,4 +1,5 @@
 const std = @import("std");
+const af = @import("../bindings/af/ArrayFire.zig");
 
 /// The type of a dimension.
 pub const Dim = i64;
@@ -36,7 +37,7 @@ pub const Shape = struct {
     kMaxDims: usize = std.math.maxInt(usize),
 
     /// Initialize a Shape via a slice of `Dim` values.
-    pub fn initRaw(allocator: std.mem.Allocator) !Shape {
+    pub fn initRaw(allocator: std.mem.Allocator) Shape {
         return .{
             .dims_ = std.ArrayList(Dim).init(allocator),
         };
@@ -44,7 +45,7 @@ pub const Shape = struct {
 
     /// Initialize a Shape via a slice of `Dim` values.
     pub fn init(allocator: std.mem.Allocator, d: []Dim) !Shape {
-        var self = try Shape.initRaw(allocator);
+        var self = Shape.initRaw(allocator);
         try self.dims_.appendSlice(d);
         return self;
     }
@@ -96,6 +97,16 @@ pub const Shape = struct {
     /// Gets a reference to the underlying dims ArrayList.
     pub fn get(self: *Shape) *std.ArrayList(Dim) {
         return &self.dims_;
+    }
+
+    pub fn toAfDims(self: *const Shape) !af.Dims4 {
+        if (self.ndim() > 4) {
+            std.log.err("ztToAfDims: ArrayFire shapes can't be more than 4 dimensions\n", .{});
+            return error.ArrayFireCannotExceed4Dimensions;
+        }
+        var af_dims4 = af.Dims4.init(null);
+        for (0..self.ndim()) |i| af_dims4.dims[i] = @intCast(try self.dim(i));
+        return af_dims4;
     }
 
     /// Formats Shape for printing to writer.
@@ -279,4 +290,36 @@ test "Shape string" {
     try std.testing.expectEqualStrings("(7, 7, 7, 7, 7, 7, 7)", str.items);
     s.deinit();
     str.deinit();
+}
+
+test "shape.toAfDims" {
+    const allocator = std.testing.allocator;
+
+    var dims1 = [_]Dim{2};
+    var shape = try Shape.init(allocator, &dims1);
+    var res1 = try shape.toAfDims();
+    var exp1 = [_]c_longlong{ 2, 1, 1, 1 };
+    try std.testing.expectEqualSlices(c_longlong, &exp1, &res1.dims);
+    shape.deinit();
+
+    var dims2 = [_]Dim{ 2, 3 };
+    shape = try Shape.init(allocator, &dims2);
+    var res2 = try shape.toAfDims();
+    var exp2 = [_]c_longlong{ 2, 3, 1, 1 };
+    try std.testing.expectEqualSlices(c_longlong, &exp2, &res2.dims);
+    shape.deinit();
+
+    var dims3 = [_]Dim{ 2, 3, 4 };
+    shape = try Shape.init(allocator, &dims3);
+    var res3 = try shape.toAfDims();
+    var exp3 = [_]c_longlong{ 2, 3, 4, 1 };
+    try std.testing.expectEqualSlices(c_longlong, &exp3, &res3.dims);
+    shape.deinit();
+
+    var dims4 = [_]Dim{ 2, 3, 4, 5 };
+    shape = try Shape.init(allocator, &dims4);
+    var res4 = try shape.toAfDims();
+    var exp4 = [_]c_longlong{ 2, 3, 4, 5 };
+    try std.testing.expectEqualSlices(c_longlong, &exp4, &res4.dims);
+    shape.deinit();
 }

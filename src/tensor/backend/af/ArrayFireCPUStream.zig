@@ -1,10 +1,9 @@
 const std = @import("std");
 const zigrc = @import("zigrc");
-const af = @import("../../../backends/ArrayFire.zig");
+const af = @import("../../../bindings/af/ArrayFire.zig");
 const rt_stream = @import("../../../runtime/Stream.zig");
 const rt_device = @import("../../../runtime/Device.zig");
 const rt_sync_stream = @import("../../../runtime/SynchronousStream.zig");
-const AF_CHECK = @import("Utils.zig").AF_CHECK;
 
 const Arc = zigrc.Arc;
 const SynchronousStream = rt_sync_stream.SynchronousStream;
@@ -47,9 +46,7 @@ pub fn device(self: *ArrayFireCPUStream) Device {
 }
 
 pub fn sync(_: *ArrayFireCPUStream) !void {
-    var dev: c_int = undefined;
-    try AF_CHECK(af.af_get_device(&dev), @src());
-    try AF_CHECK(af.af_sync(dev), @src());
+    try af.ops.sync(try af.ops.getDevice());
 }
 
 pub fn relativeSync(_: *ArrayFireCPUStream, wait_on: *Stream) !void {

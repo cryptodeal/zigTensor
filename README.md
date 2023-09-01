@@ -9,11 +9,19 @@ library.
 | Requirement | Notes                    |
 | ----------- | ------------------------ |
 | Zig version | 0.12.0-dev.167+dd6a9caea |
+| ArrayFire   | latest via homebrew      |
+| OSx         | currently Mac only       |
 
 Install with [zigup](https://github.com/marler8997/zigup):
 
 ```bash
 zigup 0.12.0-dev.167+dd6a9caea
+```
+
+Install ArrayFire with [homebrew](https://formulae.brew.sh/formula/arrayfire#default):
+
+```bash
+brew install arrayfire
 ```
 
 ### Status
@@ -24,6 +32,8 @@ is solely focused on OSx and leveraging ArrayFire for the backend.
 
 ### Roadmap
 
+- [ ] bindings
+  - [ ] ArrayFire (WIP)
 - [ ] autograd
 - [ ] common
 - [ ] contrib

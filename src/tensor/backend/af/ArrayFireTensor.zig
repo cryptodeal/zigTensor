@@ -1,15 +1,11 @@
 const std = @import("std");
 const zt_base = @import("../../TensorBase.zig");
-const af = @import("../../../backends/ArrayFire.zig");
+const af = @import("../../../bindings/af/ArrayFire.zig");
 const zt_types = @import("../../Types.zig");
 const zt_idx = @import("../../Index.zig");
 const zt_shape = @import("../../Shape.zig");
 const zigrc = @import("zigrc");
-const af_utils = @import("Utils.zig");
 
-const fromZtData = af_utils.fromZtData;
-const createAfIndexers = af_utils.createAfIndexers;
-const AF_CHECK = af_utils.AF_CHECK;
 const Tensor = zt_base.Tensor;
 const Location = zt_base.Location;
 const TensorBackendType = zt_base.TensorBackendType;
@@ -44,7 +40,7 @@ pub const ArrayFireTensor = struct {
 
         pub fn get(inst: *const ArrayFireTensor) !af.af_array {
             var res: af.af_array = undefined;
-            try AF_CHECK(af.af_index_gen(&res, try inst.getHandle(), @intCast(inst.numDims_), inst.indices_.?.ptr), @src());
+            try af.AF_CHECK(af.af_index_gen(&res, try inst.getHandle(), @intCast(inst.numDims_), inst.indices_.?.ptr), @src());
             return res;
         }
     };
@@ -130,13 +126,10 @@ pub const ArrayFireTensor = struct {
     }
 
     pub fn init(allocator: std.mem.Allocator, shape: *const Shape, data_type: DType, ptr: ?*const anyopaque) !*ArrayFireTensor {
-        var self = try allocator.create(ArrayFireTensor);
-        self.* = .{
-            .arrayHandle_ = try Arc(af.af_array).init(allocator, try fromZtData(shape, ptr, data_type)),
-            .numDims_ = shape.ndim(),
-            .handle_ = .{ .array = ArrayComponent{} },
-        };
-        return self;
+        _ = allocator;
+        _ = shape;
+        _ = data_type;
+        _ = ptr;
     }
 
     pub fn initComplex(allocator: std.mem.Allocator, n_rows: Dim, n_cols: Dim, values: *Tensor, row_idx: *Tensor, col_idx: *Tensor) !*ArrayFireTensor {
