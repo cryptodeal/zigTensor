@@ -315,3 +315,8 @@ pub inline fn getDeviceId(arr: *af.Array) !i32 {
     try af.AF_CHECK(af.af_get_device_id(&device, arr.af_array), @src());
     return @intCast(device);
 }
+
+/// Sets plan cache size.
+pub inline fn setFftPlanCacheSize(cache_size: usize) !void {
+    try af.AF_CHECK(af.af_set_fft_plan_cache_size(cache_size), @src());
+}

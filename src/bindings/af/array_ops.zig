@@ -983,7 +983,7 @@ pub inline fn transpose(allocator: std.mem.Allocator, in: *af.Array, conjugate: 
 }
 
 /// Tranpose a matrix in-place.
-pub inline fn transposeInPlace(in: *af.Array, conjugate: bool) !void {
+pub inline fn transposeInplace(in: *af.Array, conjugate: bool) !void {
     try af.AF_CHECK(af.af_transpose_inplace(in.array_, conjugate), @src());
 }
 
@@ -1259,9 +1259,539 @@ pub inline fn convolve2GradientNN(
     return af.Array.init(allocator, res);
 }
 
-// TODO: pub inline fn randomUniform
+/// Returns pointer to an `af.Array` of uniform numbers
+/// using a random engine.
+pub inline fn randomUniform(allocator: std.mem.Allocator, ndims: usize, dims: af.Dims4, dtype: af.Dtype, engine: *af.RandomEngine) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_random_uniform(&arr, @intCast(ndims), &dims.dims, dtype.value(), engine.engine_), @src());
+    return af.Array.init(allocator, arr);
+}
 
-// TODO: pub inline fn randomNormal
+/// Returns pointer to an `af.Array` of normal numbers
+/// using a random engine.
+pub inline fn randomNormal(allocator: std.mem.Allocator, ndims: usize, dims: af.Dims4, dtype: af.Dtype, engine: *af.RandomEngine) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_random_normal(&arr, @intCast(ndims), &dims.dims, dtype.value(), engine.engine_), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Returns an `af.Array` of uniform numbers using a random engine.
+pub inline fn randu(allocator: std.mem.Allocator, ndims: usize, dims: af.Dims4, dtype: af.Dtype) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_randu(&arr, @intCast(ndims), &dims.dims, dtype.value()), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Returns an `af.Array` of normal numbers using a random engine.
+pub inline fn randn(allocator: std.mem.Allocator, ndims: usize, dims: af.Dims4, dtype: af.Dtype) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_randn(&arr, @intCast(ndims), &dims.dims, dtype.value()), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Signals interpolation on one dimensional signals.
+/// Returns the result as a new `af.Array`.
+pub inline fn approx1(allocator: std.mem.Allocator, in: *const af.Array, pos: *const af.Array, method: af.InterpType, off_grid: f32) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_approx1(&arr, in.array_, pos.array_, method.value(), off_grid), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Signals interpolation on one dimensional signals; accepts
+/// a pre-allocated array, `out`, where results are written.
+pub inline fn approx1V2(out: *af.Array, in: *const af.Array, pos: *const af.Array, method: af.InterpType, off_grid: f32) !void {
+    try af.AF_CHECK(af.af_approx1_v2(&out.array_, in.array_, pos.array_, method.value(), off_grid), @src());
+}
+
+/// Signals interpolation on two dimensional signals.
+/// Returns the result as a new `af.Array`.
+pub inline fn approx2(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    pos0: *const af.Array,
+    pos1: *const af.Array,
+    method: af.InterpType,
+    off_grid: f32,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_approx2(
+            &arr,
+            in.array_,
+            pos0.array_,
+            pos1.array_,
+            method.value(),
+            off_grid,
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Signals interpolation on two dimensional signals; accepts
+/// a pre-allocated array, `out`, where results are written.
+pub inline fn approx2V2(
+    out: *af.Array,
+    in: *const af.Array,
+    pos0: *const af.Array,
+    pos1: *const af.Array,
+    method: af.InterpType,
+    off_grid: f32,
+) !void {
+    try af.AF_CHECK(
+        af.af_approx2_v2(
+            &out.array_,
+            in.array_,
+            pos0.array_,
+            pos1.array_,
+            method.value(),
+            off_grid,
+        ),
+        @src(),
+    );
+}
+
+/// Signals interpolation on one dimensional signals along specified dimension.
+///
+/// `approx1Uniform` accepts the dimension to perform the interpolation along
+/// the input. It also accepts start and step values which define the uniform
+/// range of corresponding indices.
+pub inline fn approx1Uniform(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    pos: *const af.Array,
+    interp_dim: i32,
+    idx_start: f64,
+    idx_step: f64,
+    method: af.InterpType,
+    off_grid: f32,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_approx1_uniform(
+            &arr,
+            in.array_,
+            pos.array_,
+            @intCast(interp_dim),
+            idx_start,
+            idx_step,
+            method.value(),
+            off_grid,
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Signals interpolation on one dimensional signals along specified dimension;
+/// accepts a pre-allocated array, `out`, where results are written.
+///
+/// `approx1Uniform` accepts the dimension to perform the interpolation along
+/// the input. It also accepts start and step values which define the uniform
+/// range of corresponding indices.
+pub inline fn approx1UniformV2(
+    out: *af.Array,
+    in: *const af.Array,
+    pos: *const af.Array,
+    interp_dim: i32,
+    idx_start: f64,
+    idx_step: f64,
+    method: af.InterpType,
+    off_grid: f32,
+) !void {
+    try af.AF_CHECK(
+        af.af_approx1_uniform_v2(
+            &out.array_,
+            in.array_,
+            pos.array_,
+            @intCast(interp_dim),
+            idx_start,
+            idx_step,
+            method.value(),
+            off_grid,
+        ),
+        @src(),
+    );
+}
+
+/// C Interface for signals interpolation on two dimensional signals
+/// along specified dimensions.
+///
+/// `approx2Uniform` accepts two dimensions to perform the interpolation
+/// along the input. It also accepts start and step values which define
+/// the uniform range of corresponding indices.
+pub inline fn approx2Uniform(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    pos0: *const af.Array,
+    interp_dim0: i32,
+    idx_start_dim0: f64,
+    idx_step_dim0: f64,
+    pos1: *const af.Array,
+    interp_dim1: i32,
+    idx_start_dim1: f64,
+    idx_step_dim1: f64,
+    method: af.InterpType,
+    off_grid: f32,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_approx2_uniform(
+        &arr,
+        in.array_,
+        pos0.array_,
+        @intCast(interp_dim0),
+        idx_start_dim0,
+        idx_step_dim0,
+        pos1.array_,
+        @intCast(interp_dim1),
+        idx_start_dim1,
+        idx_step_dim1,
+        method.value(),
+        off_grid,
+    ), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// C Interface for signals interpolation on two dimensional signals
+/// along specified dimensions; accepts a pre-allocated array, `out`,
+/// where results are written.
+///
+/// `approx2UniformV2` accepts two dimensions to perform the interpolation
+/// along the input. It also accepts start and step values which define
+/// the uniform range of corresponding indices.
+pub inline fn approx2UniformV2(
+    out: *af.Array,
+    in: *const af.Array,
+    pos0: *const af.Array,
+    interp_dim0: i32,
+    idx_start_dim0: f64,
+    idx_step_dim0: f64,
+    pos1: *const af.Array,
+    interp_dim1: i32,
+    idx_start_dim1: f64,
+    idx_step_dim1: f64,
+    method: af.InterpType,
+    off_grid: f32,
+) !void {
+    try af.AF_CHECK(
+        af.af_approx2_uniform_v2(
+            &out.array_,
+            in.array_,
+            pos0.array_,
+            @intCast(interp_dim0),
+            idx_start_dim0,
+            idx_step_dim0,
+            pos1.array_,
+            @intCast(interp_dim1),
+            idx_start_dim1,
+            idx_step_dim1,
+            method.value(),
+            off_grid,
+        ),
+        @src(),
+    );
+}
+
+/// Fast fourier transform on one dimensional signals.
+pub inline fn fft(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, odim0: i64) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_fft(
+            &arr,
+            in.array_,
+            norm_factor,
+            @intCast(odim0),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// In-place fast fourier transform on one dimensional signals.
+pub inline fn fftInplace(in: *af.Array, norm_factor: f64) !void {
+    try af.AF_CHECK(af.af_fft_inplace(in.array_, norm_factor), @src());
+}
+
+/// Fast fourier transform on two dimensional signals.
+pub inline fn fft2(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    norm_factor: f64,
+    odim0: i64,
+    odim1: i64,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_fft2(
+            &arr,
+            in.array_,
+            norm_factor,
+            @intCast(odim0),
+            @intCast(odim1),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// In-place fast fourier transform on two dimensional signals.
+pub inline fn fft2Inplace(in: *af.Array, norm_factor: f64) !void {
+    try af.AF_CHECK(af.af_fft2_inplace(in.array_, norm_factor), @src());
+}
+
+/// Fast fourier transform on three dimensional signals.
+pub inline fn fft3(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    norm_factor: f64,
+    odim0: i64,
+    odim1: i64,
+    odim2: i64,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_fft3(
+            &arr,
+            in.array_,
+            norm_factor,
+            @intCast(odim0),
+            @intCast(odim1),
+            @intCast(odim2),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// In-place fast fourier transform on three dimensional signals.
+pub inline fn fft3Inplace(in: *af.Array, norm_factor: f64) !void {
+    try af.AF_CHECK(af.af_fft3_inplace(in.array_, norm_factor), @src());
+}
+
+/// Inverse fast fourier transform on one dimensional signals.
+pub inline fn ifft(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, odim0: i64) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_ifft(
+            &arr,
+            in.array_,
+            norm_factor,
+            @intCast(odim0),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// In-place inverse fast fourier transform on one dimensional signals.
+pub inline fn ifftInplace(in: *af.Array, norm_factor: f64) !void {
+    try af.AF_CHECK(af.af_ifft_inplace(in.array_, norm_factor), @src());
+}
+
+/// Inverse fast fourier transform on two dimensional signals.
+pub inline fn ifft2(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, odim0: i64, odim1: i64) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_ifft2(
+            &arr,
+            in.array_,
+            norm_factor,
+            @intCast(odim0),
+            @intCast(odim1),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// In-place inverse fast fourier transform on two dimensional signals.
+pub inline fn ifft2Inplace(in: *af.Array, norm_factor: f64) !void {
+    try af.AF_CHECK(af.af_ifft2_inplace(in.array_, norm_factor), @src());
+}
+
+/// Inverse fast fourier transform on three dimensional signals.
+pub inline fn ifft3(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    norm_factor: f64,
+    odim0: i64,
+    odim1: i64,
+    odim2: i64,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_ifft3(
+            &arr,
+            in.array_,
+            norm_factor,
+            @intCast(odim0),
+            @intCast(odim1),
+            @intCast(odim2),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// In-place inverse fast fourier transform on three dimensional signals.
+pub inline fn ifft3Inplace(in: *af.Array, norm_factor: f64) !void {
+    try af.AF_CHECK(af.af_ifft3_inplace(in.array_, norm_factor), @src());
+}
+
+/// Real to complex fast fourier transform for one dimensional signals.
+pub inline fn fftR2C(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, pad0: i64) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_fft_r2c(
+            &arr,
+            in.array_,
+            norm_factor,
+            @intCast(pad0),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Real to complex fast fourier transform for one dimensional signals.
+pub inline fn fft2R2C(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, pad0: i64, pad1: i64) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_fft2_r2c(
+            &arr,
+            in.array_,
+            norm_factor,
+            @intCast(pad0),
+            @intCast(pad1),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Real to complex fast fourier transform for three dimensional signals.
+pub inline fn fft3R2C(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, pad0: i64, pad1: i64, pad2: i64) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_fft3_r2c(
+            &arr,
+            in.array_,
+            norm_factor,
+            @intCast(pad0),
+            @intCast(pad1),
+            @intCast(pad2),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Complex to real fast fourier transform for one dimensional signals.
+pub inline fn fftC2R(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, is_odd: bool) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_fft_c2r(&arr, in.array_, norm_factor, is_odd), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Complex to real fast fourier transform for two dimensional signals.
+pub inline fn fft2C2R(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, is_odd: bool) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_fft2_c2r(&arr, in.array_, norm_factor, is_odd), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Complex to real fast fourier transform for three dimensional signals.
+pub inline fn fft3C2R(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, is_odd: bool) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_fft2_c2r(&arr, in.array_, norm_factor, is_odd), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Convolution on one dimensional signals.
+pub inline fn convolve1(allocator: std.mem.Allocator, signal: *const af.Array, filter: *af.Array, mode: af.ConvMode, domain: af.ConvDomain) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_convolve1(&arr, signal.array_, filter.array_, mode.value(), domain.value()), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Convolution on two dimensional signals.
+pub inline fn convolve2(allocator: std.mem.Allocator, signal: *const af.Array, filter: *af.Array, mode: af.ConvMode, domain: af.ConvDomain) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_convolve2(&arr, signal.array_, filter.array_, mode.value(), domain.value()), @src());
+    return af.Array.init(allocator, arr);
+}
+
+// TODO: pub inline fn convolve2NN()
+
+/// Convolution on three dimensional signals.
+pub inline fn convolve3(allocator: std.mem.Allocator, signal: *const af.Array, filter: *af.Array, mode: af.ConvMode, domain: af.ConvDomain) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_convolve3(&arr, signal.array_, filter.array_, mode.value(), domain.value()), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Separable convolution on two dimensional signals.
+pub inline fn convolve2Sep(allocator: std.mem.Allocator, col_filter: *const af.Array, row_filter: *const af.Array, signal: *const af.Array, mode: af.ConvMode) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_convolve2_sep(&arr, col_filter.array_, row_filter.array_, signal.array_, mode.value()), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Convolution on 1D signals using FFT.
+pub inline fn fftConvolve1(allocator: std.mem.Allocator, signal: *const af.Array, filter: *const af.Array, mode: af.ConvMode) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_fft_convolve1(&arr, signal.array_, filter.array_, mode.value()), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Convolution on 2D signals using FFT.
+pub inline fn fftConvolve2(allocator: std.mem.Allocator, signal: *const af.Array, filter: *const af.Array, mode: af.ConvMode) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_fft_convolve2(&arr, signal.array_, filter.array_, mode.value()), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Convolution on 3D signals using FFT.
+pub inline fn fftConvolve3(allocator: std.mem.Allocator, signal: *const af.Array, filter: *const af.Array, mode: af.ConvMode) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_fft_convolve3(&arr, signal.array_, filter.array_, mode.value()), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Finite impulse response filter.
+pub inline fn fir(allocator: std.mem.Allocator, b: *const af.Array, x: *const af.Array) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_fir(&arr, b.array_, x.array_), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Infinite impulse response filter.
+pub inline fn iir(allocator: std.mem.Allocator, b: *const af.Array, a: *const af.Array, x: *const af.Array) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_iir(&arr, b.array_, a.array_, x.array_), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Median filter.
+pub inline fn medfilt(allocator: std.mem.Allocator, in: *const af.Array, wind_length: i64, wind_width: i64, edge_pad: af.BorderType) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_medfilt(&arr, in.array_, @intCast(wind_length), @intCast(wind_width), edge_pad.value()), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// 1D median filter.
+pub inline fn medfilt1(allocator: std.mem.Allocator, in: *const af.Array, wind_width: i64, edge_pad: af.BorderType) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_medfilt1(&arr, in.array_, @intCast(wind_width), edge_pad.value()), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// 2D median filter.
+pub inline fn medfilt2(allocator: std.mem.Allocator, in: *const af.Array, wind_length: i64, wind_width: i64, edge_pad: af.BorderType) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_medfilt2(&arr, in.array_, @intCast(wind_length), @intCast(wind_width), edge_pad.value()), @src());
+    return af.Array.init(allocator, arr);
+}
 
 // unit tests
 
