@@ -7,6 +7,8 @@ const Location = @import("../../tensor/TensorBase.zig").Location;
 const Shape = zt_shape.Shape;
 const DType = zt_types.DType;
 
+/// Wraps `af.af_array`, the ArrayFire multi dimensional data container,
+/// as a zig struct to simplify calling into the ArrayFire C API.
 pub const Array = struct {
     const Self = @This();
 

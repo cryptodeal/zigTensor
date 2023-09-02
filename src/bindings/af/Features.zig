@@ -1,6 +1,8 @@
 const std = @import("std");
 const af = @import("ArrayFire.zig");
 
+/// Wraps `af.af_features`, the ArrayFire Features class,
+/// as a zig struct to simplify calling into the ArrayFire C API.
 pub const Features = struct {
     const Self = @This();
 

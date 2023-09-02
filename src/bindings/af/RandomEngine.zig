@@ -1,6 +1,8 @@
 const std = @import("std");
 const af = @import("ArrayFire.zig");
 
+/// Wraps `af.af_random_engine`, the ArrayFire randomEngine class,
+/// as a zig struct to simplify calling into the ArrayFire C API.
 pub const RandomEngine = struct {
     const Self = @This();
 

@@ -29,3 +29,7 @@ pub inline fn AF_CHECK(v: af.af_err, src: std.builtin.SourceLocation) !void {
         return error.ArrayFireError;
     }
 }
+
+test {
+    std.testing.refAllDecls(ops);
+}

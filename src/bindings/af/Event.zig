@@ -1,6 +1,8 @@
 const std = @import("std");
 const af = @import("ArrayFire.zig");
 
+/// Wraps `af.af_event`, the ArrayFire Event class, as a zig
+/// struct to simplify calling into the ArrayFire C API.
 pub const Event = struct {
     event_: af.af_event,
     allocator: std.mem.Allocator,

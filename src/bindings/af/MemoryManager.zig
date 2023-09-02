@@ -1,6 +1,8 @@
 const std = @import("std");
 const af = @import("ArrayFire.zig");
 
+/// Wraps `af.af_memory_manager`, the ArrayFire memory manager interface,
+/// as a zig struct to simplify calling into the ArrayFire C API.
 pub const MemoryManager = struct {
     pub const Self = @This();
     allocator: std.mem.Allocator,
