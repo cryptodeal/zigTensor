@@ -9,109 +9,486 @@ const DType = zt_types.DType;
 const Shape = zt_shape.Shape;
 const Dim = zt_shape.Dim;
 
-/// Returns the sum of the elements of the `af.Array` along
-/// the given dimension.
-pub inline fn sum(allocator: std.mem.Allocator, in: *af.Array, dim: usize) !*af.Array {
+/// Returns the sum of the elements of the input `af.Array`
+/// along the given dimension.
+pub inline fn sum(allocator: std.mem.Allocator, in: *const af.Array, dim: i32) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_sum(&arr, in.array_, @intCast(dim)), @src());
     return af.Array.init(allocator, arr);
 }
 
-/// Returns the sum of the elements of the `af.Array` along
+/// Returns the sum of the elements of the input `af.Array` along
 /// the given dimension, replacing NaN values with `nanval`.
-pub inline fn sumNan(allocator: std.mem.Allocator, in: *af.Array, dim: usize, nanval: f64) !*af.Array {
+pub inline fn sumNan(allocator: std.mem.Allocator, in: *const af.Array, dim: i32, nanval: f64) !*af.Array {
     var arr: af.af_array = undefined;
-    try af.AF_CHECK(af.af_sum_nan(&arr, in.array_, dim, nanval), @src());
+    try af.AF_CHECK(
+        af.af_sum_nan(
+            &arr,
+            in.array_,
+            @intCast(dim),
+            nanval,
+        ),
+        @src(),
+    );
     return af.Array.init(allocator, arr);
 }
 
-// TODO: pub inline fn sumByKey
+/// Data structure holding results from calling keyed ops.
+pub const KeyedRes = struct {
+    keys_out: *af.Array,
+    vals_out: *af.Array,
+};
 
-// TODO: pub inline fn sumByKeyNan
+/// Returns the sum of the elements in the input `af.Array` by
+/// key along the given dimension according to key.
+pub inline fn sumByKey(
+    allocator: std.mem.Allocator,
+    keys: *const af.Array,
+    vals: *const af.Array,
+    dim: i32,
+) !KeyedRes {
+    var keys_out: af.af_array = undefined;
+    var vals_out: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_sum_by_key(
+            &keys_out,
+            &vals_out,
+            keys.array_,
+            vals.array_,
+            @intCast(dim),
+        ),
+        @src(),
+    );
+    return .{
+        .keys_out = try af.Array.init(allocator, keys_out),
+        .vals_out = try af.Array.init(allocator, vals_out),
+    };
+}
 
-pub inline fn product(allocator: std.mem.Allocator, in: *af.Array, dim: usize) !*af.Array {
+/// Returns the sum of the elements in an `af.Array` by key along
+/// the given dimension according to key; replaces NaN values with
+/// the specified `nanval`.
+pub inline fn sumByKeyNan(
+    allocator: std.mem.Allocator,
+    keys: *const af.Array,
+    vals: *const af.Array,
+    dim: i32,
+    nanval: f64,
+) !KeyedRes {
+    var keys_out: af.af_array = undefined;
+    var vals_out: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_sum_by_key_nan(
+            &keys_out,
+            &vals_out,
+            keys.array_,
+            vals.array_,
+            @intCast(dim),
+            nanval,
+        ),
+        @src(),
+    );
+    return .{
+        .keys_out = try af.Array.init(allocator, keys_out),
+        .vals_out = try af.Array.init(allocator, vals_out),
+    };
+}
+
+/// Returns the product of all values in the input `af.Array`
+/// along the specified dimension.
+pub inline fn product(allocator: std.mem.Allocator, in: *const af.Array, dim: i32) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_product(&arr, in.array_, @intCast(dim)), @src());
     return af.Array.init(allocator, arr);
 }
 
-pub inline fn productNan(allocator: std.mem.Allocator, in: *af.Array, dim: usize, nanval: f64) !*af.Array {
+/// Returns the product of all values in the input `af.Array` along the
+/// specified dimension; replaces NaN values with specified `nanval`.
+pub inline fn productNan(allocator: std.mem.Allocator, in: *const af.Array, dim: i32, nanval: f64) !*af.Array {
     var arr: af.af_array = undefined;
-    try af.AF_CHECK(af.af_product_nan(&arr, in.array_, @intCast(dim), nanval), @src());
+    try af.AF_CHECK(
+        af.af_product_nan(
+            &arr,
+            in.array_,
+            @intCast(dim),
+            nanval,
+        ),
+        @src(),
+    );
     return af.Array.init(allocator, arr);
 }
 
-// TODO: pub inline fn productByKey
+/// Returns the product of all values in the input `af.Array`
+/// along the specified dimension according to key.
+pub inline fn productByKey(allocator: std.mem.Allocator, keys: *const af.Array, vals: *const af.Array, dim: i32) !KeyedRes {
+    var keys_out: af.af_array = undefined;
+    var vals_out: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_product_by_key(
+            &keys_out,
+            &vals_out,
+            keys.array_,
+            vals.array_,
+            @intCast(dim),
+        ),
+        @src(),
+    );
+    return .{
+        .keys_out = try af.Array.init(allocator, keys_out),
+        .vals_out = try af.Array.init(allocator, vals_out),
+    };
+}
 
-// TODO: pub inline fn productByKeyNan
+/// Returns the sum of the elements in the input `af.Array` by key along
+/// the given dimension according to key; replaces NaN values with
+/// the specified `nanval`.
+pub inline fn productByKeyNan(allocator: std.mem.Allocator, keys: *const af.Array, vals: *const af.Array, dim: i32, nanval: f64) !KeyedRes {
+    var keys_out: af.af_array = undefined;
+    var vals_out: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_product_by_key_nan(
+            &keys_out,
+            &vals_out,
+            keys.array_,
+            vals.array_,
+            @intCast(dim),
+            nanval,
+        ),
+        @src(),
+    );
+    return .{
+        .keys_out = try af.Array.init(allocator, keys_out),
+        .vals_out = try af.Array.init(allocator, vals_out),
+    };
+}
 
-pub inline fn min(allocator: std.mem.Allocator, in: *af.Array, dim: usize) !*af.Array {
+/// Returns the minimum of all values in the input `af.Array`
+/// along the specified dimension.
+pub inline fn min(allocator: std.mem.Allocator, in: *const af.Array, dim: i32) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_min(&arr, in.array_, @intCast(dim)), @src());
     return af.Array.init(allocator, arr);
 }
 
-// TODO: pub inline fn minByKey
+/// Returns the minimum of all values in the input `af.Array`
+/// along the specified dimension according to key.
+pub inline fn minByKey(allocator: std.mem.Allocator, keys: *const af.Array, vals: *const af.Array, dim: i32) !KeyedRes {
+    var keys_out: af.af_array = undefined;
+    var vals_out: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_min_by_key(
+            &keys_out,
+            &vals_out,
+            keys.array_,
+            vals.array_,
+            @intCast(dim),
+        ),
+        @src(),
+    );
+    return .{
+        .keys_out = try af.Array.init(allocator, keys_out),
+        .vals_out = try af.Array.init(allocator, vals_out),
+    };
+}
 
-pub inline fn max(allocator: std.mem.Allocator, in: *af.Array, dim: usize) !*af.Array {
+/// Returns the maximum of all values in the input `af.Array`
+/// along the specified dimension.
+pub inline fn max(allocator: std.mem.Allocator, in: *const af.Array, dim: i32) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_max(&arr, in.array_, @intCast(dim)), @src());
     return af.Array.init(allocator, arr);
 }
 
-// TODO: pub inline fn maxByKey
+/// Returns the maximum of all values in the input `af.Array`
+/// along the specified dimension according to key.
+pub inline fn maxByKey(allocator: std.mem.Allocator, keys: *const af.Array, vals: *const af.Array, dim: i32) !KeyedRes {
+    var keys_out: af.af_array = undefined;
+    var vals_out: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_max_by_key(
+            &keys_out,
+            &vals_out,
+            keys.array_,
+            vals.array_,
+            @intCast(dim),
+        ),
+        @src(),
+    );
+    return .{
+        .keys_out = try af.Array.init(allocator, keys_out),
+        .vals_out = try af.Array.init(allocator, vals_out),
+    };
+}
 
-// TODO: pub inline fn maxRagged
+/// Data structure used to hold results from calling `maxRagged`.
+pub const ValIdxRes = struct {
+    val: *af.Array,
+    idx: *af.Array,
+};
 
-pub inline fn allTrue(allocator: std.mem.Allocator, in: *af.Array, dim: usize) !*af.Array {
+/// Finds ragged max values in an `af.Array`; uses an additional input
+/// `af.Array` to determine the number of elements to use along the
+/// reduction axis.
+///
+/// Returns `ValIdxRes` struct containing the following fields:
+/// - `val`: `af.Array` containing the maximum ragged values in
+/// the input `af.Array` along the specified dimension according
+/// `ragged_len`.
+/// - `idx`: `af.Array` containing the locations of the maximum
+/// ragged values in the input `af.Array` along the specified
+/// dimension according to `ragged_len`.
+pub inline fn maxRagged(allocator: std.mem.Allocator, in: *const af.Array, ragged_len: *const af.Array, dim: i32) !ValIdxRes {
+    var val: af.af_array = undefined;
+    var idx: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_max_ragged(
+            &val,
+            &idx,
+            in.array_,
+            ragged_len.array_,
+            @intCast(dim),
+        ),
+        @src(),
+    );
+    return .{
+        .val = try af.Array.init(allocator, val),
+        .idx = try af.Array.init(allocator, idx),
+    };
+}
+
+/// Tests if all values in the input `af.Array` along the
+/// specified dimension are true.
+pub inline fn allTrue(allocator: std.mem.Allocator, in: *const af.Array, dim: i32) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_all_true(&arr, in.array_, @intCast(dim)), @src());
     return af.Array.init(allocator, arr);
 }
 
-// TODO: pub inline fn allTrueByKey
+/// Tests if all values in the input `af.Array` along the
+/// specified dimension are true accord to key.
+pub inline fn allTrueByKey(allocator: std.mem.Allocator, keys: *const af.Array, vals: *const af.Array, dim: i32) !KeyedRes {
+    var keys_out: af.af_array = undefined;
+    var vals_out: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_all_true_by_key(
+            &keys_out,
+            &vals_out,
+            keys.array_,
+            vals.array_,
+            @intCast(dim),
+        ),
+        @src(),
+    );
+    return .{
+        .keys_out = try af.Array.init(allocator, keys_out),
+        .vals_out = try af.Array.init(allocator, vals_out),
+    };
+}
 
-pub inline fn anyTrue(allocator: std.mem.Allocator, in: *af.Array, dim: usize) !*af.Array {
+/// Tests if any values in the input `af.Array` along the
+/// specified dimension are true.
+pub inline fn anyTrue(allocator: std.mem.Allocator, in: *const af.Array, dim: i32) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_any_true(&arr, in.array_, @intCast(dim)), @src());
     return af.Array.init(allocator, arr);
 }
 
-// TODO: pub inline fn anyTrueByKey
+/// Tests if any values in the input `af.Array` along the
+/// specified dimension are true according to key.
+pub inline fn anyTrueByKey(allocator: std.mem.Allocator, keys: *const af.Array, vals: *const af.Array, dim: i32) !KeyedRes {
+    var keys_out: af.af_array = undefined;
+    var vals_out: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_any_true_by_key(
+            &keys_out,
+            &vals_out,
+            keys.array_,
+            vals.array_,
+            @intCast(dim),
+        ),
+        @src(),
+    );
+    return .{
+        .keys_out = try af.Array.init(allocator, keys_out),
+        .vals_out = try af.Array.init(allocator, vals_out),
+    };
+}
 
-pub inline fn count(allocator: std.mem.Allocator, in: *af.Array, dim: usize) !*af.Array {
+/// Count the number of non-zero elements in the input `af.Array`.
+///
+/// Return type is `af.Dtype.u32` for all input types.
+///
+/// This function performs the operation across all batches present
+/// in the input simultaneously.
+pub inline fn count(allocator: std.mem.Allocator, in: *const af.Array, dim: i32) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_count(&arr, in.array_, @intCast(dim)), @src());
     return af.Array.init(allocator, arr);
 }
 
-// TODO: pub inline fn countByKey
+/// Counts the non-zero values of an input `af.Array` according to an
+/// `af.Array` of keys.
+///
+/// All non-zero values corresponding to each group of consecutive equal
+/// keys will be counted. Keys can repeat, however only consecutive key
+/// values will be considered for each reduction. If a key value is repeated
+/// somewhere else in the keys array it will be considered the start of a new
+/// reduction. There are two outputs: the reduced set of consecutive keys and
+/// the corresponding final reduced values.
+pub inline fn countByKey(allocator: std.mem.Allocator, keys: *const af.Array, vals: *const af.Array, dim: i32) !KeyedRes {
+    var keys_out: af.af_array = undefined;
+    var vals_out: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_count_by_key(
+            &keys_out,
+            &vals_out,
+            keys.array_,
+            vals.array_,
+            @intCast(dim),
+        ),
+        @src(),
+    );
+    return .{
+        .keys_out = try af.Array.init(allocator, keys_out),
+        .vals_out = try af.Array.init(allocator, vals_out),
+    };
+}
 
-// TODO: pub inline fn sumAll
+/// Returns the sum of all elements in an input `af.Array`.
+pub inline fn sumAll(in: *const af.Array) !ComplexParts {
+    var res = ComplexParts{};
+    try af.AF_CHECK(af.af_sum_all(&res.real, &res.imag, in.array_), @src());
+    return res;
+}
 
-// TODO: pub inline fn sumNanAll
+/// Returns the sum of all elements in an input `af.Array`
+/// replacing NaN values with `nanval`.
+pub inline fn sumNanAll(in: *const af.Array, nanval: f64) !ComplexParts {
+    var res = ComplexParts{};
+    try af.AF_CHECK(af.af_sum_nan_all(&res.real, &res.imag, in.array_, nanval), @src());
+    return res;
+}
 
-// TODO: pub inline fn productAll
+/// Returns the product of all elements in an input `af.Array`.
+pub inline fn productAll(in: *const af.Array) !ComplexParts {
+    var res = ComplexParts{};
+    try af.AF_CHECK(af.af_product_all(&res.real, &res.imag, in.array_), @src());
+    return res;
+}
 
-// TODO: pub inline fn productNanAll
+/// Returns the product of all elements in an input `af.Array`
+/// replacing NaN values with `nanval`.
+pub inline fn productNanAll(in: *const af.Array, nanval: f64) !ComplexParts {
+    var res = ComplexParts{};
+    try af.AF_CHECK(af.af_product_nan_all(&res.real, &res.imag, in.array_, nanval), @src());
+    return res;
+}
 
-// TODO: pub inline fn minAll
+/// Returns the minimum value of all elements in an input `af.Array`.
+pub inline fn minAll(in: *const af.Array) !ComplexParts {
+    var res = ComplexParts{};
+    try af.AF_CHECK(af.af_min_all(&res.real, &res.imag, in.array_), @src());
+    return res;
+}
 
-// TODO: pub inline fn maxAll
+/// Returns the maximum value of all elements in an input `af.Array`.
+pub inline fn maxAll(in: *const af.Array) !ComplexParts {
+    var res = ComplexParts{};
+    try af.AF_CHECK(af.af_max_all(&res.real, &res.imag, in.array_), @src());
+    return res;
+}
 
-// TODO: pub inline fn allTrueAll
+/// Returns whether all elements in an input `af.Array` are true.
+pub inline fn allTrueAll(in: *const af.Array) !ComplexParts {
+    var res = ComplexParts{};
+    try af.AF_CHECK(af.af_all_true_all(&res.real, &res.imag, in.array_), @src());
+    return res;
+}
 
-// TODO: pub inline fn anyTrueAll
+/// Returns whether any elements in an input `af.Array` are true.
+pub inline fn anyTrueAll(in: *const af.Array) !ComplexParts {
+    var res = ComplexParts{};
+    try af.AF_CHECK(af.af_any_true_all(&res.real, &res.imag, in.array_), @src());
+    return res;
+}
 
-// TODO: pub inline fn countAll
+/// Returns the number of non-zero elements in an input `af.Array`.
+pub inline fn countAll(in: *const af.Array) !ComplexParts {
+    var res = ComplexParts{};
+    try af.AF_CHECK(af.af_count_all(&res.real, &res.imag, in.array_), @src());
+    return res;
+}
 
-// TODO: pub inline fn imin
+/// Data structure holding the results from calling
+/// `imin` or `imax`.
+pub const OutIdxRes = struct {
+    out: *af.Array,
+    idx: *af.Array,
+};
 
-// TODO: pub inline fn imax
+/// Find the minimum values and their locations.
+///
+/// This function performs the operation across all
+/// batches present in the input simultaneously.
+///
+/// Returns `OutIdxRes` struct containing the following fields:
+/// - `out`: `af.Array` containing the minimum of all values
+/// in the input `af.Array` along the specified dimension.
+/// - `idx`: `af.Array` containg the location of the minimum of
+/// all values in the input `af.Array` along the specified dimension.
+pub inline fn imin(allocator: std.mem.Allocator, in: *const af.Array, dim: i32) !OutIdxRes {
+    var out: af.af_array = undefined;
+    var idx: af.af_array = undefined;
+    try af.AF_CHECK(af.af_imin(&out, &idx, in.array_, @intCast(dim)), @src());
+    return .{
+        .out = try af.Array.init(allocator, out),
+        .idx = try af.Array.init(allocator, idx),
+    };
+}
 
-// TODO: pub inline fn iminAll
+/// Find the maximum value and its location.
+///
+/// This function performs the operation across all
+/// batches present in the input simultaneously.
+///
+/// Returns `OutIdxRes` struct containing the following fields:
+/// - `out`: `af.Array` containing the maximum of all values
+/// in the input `af.Array` along the specified dimension.
+/// - `idx`: `af.Array` containg the location of the maximum of
+/// all values in the input `af.Array` along the specified dimension.
+pub inline fn imax(allocator: std.mem.Allocator, in: *const af.Array, dim: i32) !OutIdxRes {
+    var out: af.af_array = undefined;
+    var idx: af.af_array = undefined;
+    try af.AF_CHECK(af.af_imax(&out, &idx, in.array_, @intCast(dim)), @src());
+    return .{
+        .out = try af.Array.init(allocator, out),
+        .idx = try af.Array.init(allocator, idx),
+    };
+}
 
-// TODO: pub inline fn imaxAll
+pub const ComplexPartsIdx = struct {
+    real: f64 = undefined,
+    imag: f64 = undefined,
+    idx: i32 = undefined,
+};
+
+/// Returns minimum value and its location from the entire array.
+pub inline fn iminAll(in: *const af.Array) !ComplexPartsIdx {
+    var res = ComplexPartsIdx{};
+    var idx: c_int = undefined;
+    try af.AF_CHECK(af.af_imin_all(&res.real, &res.imag, &idx, in.array_), @src());
+    res.idx = @intCast(idx);
+    return res;
+}
+
+/// Returns minimum value and its location from the entire array.
+pub inline fn imaxAll(in: *const af.Array) !ComplexPartsIdx {
+    var res = ComplexPartsIdx{};
+    var idx: c_int = undefined;
+    try af.AF_CHECK(af.af_imax_all(&res.real, &res.imag, &idx, in.array_), @src());
+    res.idx = @intCast(idx);
+    return res;
+}
 
 pub inline fn accum(allocator: std.mem.Allocator, in: *af.Array, dim: usize) !*af.Array {
     var arr: af.af_array = undefined;
@@ -151,9 +528,9 @@ pub inline fn sort(allocator: std.mem.Allocator, in: *af.Array, dim: usize, is_a
     return af.Array.init(allocator, arr);
 }
 
-// TODO: pub inline fn sortIndex
+// TODO: pub inline fn sortIndex()
 
-// TODO: pub inline fn sortByKey
+// TODO: pub inline fn sortByKey()
 
 pub inline fn setUnique(allocator: std.mem.Allocator, in: *af.Array, is_sorted: bool) !*af.Array {
     var arr: af.af_array = undefined;
@@ -2127,8 +2504,10 @@ pub const FeatDesc = struct {
     desc: *af.Array,
 };
 
-/// Returns struct containing `af.Features` composed of arrays for x and y coordinates,
-/// score, orientation and size of selected features and Nx8 `af.Array` containing extracted
+/// Returns `FeatDesc` struct containing the following fields:
+/// - `feat`: `af.Features` composed of arrays for x and y coordinates,
+/// score, orientation and size of selected features.
+/// - `desc`: Nx8 `af.Array` containing extracted
 /// descriptors, where N is the number of selected features.
 pub inline fn orb(allocator: std.mem.Allocator, in: *const af.Array, fast_thr: f32, max_feat: u32, scl_fctr: f32, levels: u32, blur_img: bool) !FeatDesc {
     var feat: af.af_features = undefined;
@@ -2140,9 +2519,11 @@ pub inline fn orb(allocator: std.mem.Allocator, in: *const af.Array, fast_thr: f
     };
 }
 
-/// Returns struct containing `af.Features` composed of arrays for x and y coordinates,
-/// score, orientation and size of selected features and Nx128 `af.Array` containing extracted
-/// descriptors, where N is the number of features found by SIFT.
+/// Returns `FeatDesc` struct containing the following fields:
+/// - `feat`: `af.Features` composed of arrays for x and y coordinates,
+/// score, orientation and size of selected features.
+/// - `desc`: Nx128 `af.Array` containing extracted descriptors,
+/// where N is the number of features found by SIFT.
 pub inline fn sift(allocator: std.mem.Allocator, in: *const af.Array, n_layers: u32, contrast_thr: f32, edge_thr: f32, init_sigma: f32, double_input: bool, intensity_scale: f32, feature_ratio: f32) !FeatDesc {
     var feat: af.af_features = undefined;
     var desc: af.af_array = undefined;
@@ -2153,9 +2534,11 @@ pub inline fn sift(allocator: std.mem.Allocator, in: *const af.Array, n_layers: 
     };
 }
 
-/// Returns struct containing `af.Features` composed of arrays for x and y coordinates,
-/// score, orientation and size of selected features and Nx272 `af.Array` containing
-/// extracted GLOH descriptors, where N is the number of features found by SIFT.
+/// Returns `FeatDesc` struct containing the following fields:
+/// - `feat`: `af.Features` composed of arrays for x and y coordinates,
+/// score, orientation and size of selected features.
+/// - `desc`: Nx272 `af.Array` containing extracted GLOH descriptors,
+/// where N is the number of features found by SIFT.
 pub inline fn gloh(allocator: std.mem.Allocator, in: *const af.Array, n_layers: u32, contrast_thr: f32, edge_thr: f32, init_sigma: f32, double_input: bool, intensity_scale: f32, feature_ratio: f32) !FeatDesc {
     var feat: af.af_features = undefined;
     var desc: af.af_array = undefined;
@@ -2163,6 +2546,161 @@ pub inline fn gloh(allocator: std.mem.Allocator, in: *const af.Array, n_layers: 
     return .{
         .feat = try af.Features.init(allocator, feat),
         .desc = try af.Array.init(allocator, desc),
+    };
+}
+
+/// Data structure holding the results from calling
+/// `hammingMatcher` or `nearestNeighbor`.
+pub const IdxDist = struct {
+    idx: *af.Array,
+    dist: *af.Array,
+};
+
+/// Calculates Hamming distances between two 2-dimensional `af.Array`s containing
+/// features, one of the `af.Array`s containing the training data and the other
+/// the query data. One of the dimensions of the both `af.Array`s must be equal
+/// among them, identifying the length of each feature. The other dimension
+/// indicates the total number of features in each of the training and query
+/// `af.Array`s. Two 1-dimensional `af.Array`s are created as results, one containg
+/// the smallest N distances of the query `af.Array` and another containing the indices
+/// of these distances in the training `af.Array`s. The resulting 1-dimensional `af.Array`s
+/// have length equal to the number of features contained in the query `af.Array`.
+///
+/// Returns `IdxDist` struct containing the fields:
+/// - `idx`: `af.Array` of MxN size, where M is equal to the number
+/// of query features and N is equal to n_dist. The value at position
+/// IxJ indicates the index of the Jth smallest distance to the Ith
+/// query value in the train data array. the index of the Ith smallest
+/// distance of the Mth query.
+/// - `dist`: `af.Array` of MxN size, where M is equal to the number
+/// of query features and N is equal to n_dist. The value at position
+/// IxJ indicates the Hamming distance of the Jth smallest distance
+/// to the Ith query value in the train data `af.Array`.
+pub inline fn hammingMatcher(allocator: std.mem.Allocator, query: *const af.Array, train: *const af.Array, dist_dim: i64, n_dist: u32) !IdxDist {
+    var idx: af.af_array = undefined;
+    var dist: af.af_array = undefined;
+    try af.AF_CHECK(af.af_hamming_matcher(&idx, &dist, query.array_, train.array_, @intCast(dist_dim), @intCast(n_dist)), @src());
+    return .{
+        .idx = try af.Array.init(allocator, idx),
+        .dist = try af.Array.init(allocator, dist),
+    };
+}
+
+/// Determines the nearest neighbouring points to a given set of points.
+///
+/// Returns `IdxDist` struct containing the fields:
+/// - `idx`: `af.Array` of M×N size, where M is n_dist and N is the
+/// number of queries. The value at position i,j is the index of the point
+/// in train along dim1 (if dist_dim is 0) or along dim 0 (if dist_dim is 1),
+/// with the ith smallest distance to the jth query point.
+/// - `dist`: `af.Array` of M×N size, where M is n_dist and N is the number
+/// of queries. The value at position i,j is the distance from the jth query
+/// point to the point in train referred to by idx( i,j). This distance is
+/// computed according to the dist_type chosen.
+pub inline fn nearestNeighbor(allocator: std.mem.Allocator, query: *const af.Array, train: *const af.Array, dist_dim: i64, n_dist: u32, dist_type: af.MatchType) !IdxDist {
+    var idx: af.af_array = undefined;
+    var dist: af.af_array = undefined;
+    try af.AF_CHECK(af.af_nearest_neighbour(&idx, &dist, query.array_, train.array_, @intCast(dist_dim), @intCast(n_dist), dist_type.value()), @src());
+    return .{
+        .idx = try af.Array.init(allocator, idx),
+        .dist = try af.Array.init(allocator, dist),
+    };
+}
+
+/// Template matching is an image processing technique to find small patches
+/// of an image which match a given template image. A more in depth discussion
+/// on the topic can be found [here](https://en.wikipedia.org/wiki/Template_matching).
+///
+/// Returns an `af.Array` containing disparity values for the window starting at
+/// corresponding pixel position.
+pub inline fn matchTemplate(allocator: std.mem.Allocator, search_img: *const af.Array, template_img: *const af.Array, m_type: af.MatchType) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_match_template(&arr, search_img.array_, template_img.array_, m_type.value()), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// SUSAN corner detector.
+///
+/// Returns `af.Features` struct composed of `af.Array`s for x and y coordinates,
+/// score, orientation and size of selected features.
+pub inline fn susan(allocator: std.mem.Allocator, in: *const af.Array, radius: u32, diff_thr: f32, geom_thr: f32, feature_ratio: f32, edge: u32) !*af.Features {
+    var feat: af.af_features = undefined;
+    try af.AF_CHECK(af.af_susan(&feat, in.array_, @intCast(radius), diff_thr, geom_thr, feature_ratio, @intCast(edge)), @src());
+    return af.Features.init(allocator, feat);
+}
+
+/// Difference of Gaussians.
+///
+/// Given an image, this function computes two different versions
+/// of smoothed input image using the difference smoothing parameters
+/// and subtracts one from the other and returns the result.
+///
+/// Returns an `af.Array` containing the calculated difference of smoothed inputs.
+pub inline fn dog(allocator: std.mem.Allocator, in: *const af.Array, radius1: i32, radius2: i32) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_dog(&arr, in.array_, @intCast(radius1), @intCast(radius2)), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Data structure holding the results from calling `homography`.
+pub const HomographyRes = struct {
+    out: *af.Array,
+    inliers: i32,
+};
+
+/// Homography estimation find a perspective transform between two sets
+/// of 2D points. Currently, two methods are supported for the estimation,
+/// RANSAC (RANdom SAmple Consensus) and LMedS (Least Median of Squares).
+/// Both methods work by randomly selecting a subset of 4 points of the set
+/// of source points, computing the eigenvectors of that set and finding the
+/// perspective transform. The process is repeated several times, a maximum
+/// of times given by the value passed to the iterations arguments for RANSAC
+/// (for the CPU backend, usually less than that, depending on the quality of
+/// the dataset, but for CUDA and OpenCL backends the transformation will be
+/// computed exactly the amount of times passed via the iterations parameter),
+/// the returned value is the one that matches the best number of inliers, which
+/// are all of the points that fall within a maximum L2 distance from the value
+/// passed to the inlier_thr argument.
+///
+/// Returns `HomographyRes` struct composed of the following fields:
+/// - `out`: a 3x3 `af.Array` containing the estimated homography.
+/// - `inliers`: he number of inliers that the homography was estimated
+/// to comprise, in the case that htype is AF_HOMOGRAPHY_RANSAC, a higher
+/// inlier_thr value will increase the estimated inliers. Note that if the number
+/// of inliers is too low, it is likely that a bad homography will be returned.
+pub inline fn homography(
+    allocator: std.mem.Allocator,
+    inliers: *const af.Array,
+    x_src: *const af.Array,
+    y_src: *const af.Array,
+    x_dst: *const af.Array,
+    y_dst: *const af.Array,
+    htype: af.HomographyType,
+    inlier_thr: f32,
+    iterations: u32,
+    otype: af.Dtype,
+) !*HomographyRes {
+    var arr: af.af_array = undefined;
+    var inliers_: c_int = undefined;
+    try af.AF_CHECK(
+        af.af_homography(
+            &arr,
+            &inliers_,
+            inliers.array_,
+            x_src.array_,
+            y_src.array_,
+            x_dst.array_,
+            y_dst.array_,
+            htype.value(),
+            inlier_thr,
+            @intCast(iterations),
+            otype.value(),
+        ),
+        @src(),
+    );
+    return .{
+        .out = try af.Array.init(allocator, arr),
+        .inliers = @intCast(inliers_),
     };
 }
 

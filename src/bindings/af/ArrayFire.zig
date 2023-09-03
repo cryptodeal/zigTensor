@@ -12,13 +12,16 @@ pub const ops = struct {
     pub usingnamespace @import("random_ops.zig");
     pub usingnamespace @import("memory_manager_ops.zig");
     pub usingnamespace @import("utils.zig");
+    pub usingnamespace @import("window_ops.zig");
 };
 pub usingnamespace @import("Array.zig");
+pub usingnamespace @import("Cell.zig");
 pub usingnamespace @import("Event.zig");
 pub usingnamespace @import("Features.zig");
 pub usingnamespace @import("MemoryManager.zig");
 pub usingnamespace @import("RandomEngine.zig");
 pub usingnamespace @import("types.zig");
+pub usingnamespace @import("Window.zig");
 
 /// Utility function for handling `af.af_err` when calling
 /// directly into ArrayFire's C API from Zig.
