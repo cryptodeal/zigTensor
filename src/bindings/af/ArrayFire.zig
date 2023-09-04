@@ -9,6 +9,7 @@ pub const ops = struct {
     pub usingnamespace @import("array_ops.zig");
     pub usingnamespace @import("event_ops.zig");
     pub usingnamespace @import("features_ops.zig");
+    pub usingnamespace @import("image_ops.zig");
     pub usingnamespace @import("random_ops.zig");
     pub usingnamespace @import("memory_manager_ops.zig");
     pub usingnamespace @import("utils.zig");
