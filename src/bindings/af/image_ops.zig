@@ -199,7 +199,7 @@ pub inline fn transform(
     odim0: i64,
     odim1: i64,
     method: af.InterpType,
-    inverse: bool,
+    inv: bool,
 ) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
@@ -210,7 +210,7 @@ pub inline fn transform(
             @intCast(odim0),
             @intCast(odim1),
             method.value(),
-            inverse,
+            inv,
         ),
         @src(),
     );
@@ -227,7 +227,7 @@ pub inline fn transformV2(
     odim0: i64,
     odim1: i64,
     method: af.InterpType,
-    inverse: bool,
+    inv: bool,
 ) !void {
     return af.AF_CHECK(
         af.af_transform_v2(
@@ -237,7 +237,7 @@ pub inline fn transformV2(
             @intCast(odim0),
             @intCast(odim1),
             method.value(),
-            inverse,
+            inv,
         ),
         @src(),
     );
@@ -400,7 +400,7 @@ pub inline fn skew(
     odim0: i64,
     odim1: i64,
     method: af.InterpType,
-    inverse: bool,
+    inv: bool,
 ) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
@@ -412,7 +412,7 @@ pub inline fn skew(
             @intCast(odim0),
             @intCast(odim1),
             method.value(),
-            inverse,
+            inv,
         ),
         @src(),
     );
@@ -1148,6 +1148,169 @@ pub inline fn canny(
             high_threshold_ratio,
             sobel_window_length,
             is_fast,
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Anisotropic Smoothing Filter.
+///
+/// Anisotropic diffusion algorithm aims at removing noise
+/// in the images while preserving important features such
+/// as edges. The algorithm essentially creates a scale space
+/// representation of the original image, where image from
+/// previous step is used to create a new version of blurred
+/// image using the diffusion process. Standard isotropic
+/// diffusion methods such as gaussian blur, doesn't take into
+/// account the local content(smaller neighborhood of current
+/// processing pixel) while removing noise. Anisotropic diffusion
+/// uses the flux equations given below to achieve that. Flux
+/// equation is the formula used by the diffusion process to
+/// determine how much a pixel in neighborhood should contribute
+/// to the blurring operation being done at the current pixel at
+/// a given iteration.
+///
+/// The flux function can be either exponential or quadratic.
+pub inline fn anisotropicDiffusion(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    timestep: f32,
+    conductance: f32,
+    iterations: u32,
+    fftype: af.FluxFunction,
+    diffusion_kind: af.DiffusionEq,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_anisotropic_diffusion(
+            &arr,
+            in.array_,
+            timestep,
+            conductance,
+            @intCast(iterations),
+            fftype.value(),
+            diffusion_kind.value(),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Iterative Deconvolution.
+///
+/// Iterative deconvolution function accepts `af.Array` of the following
+/// types only:
+/// - f32
+/// - s16
+/// - u16
+/// - u8
+pub inline fn iterativeDeconv(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    ker: *const af.Array,
+    iterations: u32,
+    relax_factor: f32,
+    algo: af.IterativeDeconvAlgo,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_iterative_deconv(
+            &arr,
+            in.array_,
+            ker.array_,
+            @intCast(iterations),
+            relax_factor,
+            algo.value(),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Inverse Deconvolution.
+///
+/// Inverse deconvolution is an linear algorithm i.e. they
+/// are non-iterative in nature and usually faster than
+/// iterative deconvolution algorithms.
+///
+/// Depending on the values passed on to the enum `af.InverseDeconvAlgo`,
+/// different equations are used to compute the final result.
+///
+/// Inverse deconvolution function accepts `af.Array` of the following
+/// types only:
+/// - f32
+/// - s16
+/// - u16
+/// - u8
+pub inline fn inverseDeconv(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    psf: *const af.Array,
+    gamma: f32,
+    algo: af.InverseDeconvAlgo,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_inverse_deconv(
+            &arr,
+            in.array_,
+            psf.array_,
+            gamma,
+            algo.value(),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Segment image based on similar pixel characteristics.
+///
+/// This filter is similar to `regions` (connected components)
+/// with additional criteria for segmentation. In `regions`, all
+/// connected (`af.Connectivity`) pixels connected are considered
+/// to be a single component. In this variation of connected components,
+/// pixels having similar pixel statistics of the neighborhoods around
+/// a given set of seed points are grouped together.
+///
+/// The parameter radius determines the size of neighborhood around a seed
+/// point.
+///
+/// Mean (μ) and Variance (σ2) are the pixel statistics that are computed
+/// across all neighborhoods around the given set of seed points. The pixels
+/// which are connected to seed points and lie in the confidence interval
+/// ([μ−α∗σ,μ+α∗σ] where α is the parameter multiplier) are grouped.
+/// Multiplier can be used to control the width of the confidence interval.
+///
+/// This filter follows an iterative approach for fine tuning the segmentation.
+/// An initial segmenetation followed by a finite number (iter) of segmentations
+/// are performed. The user provided parameter iter is only a request and the
+/// algorithm can preempt the execution if σ2 approaches zero. The initial
+/// segmentation uses the mean and variance calculated from the neighborhoods of
+/// all the seed points. For subsequent segmentations, all pixels in the previous
+/// segmentation are used to re-calculate the mean and variance (as opposed to using
+/// the pixels in the neighborhood of the seed point).
+pub inline fn confidenceCC(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    seedx: *const af.Array,
+    seedy: *const af.Array,
+    radius: u32,
+    multiplier: u32,
+    iter: i32,
+    segmented_value: f64,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_confidence_cc(
+            &arr,
+            in.array_,
+            seedx.array_,
+            seedy.array_,
+            @intCast(radius),
+            @intCast(multiplier),
+            @intCast(iter),
+            segmented_value,
         ),
         @src(),
     );

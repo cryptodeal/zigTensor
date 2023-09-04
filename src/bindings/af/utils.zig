@@ -379,3 +379,10 @@ pub inline fn getActiveBackend() !af.Backend {
 pub inline fn setFftPlanCacheSize(cache_size: usize) !void {
     try af.AF_CHECK(af.af_set_fft_plan_cache_size(cache_size), @src());
 }
+
+/// Returns true is ArrayFire is compiled with LAPACK support.
+pub inline fn isLAPACKAvailable() !bool {
+    var res: bool = undefined;
+    try af.AF_CHECK(af.af_is_lapack_available(&res), @src());
+    return res;
+}

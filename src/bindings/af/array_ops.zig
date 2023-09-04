@@ -3557,6 +3557,304 @@ pub inline fn gradient(allocator: std.mem.Allocator, in: *const af.Array) !struc
     };
 }
 
+/// Computes the singular value decomposition of a matrix.
+///
+/// This function factorizes a matrix A into two unitary matrices,
+/// U and VT, and a diagonal matrix S, such that A=USVT. If A has
+/// M rows and N columns ( M×N), then U will be M×M, V will be N×N,
+/// and S will be M×N. However, for S, this function only returns the
+/// non-zero diagonal elements as a sorted (in descending order) 1D `af.Array`.
+pub inline fn svd(allocator: std.mem.Allocator, in: *const af.Array) !struct {
+    u: *af.Array,
+    s: *af.Array,
+    vt: *af.Array,
+} {
+    var u: af.af_array = undefined;
+    var s: af.af_array = undefined;
+    var vt: af.af_array = undefined;
+    try af.AF_CHECK(af.af_svd(&u, &s, &vt, in.array_), @src());
+    return .{
+        .u = try af.Array.init(allocator, u),
+        .s = try af.Array.init(allocator, s),
+        .vt = try af.Array.init(allocator, vt),
+    };
+}
+
+/// Computes the singular value decomposition of a matrix in-place.
+pub inline fn svdInplace(allocator: std.mem.Allocator, in: *af.Array) !struct {
+    u: *af.Array,
+    s: *af.Array,
+    vt: *af.Array,
+} {
+    var u: af.af_array = undefined;
+    var s: af.af_array = undefined;
+    var vt: af.af_array = undefined;
+    try af.AF_CHECK(af.af_svd_inplace(&u, &s, &vt, in.array_), @src());
+    return .{
+        .u = try af.Array.init(allocator, u),
+        .s = try af.Array.init(allocator, s),
+        .vt = try af.Array.init(allocator, vt),
+    };
+}
+
+/// Perform LU decomposition.
+///
+/// This function decomposes input matrix A into a
+/// lower triangle L and upper triangle U.
+pub inline fn lu(allocator: std.mem.Allocator, in: *const af.Array) !struct {
+    lower: *af.Array,
+    upper: *af.Array,
+} {
+    var lower_: af.af_array = undefined;
+    var upper_: af.af_array = undefined;
+    try af.AF_CHECK(af.af_lu(&lower_, &upper_, in.array_), @src());
+    return .{
+        .lower = try af.Array.init(allocator, lower_),
+        .upper = try af.Array.init(allocator, upper_),
+    };
+}
+
+/// In-place LU decomposition.
+pub inline fn luInplace(
+    allocator: std.mem.Allocator,
+    in: *af.Array,
+    is_lapack_piv: bool,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_lu_inplace(
+            &arr,
+            in.array_,
+            is_lapack_piv,
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Perform QR decomposition.
+///
+/// This function decomposes input matrix A into an orthogonal
+/// matrix Q and an upper triangular matrix R.
+pub inline fn qr(allocator: std.mem.Allocator, in: *const af.Array) !struct {
+    q: *af.Array,
+    r: *af.Array,
+    tau: *af.Array,
+} {
+    var q: af.af_array = undefined;
+    var r: af.af_array = undefined;
+    var tau: af.af_array = undefined;
+    try af.AF_CHECK(af.af_qr(&q, &r, &tau, in.array_), @src());
+    return .{
+        .q = try af.Array.init(allocator, q),
+        .r = try af.Array.init(allocator, r),
+        .tau = try af.Array.init(allocator, tau),
+    };
+}
+
+/// In-place QR decomposition.
+pub inline fn qrInplace(allocator: std.mem.Allocator, in: *af.Array) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_qr_inplace(&arr, in.array_), @src());
+    return af.Array.init(allocator, arr);
+}
+
+/// Perform Cholesky decomposition.
+///
+/// This function decomposes a positive definite matrix A into
+/// two triangular matrices.
+///
+/// Returns a struct containing the following fields:
+/// -`out`: `af.Array` containing the triangular matrix.
+/// Multiply out with it conjugate transpose reproduces
+/// the input `af.Array`.
+/// -`info`: is 0 if cholesky decomposition passes, if not
+/// it returns the rank at which the decomposition failed.
+pub inline fn cholesky(allocator: std.mem.Allocator, in: *const af.Array, is_upper: bool) !struct {
+    out: *af.Array,
+    info: i32,
+} {
+    var out: af.af_array = undefined;
+    var info: c_int = undefined;
+    try af.AF_CHECK(
+        af.af_cholesky(
+            &out,
+            &info,
+            in.array_,
+            is_upper,
+        ),
+        @src(),
+    );
+    return .{
+        .out = try af.Array.init(allocator, out),
+        .info = @intCast(info),
+    };
+}
+
+/// In-place Cholesky decomposition.
+///
+/// Returns 0 if cholesky decomposition passes, if not
+/// it returns the rank at which the decomposition failed.
+pub inline fn choleskyInplace(in: *af.Array, is_upper: bool) !i32 {
+    var info: c_int = undefined;
+    try af.AF_CHECK(
+        af.af_cholesky_inplace(
+            &info,
+            in.array_,
+            is_upper,
+        ),
+        @src(),
+    );
+    return @intCast(info);
+}
+
+/// Solve a system of equations.
+///
+/// This function takes a co-efficient matrix A and an output
+/// matrix B as inputs to solve the following equation for X.
+pub inline fn solve(
+    allocator: std.mem.Allocator,
+    a: *const af.Array,
+    b: *const af.Array,
+    options: af.MatProp,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_solve(
+            &arr,
+            a.array_,
+            b.array_,
+            options.value(),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Solve a system of equations.
+///
+/// This function takes a co-efficient matrix A and an output
+/// matrix B as inputs to solve the following equation for X.
+pub inline fn solveLU(
+    allocator: std.mem.Allocator,
+    a: *const af.Array,
+    piv: *const af.Array,
+    b: *const af.Array,
+    options: af.MatProp,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_solve_lu(
+            &arr,
+            a.array_,
+            piv.array_,
+            b.array_,
+            options.value(),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+/// Invert a matrix.
+///
+/// This function inverts a square matrix A.
+pub inline fn inverse(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    options: af.MatProp,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_inverse(
+            &arr,
+            in.array_,
+            options.value(),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Pseudo-invert a matrix.
+///
+/// This function calculates the Moore-Penrose pseudoinverse
+/// of a matrix A, using `svd` at its core. If A is of size M×N,
+/// then its pseudoinverse A+ will be of size N×M.
+///
+/// This calculation can be batched if the input array is three or
+/// four-dimensional (M×N×P×Q, with Q=1 for only three dimensions).
+/// Each M×N slice along the third dimension will have its own pseudoinverse,
+/// for a total of P×Q pseudoinverses in the output array (N×M×P×Q).
+pub inline fn pInverse(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    tol: f64,
+    options: af.MatProp,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_pinverse(
+            &arr,
+            in.array_,
+            tol,
+            options.value(),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Returns the rank of the input matrix.
+///
+/// This function uses `qr` to find the rank of the input
+/// matrix within the given tolerance.
+pub inline fn rank(in: *const af.Array, tol: f64) !u32 {
+    var res: c_uint = undefined;
+    try af.AF_CHECK(
+        af.af_rank(
+            &res,
+            in.array_,
+            tol,
+        ),
+        @src(),
+    );
+    return @intCast(res);
+}
+
+/// Returns the determinant of the input matrix.
+pub inline fn det(in: *const af.Array) !struct { det_real: f64, det_imag: f64 } {
+    var det_real: f64 = undefined;
+    var det_imag: f64 = undefined;
+    try af.AF_CHECK(
+        af.af_det(
+            &det_real,
+            &det_imag,
+            in.array_,
+        ),
+        @src(),
+    );
+    return .{ .det_real = det_real, .det_imag = det_imag };
+}
+
+/// Returns the norm of the input matrix.
+///
+/// This function can return the norm using various metrics based
+/// on the type paramter.
+pub inline fn norm(in: *const af.Array, norm_type: af.NormType, p: f64, q: f64) !f64 {
+    var res: f64 = undefined;
+    try af.AF_CHECK(
+        af.af_norm(
+            &res,
+            in.array_,
+            norm_type.value(),
+            p,
+            q,
+        ),
+        @src(),
+    );
+    return res;
+}
+
 /// Calculates backward pass gradient of 2D convolution.
 ///
 /// This function calculates the gradient with respect to the output
