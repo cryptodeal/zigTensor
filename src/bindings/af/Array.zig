@@ -517,7 +517,7 @@ pub const Array = struct {
     }
 
     /// Returns the total number of elements across all dimensions of the underlying `af.af_array`.
-    pub fn getElements(self: *Self) !usize {
+    pub fn getElements(self: *Self) !i64 {
         return af.ops.getElements(self);
     }
 
@@ -532,7 +532,7 @@ pub const Array = struct {
     }
 
     /// Returns the number of dimensions of the underlying `af.af_array`.
-    pub fn getNumDims(self: *Self) !usize {
+    pub fn getNumDims(self: *Self) !u32 {
         return af.ops.getNumDims(self);
     }
 

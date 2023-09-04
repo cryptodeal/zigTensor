@@ -5227,7 +5227,7 @@ test "createArray" {
     var shape = try Shape.init(allocator, &dim);
     defer shape.deinit();
 
-    var arr = try createArray(allocator, &shape, data.ptr, .f32);
+    var arr = try createArray(allocator, data.ptr, @intCast(shape.ndim()), try shape.toAfDims(), .f32);
     defer arr.deinit();
     const elements = try arr.getElements();
     try std.testing.expect(elements == 100);
