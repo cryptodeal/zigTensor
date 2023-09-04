@@ -11,13 +11,34 @@ pub inline fn init() !void {
 }
 
 /// Gets the value of `info` as a string.
-pub inline fn infoString(info_: [*c]u8, verbose: bool) !void {
-    try af.AF_CHECK(af.af_info_string(&info_, verbose), @src());
+pub inline fn infoString(verbose: bool) ![]const u8 {
+    var info_: [*c]u8 = undefined;
+    try af.AF_CHECK(af.af_info_string(info_, verbose), @src());
+    return std.mem.span(info_);
 }
 
-/// Gets the information about device and platform as strings.
-pub inline fn deviceInfo(d_name: [*c]u8, d_platform: [*c]u8, d_toolkit: [*c]u8, d_compute: [*c]u8) !void {
+/// Returns struct containing the following fields:
+/// - `d_name`: Name of the device.
+/// - `d_platform`: Platform of the device.
+/// - `d_toolkit`: Toolkit version of the device.
+/// - `d_compute`: Compute version of the device.
+pub inline fn deviceInfo() !struct {
+    d_name: []const u8,
+    d_platform: []const u8,
+    d_toolkit: []const u8,
+    d_compute: []const u8,
+} {
+    var d_name: [*c]u8 = undefined;
+    var d_platform: [*c]u8 = undefined;
+    var d_toolkit: [*c]u8 = undefined;
+    var d_compute: [*c]u8 = undefined;
     try af.AF_CHECK(af.af_device_info(d_name, d_platform, d_toolkit, d_compute), @src());
+    return .{
+        .d_name = std.mem.span(d_name),
+        .d_platform = std.mem.span(d_platform),
+        .d_toolkit = std.mem.span(d_toolkit),
+        .d_compute = std.mem.span(d_compute),
+    };
 }
 
 /// Returns the number of compute devices on the system.
@@ -54,18 +75,20 @@ pub inline fn getDevice() !i32 {
 }
 
 /// Blocks the calling thread until all of the device operations have finished.
-pub inline fn sync(id: i32) !void {
-    try af.AF_CHECK(af.af_sync(@intCast(id)), @src());
+pub inline fn sync(device: i32) !void {
+    try af.AF_CHECK(af.af_sync(@intCast(device)), @src());
 }
 
-/// Deprecated: use `allocDeviceV2`; Allocates memory using ArrayFire's
-/// memory manager.
+/// Deprecated: use `allocDeviceV2`.
+///
+/// Allocates memory using ArrayFire's memory manager.
 pub inline fn allocDevice(ptr: ?*anyopaque, bytes: usize) !void {
     try af.AF_CHECK(af.af_alloc_device(&ptr, @intCast(bytes)), @src());
 }
 
-/// Deprecated: use `freeDeviceV2`; Free a device pointer even if
-/// it has been previously locked.
+/// Deprecated: use `freeDeviceV2`.
+///
+/// Free a device pointer even if it has been previously locked.
 pub inline fn freeDevice(ptr: ?*anyopaque) !void {
     try af.AF_CHECK(af.af_free_device(ptr), @src());
 }
@@ -168,18 +191,18 @@ pub inline fn getKernelCacheDir() ![]const u8 {
 /// Returns the last error message that occurred and its error message.
 pub inline fn getLastError() ![]const u8 {
     var err: [*c]u8 = undefined;
-    var len: usize = undefined;
-    try af.AF_CHECK(af.af_get_last_error(&len, &err), @src());
-    return err[0..len];
+    var len: af.dim_t = undefined;
+    try af.AF_CHECK(af.af_get_last_error(&err, &len), @src());
+    return err[0..@intCast(len)];
 }
 
 /// Converts the af_err error code to its string representation.
-pub inline fn errToString(err: af.af_err) ![]const u8 {
+pub inline fn errToString(err: af.af_err) []const u8 {
     var str = af.af_err_to_string(err);
     return std.mem.span(str);
 }
 
-/// Create a new af_seq object.
+/// Create a new `af.af_seq` object.
 pub inline fn makeSeq(begin: f64, end: f64, step: f64) af.af_seq {
     return .{ .begin = begin, .end = end, .step = step };
 }
@@ -191,17 +214,42 @@ pub inline fn createIndexers() ![]af.af_index_t {
     return indexers[0..3];
 }
 
-/// Set dim to given indexer `af.af_array` idx.
-pub inline fn setArrayIndexer(indexer: []af.af_index_t, idx: *af.Array, dim: i64) !void {
-    try af.AF_CHECK(af.af_set_array_indexer(indexer.ptr, idx.array, @intCast(dim)), @src());
+/// Set dim to given indexer `af.Array` idx.
+pub inline fn setArrayIndexer(
+    indexer: []af.af_index_t,
+    idx: *const af.Array,
+    dim: i64,
+) !void {
+    try af.AF_CHECK(
+        af.af_set_array_indexer(
+            indexer.ptr,
+            idx.array,
+            @intCast(dim),
+        ),
+        @src(),
+    );
 }
 
 /// Set dim to given indexer `af.af_array` idx.
 ///
-/// This function is similar to `setArrayIndexer` in terms of functionality
-/// except that this version accepts object of type `af.af_seq` instead of `af_array`.
-pub inline fn setSeqIndexer(indexer: []af.af_index_t, idx: *const af.af_seq, dim: i64, is_batch: bool) !void {
-    try af.AF_CHECK(af.af_set_seq_indexer(indexer.ptr, idx, @intCast(dim), is_batch), @src());
+/// This function is similar to `setArrayIndexer` in terms of
+/// functionality except that this version accepts object of type
+/// `af.af_seq` instead of `af.Array`.
+pub inline fn setSeqIndexer(
+    indexer: []af.af_index_t,
+    idx: *const af.af_seq,
+    dim: i64,
+    is_batch: bool,
+) !void {
+    try af.AF_CHECK(
+        af.af_set_seq_indexer(
+            indexer.ptr,
+            idx,
+            @intCast(dim),
+            is_batch,
+        ),
+        @src(),
+    );
 }
 
 /// Set dim to given indexer `af.af_array` idx.
@@ -209,11 +257,28 @@ pub inline fn setSeqIndexer(indexer: []af.af_index_t, idx: *const af.af_seq, dim
 /// This function is alternative to `setSeqIndexer` where instead
 /// of passing in an already prepared af_seq object, you pass the
 /// arguments necessary for creating an `af.af_seq` directly.
-pub inline fn setSeqParamIndexer(indexer: []af.af_index_t, begin: f64, end: f64, step: f64, dim: i64, is_batch: bool) !void {
-    try af.AF_CHECK(af.af_set_seq_param_indexer(indexer.ptr, begin, end, step, @intCast(dim), is_batch), @src());
+pub inline fn setSeqParamIndexer(
+    indexer: []af.af_index_t,
+    begin: f64,
+    end: f64,
+    step: f64,
+    dim: i64,
+    is_batch: bool,
+) !void {
+    try af.AF_CHECK(
+        af.af_set_seq_param_indexer(
+            indexer.ptr,
+            begin,
+            end,
+            step,
+            @intCast(dim),
+            is_batch,
+        ),
+        @src(),
+    );
 }
 
-/// Releases the memory resource used by the quadruple `af.af_index_t` array.
+/// Releases the memory resources used by the quadruple `af.af_index_t` array.
 pub inline fn releaseIndexers(indexer: []af.af_index_t) !void {
     try af.AF_CHECK(af.af_release_indexers(indexer.ptr), @src());
 }
@@ -230,8 +295,19 @@ pub inline fn getVersion() !Version {
     var major: c_int = undefined;
     var minor: c_int = undefined;
     var patch: c_int = undefined;
-    try af.AF_CHECK(af.af_get_version(&major, &minor, &patch), @src());
-    return .{ .major = major, .minor = minor, .patch = patch };
+    try af.AF_CHECK(
+        af.af_get_version(
+            &major,
+            &minor,
+            &patch,
+        ),
+        @src(),
+    );
+    return .{
+        .major = @intCast(major),
+        .minor = @intCast(minor),
+        .patch = @intCast(patch),
+    };
 }
 
 /// Get the revision (commit) information of the library.
@@ -242,10 +318,10 @@ pub inline fn getRevision() ![]const u8 {
     return std.mem.span(msg);
 }
 
-/// Get the size of the type represented by an `af.af_dtype` enum.
+/// Get the size of the type represented by the `af.Dtype` enum.
 pub inline fn getSizeOf(dtype: af.Dtype) !usize {
     var size: usize = undefined;
-    try af.AF_CHECK(af.af_get_size_of(&size, dtype.toAfDtype()), @src());
+    try af.AF_CHECK(af.af_get_size_of(&size, dtype.value()), @src());
     return size;
 }
 
@@ -279,7 +355,7 @@ pub inline fn setBackend(bknd: af.Backend) !void {
 /// Get the number of backends whose libraries were successfully loaded.
 /// This will be between 0-3. 0 being no backends were loaded and 3 being
 /// all backends loaded successfully.
-pub inline fn getBackendCount() !usize {
+pub inline fn getBackendCount() !u32 {
     var num_backends: c_int = undefined;
     try af.AF_CHECK(af.af_get_backend_count(&num_backends), @src());
     return @intCast(num_backends);
@@ -292,28 +368,11 @@ pub inline fn getAvailableBackends() i32 {
     return @intCast(backends);
 }
 
-/// Get's the backend enum for an `af.af_array`.
-///
-/// This will return one of the values from the `AfBackend` enum.
-/// The return value specifies which backend the `af.af_array` was created on.
-pub inline fn getBackendId(arr: *af.Array) !af.Backend {
-    var backend: af.Backend = undefined;
-    try af.AF_CHECK(af.af_get_backend_id(&backend, arr), @src());
-    return @enumFromInt(backend);
-}
-
 /// Returns the `AfBackend` enum for the active backend.
 pub inline fn getActiveBackend() !af.Backend {
     var backend: af.af_backend = undefined;
     try af.AF_CHECK(af.af_get_active_backend(&backend), @src());
     return @enumFromInt(backend);
-}
-
-/// Returns the id of the device an `af.af_array` was created on.
-pub inline fn getDeviceId(arr: *af.Array) !i32 {
-    var device: c_int = undefined;
-    try af.AF_CHECK(af.af_get_device_id(&device, arr.af_array), @src());
-    return @intCast(device);
 }
 
 /// Sets plan cache size.

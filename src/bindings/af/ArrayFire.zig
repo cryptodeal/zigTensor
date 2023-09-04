@@ -27,8 +27,10 @@ pub usingnamespace @import("Window.zig");
 /// directly into ArrayFire's C API from Zig.
 pub inline fn AF_CHECK(v: af.af_err, src: std.builtin.SourceLocation) !void {
     if (v != af.AF_SUCCESS) {
-        var err_string: [*c]const u8 = af.af_err_to_string(v);
-        std.debug.print("ArrayFire error: {s}:{d} - {s}\n", .{ src.file, src.line, std.mem.span(err_string) });
+        std.debug.print(
+            "ArrayFire error: {s}:{d} - {s}\n",
+            .{ src.file, src.line, ops.errToString(v) },
+        );
         return error.ArrayFireError;
     }
 }

@@ -14,17 +14,17 @@ pub inline fn deleteEvent(event: *af.Event) !void {
 }
 
 /// Marks the `af.Event` on the active computation stream.
-pub inline fn markEvent(event: *af.Event) !void {
+pub inline fn markEvent(event: *const af.Event) !void {
     try af.AF_CHECK(af.af_mark_event(event.event_), @src());
 }
 
 /// Enqueues the `af.Event` and all enqueued events on the active stream.
-pub inline fn enqueueWaitEvent(event: *af.Event) !void {
+pub inline fn enqueueWaitEvent(event: *const af.Event) !void {
     try af.AF_CHECK(af.af_enqueue_wait_event(event.event_), @src());
 }
 
 /// Blocks the calling thread on events until all events on the
 /// computation stream before mark was called are complete.
-pub inline fn blockEvent(event: *af.Event) !void {
+pub inline fn blockEvent(event: *const af.Event) !void {
     try af.AF_CHECK(af.af_block_event(event.event_), @src());
 }
