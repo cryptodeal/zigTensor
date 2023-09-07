@@ -4913,20 +4913,16 @@ pub inline fn sparseToDense(allocator: std.mem.Allocator, sparse: *const af.Arra
     return af.Array.init(allocator, arr);
 }
 
-/// Data structure to hold the results from calling
-/// `sparseGetInfo`.
-pub const SparseInfo = struct {
-    values: *af.Array,
-    rowIdx: *af.Array,
-    colIdx: *af.Array,
-    stype: af.Storage,
-};
-
 /// Returns reference to components of the input sparse `af.Array`.
 ///
 /// Returns reference to values, row indices, column indices and
 /// storage format of an input sparse `af.Array`.
-pub inline fn sparseGetInfo(allocator: std.mem.Allocator, in: *const af.Array) !SparseInfo {
+pub inline fn sparseGetInfo(allocator: std.mem.Allocator, in: *const af.Array) !struct {
+    values: *af.Array,
+    rowIdx: *af.Array,
+    colIdx: *af.Array,
+    stype: af.Storage,
+} {
     var values: af.af_array = undefined;
     var rowIdx: af.af_array = undefined;
     var colIdx: af.af_array = undefined;
@@ -5125,12 +5121,6 @@ pub inline fn varWeighted(
     return af.Array.init(allocator, arr);
 }
 
-/// Data structure holding the results from calling `meanVar`.
-pub const MeanVar = struct {
-    mean: *af.Array,
-    variance: *af.Array,
-};
-
 /// Returns the mean and variance of the input `af.Array` along the specified dimension.
 pub inline fn meanVar(
     allocator: std.mem.Allocator,
@@ -5138,7 +5128,10 @@ pub inline fn meanVar(
     weights: *const af.Array,
     bias: *const af.Array,
     dim: i64,
-) !*af.Array {
+) !struct {
+    mean: *af.Array,
+    variance: *af.Array,
+} {
     var mean_: af.af_array = undefined;
     var variance: af.af_array = undefined;
     try af.AF_CHECK(
@@ -5373,6 +5366,7 @@ pub inline fn stdevAll(in: *const af.Array) !ComplexParts {
 /// deviation of the entire input `af.Array`.
 ///
 /// Type of bias used for variance calculation is specified with
+/// `af.VarBias` enum.
 pub inline fn stdevAllV2(in: *const af.Array, bias: af.VarBias) !ComplexParts {
     var res = ComplexParts{};
     try af.AF_CHECK(
@@ -5404,7 +5398,7 @@ pub inline fn medianAll(in: *const af.Array) !ComplexParts {
 
 /// Returns both the real part and imaginary part of the correlation
 /// coefficient of the input `af.Array`s.
-pub inline fn corrcoef(X: *const af.Array, Y: *const af.Array) !ComplexParts {
+pub inline fn corrCoef(X: *const af.Array, Y: *const af.Array) !ComplexParts {
     var res = ComplexParts{};
     try af.AF_CHECK(
         af.af_corrcoef(
@@ -5544,7 +5538,7 @@ pub inline fn orb(
     };
 }
 
-/// Returns `FeatDesc` struct containing the following fields:
+/// Returns struct containing the following fields:
 /// - `feat`: `af.Features` composed of arrays for x and y coordinates,
 /// score, orientation and size of selected features.
 /// - `desc`: Nx128 `af.Array` containing extracted descriptors,
@@ -5583,7 +5577,7 @@ pub inline fn sift(
     };
 }
 
-/// Returns `FeatDesc` struct containing the following fields:
+/// Returns struct containing the following fields:
 /// - `feat`: `af.Features` composed of arrays for x and y coordinates,
 /// score, orientation and size of selected features.
 /// - `desc`: Nx272 `af.Array` containing extracted GLOH descriptors,

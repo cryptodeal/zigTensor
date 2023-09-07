@@ -236,6 +236,27 @@ pub const Array = struct {
         );
     }
 
+    /// Converts a dense `af.Array` into a sparse array.
+    pub fn createSpareArrayFromDense(allocator: std.mem.Allocator, dense: *const Self, stype: af.Storage) !*Self {
+        return af.ops.createSparseArrayFromDense(allocator, dense, stype);
+    }
+
+    /// Convert an existing sparse `af.Array` into a different storage format.
+    /// Converting storage formats is allowed between `af.Storage.CSR`, `af.Storage.COO`
+    /// and `af.Storage.Dense`.
+    ///
+    /// When converting to `af.Storage.Dense`, a dense array is returned.
+    ///
+    /// N.B. `af.Storage.CSC` is currently not supported.
+    pub fn sparseConvertTo(allocator: std.mem.Allocator, in: *const Self, destStorage: af.Storage) !*Self {
+        return af.ops.sparseConvertTo(allocator, in, destStorage);
+    }
+
+    /// Returns a dense `af.Array` from a sparse `af.Array`.
+    pub fn sparseToDense(allocator: std.mem.Allocator, sparse: *const Self) !*Self {
+        return af.ops.sparseToDense(allocator, sparse);
+    }
+
     /// Frees all associated memory;
     /// releases underlying `af.af_array`.
     pub fn deinit(self: *Self) void {
@@ -2576,5 +2597,492 @@ pub const Array = struct {
         edge_pad: af.BorderType,
     ) !*Self {
         return af.ops.medFilt2(allocator, self, wind_length, wind_width, edge_pad);
+    }
+
+    /// Returns reference to components of the input sparse `af.Array`.
+    ///
+    /// Returns reference to values, row indices, column indices and
+    /// storage format of an input sparse `af.Array`.
+    pub fn sparseGetInfo(self: *const Self, allocator: std.mem.Allocator) !struct {
+        values: *af.Array,
+        rowIdx: *af.Array,
+        colIdx: *af.Array,
+        stype: af.Storage,
+    } {
+        return af.ops.sparseGetInfo(allocator, self);
+    }
+
+    /// Returns reference to the values component of the sparse `af.Array`.
+    ///
+    /// Values is the `af.Array` containing the non-zero elements of the
+    /// dense matrix.
+    pub fn sparseGetValues(self: *const Self, allocator: std.mem.Allocator) !*Self {
+        return af.ops.sparseGetValues(allocator, self);
+    }
+
+    /// Returns reference to the row indices component of the sparse `af.Array`.
+    ///
+    /// Row indices is the `af.Array` containing the row indices of the sparse array.
+    pub fn sparseGetRowIdx(self: *const Self, allocator: std.mem.Allocator) !*Self {
+        return af.ops.sparseGetRowIdx(allocator, self);
+    }
+
+    /// Returns reference to the column indices component of the sparse `af.Array`.
+    ///
+    /// Column indices is the `af.Array` containing the column indices of the sparse array.
+    pub fn sparseGetColIdx(self: *const Self, allocator: std.mem.Allocator) !*Self {
+        return af.ops.sparseGetColIdx(allocator, self);
+    }
+
+    /// Returns the number of non zero elements in the sparse `af.Array`.
+    ///
+    /// This is always equal to the size of the values `af.Array`.
+    pub fn sparseGetNNZ(self: *const Self) !i64 {
+        return af.ops.sparseGetNNZ(self);
+    }
+
+    /// Returns the storage type of a sparse `af.Array`.
+    ///
+    /// The `af.Storage` type of the format of data storage
+    /// in the sparse `af.Array`.
+    pub fn sparseGetStorage(self: *const Self) !af.Storage {
+        return af.ops.sparseGetStorage(self);
+    }
+
+    /// Returns the mean of the input `af.Array` along the specified dimension.
+    pub fn mean(self: *const Self, allocator: std.mem.Allocator, dim: i64) !*Self {
+        return af.ops.mean(allocator, self, dim);
+    }
+
+    /// Returns the mean of the weighted input `af.Array` along the specified dimension.
+    pub fn meanWeighted(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        weights: *const Self,
+        dim: i64,
+    ) !*Self {
+        return af.ops.meanWeighted(allocator, self, weights, dim);
+    }
+
+    /// Returns the variance of the input `af.Array` along the specified dimension.
+    pub fn var_(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        isBiased: bool,
+        dim: i64,
+    ) !*Self {
+        return af.ops.var_(allocator, self, isBiased, dim);
+    }
+
+    /// Returns the variance of the input `af.Array` along the specified dimension.
+    /// Type of bias specified using `af.VarBias` enum.
+    pub fn varV2(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        bias: af.VarBias,
+        dim: i64,
+    ) !*Self {
+        return af.ops.varV2(allocator, self, bias, dim);
+    }
+
+    /// Returns the variance of the weighted input `af.Array` along the specified dimension.
+    pub fn varWeighted(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        weights: *const Self,
+        dim: i64,
+    ) !*Self {
+        return af.ops.varWeighted(allocator, self, weights, dim);
+    }
+
+    /// Returns the mean and variance of the input `af.Array` along the specified dimension.
+    pub fn meanVar(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        weights: *const Self,
+        bias: *const Self,
+        dim: i64,
+    ) !struct {
+        mean: *af.Array,
+        variance: *af.Array,
+    } {
+        return af.ops.meanVar(allocator, self, weights, bias, dim);
+    }
+
+    /// Returns the standard deviation of the input `af.Array` along the specified dimension.
+    pub fn stdev(self: *const Self, allocator: std.mem.Allocator, dim: i64) !*Self {
+        return af.ops.stdev(allocator, self, dim);
+    }
+
+    /// Returns the standard deviation of the input `af.Array` along the specified dimension.
+    /// Type of bias used for variance calculation is specified with `af.VarBias` enum.
+    pub fn stdevV2(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        bias: af.VarBias,
+        dim: i64,
+    ) !*Self {
+        return af.ops.stdevV2(allocator, self, bias, dim);
+    }
+
+    /// Returns the covariance of the input `af.Array`s along the specified dimension.
+    pub fn cov(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        Y: *const Self,
+        isBiased: bool,
+    ) !*Self {
+        return af.ops.cov(allocator, self, Y, isBiased);
+    }
+
+    /// Returns the covariance of the input `af.Array`s along the specified dimension.
+    /// Type of bias used for variance calculation is specified with `af.VarBias` enum.
+    pub fn covV2(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        Y: *const Self,
+        bias: af.VarBias,
+    ) !*Self {
+        return af.ops.covV2(allocator, self, Y, bias);
+    }
+
+    /// Returns the median of the input `af.Array` across the specified dimension.
+    pub fn median(self: *const Self, allocator: std.mem.Allocator, dim: i64) !*Self {
+        return af.ops.median(allocator, self, dim);
+    }
+
+    /// Returns both the real part and imaginary part of the mean
+    /// of the entire input `af.Array`.
+    pub fn meanAll(self: *const Self) !af.ops.ComplexParts {
+        return af.ops.meanAll(self);
+    }
+
+    /// Returns both the real part and imaginary part of the mean
+    /// of the entire weighted input `af.Array`.
+    pub fn meanAllWeighted(self: *const Self, weights: *const Self) !af.ops.ComplexParts {
+        return af.ops.meanAllWeighted(self, weights);
+    }
+
+    /// Returns both the real part and imaginary part of the variance
+    /// of the entire weighted input `af.Array`.
+    pub fn varAll(self: *const Self, isBiased: bool) !af.ops.ComplexParts {
+        return af.ops.varAll(self, isBiased);
+    }
+
+    /// Returns both the real part and imaginary part of the variance
+    /// of the entire weighted input `af.Array`.
+    ///
+    /// Type of bias used for variance calculation is specified with
+    /// `af.VarBias` enum.
+    pub fn varAllV2(self: *const Self, bias: af.VarBias) !af.ops.ComplexParts {
+        return af.ops.varAllV2(self, bias);
+    }
+
+    /// Returns both the real part and imaginary part of the variance
+    /// of the entire weighted input `af.Array`.
+    pub fn varAllWeighted(self: *const Self, weights: *const Self) !af.ops.ComplexParts {
+        return af.ops.varAllWeighted(self, weights);
+    }
+
+    /// Returns both the real part and imaginary part of the standard
+    /// deviation of the entire input `af.Array`.
+    pub fn stdevAll(self: *const Self) !af.ops.ComplexParts {
+        return af.ops.stdevAll(self);
+    }
+
+    /// Returns both the real part and imaginary part of the standard
+    /// deviation of the entire input `af.Array`.
+    ///
+    /// Type of bias used for variance calculation is specified with
+    /// `af.VarBias` enum.
+    pub fn stdevAllV2(self: *const Self, bias: af.VarBias) !af.ops.ComplexParts {
+        return af.ops.stdevAllV2(self, bias);
+    }
+
+    /// Returns both the real part and imaginary part of the median
+    /// of the entire input `af.Array`.
+    pub fn medianAll(self: *const Self) !af.ops.ComplexParts {
+        return af.ops.medianAll(self);
+    }
+
+    /// Returns both the real part and imaginary part of the correlation
+    /// coefficient of the input `af.Array`s.
+    pub fn corrCoef(self: *const Self, Y: *const Self) !af.ops.ComplexParts {
+        return af.ops.corrCoef(self, Y);
+    }
+
+    /// This function returns the top k values along a given dimension
+    /// of the input `af.Array`.
+    ///
+    /// The indices along with their values are returned. If the input is a
+    /// multi-dimensional `af.Array`, the indices will be the index of the
+    /// value in that dimension. Order of duplicate values are not preserved.
+    /// This function is optimized for small values of k.
+    ///
+    /// This function performs the operation across all dimensions of the input array.
+    pub fn topk(self: *const Self, allocator: std.mem.Allocator, k: i32, dim: i32, order: af.TopkFn) !struct {
+        values: *Self,
+        indices: *Self,
+    } {
+        return af.ops.topk(allocator, self, k, dim, order);
+    }
+
+    /// Returns `af.Features` struct containing arrays for x and y coordinates
+    /// and score, while array orientation is set to 0 as FAST does not compute
+    /// orientation, and size is set to 1 as FAST does not compute multiple scales.
+    pub fn fast(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        thr: f32,
+        arc_length: u32,
+        non_max: bool,
+        feature_ratio: f32,
+        edge: u32,
+    ) !*af.Features {
+        return af.ops.fast(
+            allocator,
+            self,
+            thr,
+            arc_length,
+            non_max,
+            feature_ratio,
+            edge,
+        );
+    }
+
+    /// Returns `af.Features` struct containing arrays for x and y coordinates
+    /// and score (Harris response), while arrays orientation and size are set
+    /// to 0 and 1, respectively, because Harris does not compute that information.
+    pub fn harris(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        max_corners: u32,
+        min_response: f32,
+        sigma: f32,
+        block_size: u32,
+        k_thr: f32,
+    ) !*af.Features {
+        return af.ops.harris(
+            allocator,
+            self,
+            max_corners,
+            min_response,
+            sigma,
+            block_size,
+            k_thr,
+        );
+    }
+
+    /// Returns struct containing the following fields:
+    /// - `feat`: `af.Features` composed of arrays for x and y coordinates,
+    /// score, orientation and size of selected features.
+    /// - `desc`: Nx8 `af.Array` containing extracted
+    /// descriptors, where N is the number of selected features.
+    pub fn orb(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        fast_thr: f32,
+        max_feat: u32,
+        scl_fctr: f32,
+        levels: u32,
+        blur_img: bool,
+    ) !struct {
+        feat: *af.Features,
+        desc: *Self,
+    } {
+        return af.ops.orb(
+            allocator,
+            self,
+            fast_thr,
+            max_feat,
+            scl_fctr,
+            levels,
+            blur_img,
+        );
+    }
+
+    /// Returns `FeatDesc` struct containing the following fields:
+    /// - `feat`: `af.Features` composed of arrays for x and y coordinates,
+    /// score, orientation and size of selected features.
+    /// - `desc`: Nx128 `af.Array` containing extracted descriptors,
+    /// where N is the number of features found by SIFT.
+    pub fn sift(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        n_layers: u32,
+        contrast_thr: f32,
+        edge_thr: f32,
+        init_sigma: f32,
+        double_input: bool,
+        intensity_scale: f32,
+        feature_ratio: f32,
+    ) !struct {
+        feat: *af.Features,
+        desc: *Self,
+    } {
+        return af.ops.sift(
+            allocator,
+            self,
+            n_layers,
+            contrast_thr,
+            edge_thr,
+            init_sigma,
+            double_input,
+            intensity_scale,
+            feature_ratio,
+        );
+    }
+
+    /// Returns struct containing the following fields:
+    /// - `feat`: `af.Features` composed of arrays for x and y coordinates,
+    /// score, orientation and size of selected features.
+    /// - `desc`: Nx272 `af.Array` containing extracted GLOH descriptors,
+    /// where N is the number of features found by SIFT.
+    pub fn gloh(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        n_layers: u32,
+        contrast_thr: f32,
+        edge_thr: f32,
+        init_sigma: f32,
+        double_input: bool,
+        intensity_scale: f32,
+        feature_ratio: f32,
+    ) !struct {
+        feat: *af.Features,
+        desc: *Self,
+    } {
+        return af.ops.gloh(
+            allocator,
+            self,
+            n_layers,
+            contrast_thr,
+            edge_thr,
+            init_sigma,
+            double_input,
+            intensity_scale,
+            feature_ratio,
+        );
+    }
+
+    /// Calculates Hamming distances between two 2-dimensional `af.Array`s containing
+    /// features, one of the `af.Array`s containing the training data and the other
+    /// the query data. One of the dimensions of the both `af.Array`s must be equal
+    /// among them, identifying the length of each feature. The other dimension
+    /// indicates the total number of features in each of the training and query
+    /// `af.Array`s. Two 1-dimensional `af.Array`s are created as results, one containg
+    /// the smallest N distances of the query `af.Array` and another containing the indices
+    /// of these distances in the training `af.Array`s. The resulting 1-dimensional `af.Array`s
+    /// have length equal to the number of features contained in the query `af.Array`.
+    ///
+    /// Returns struct containing the fields:
+    /// - `idx`: `af.Array` of MxN size, where M is equal to the number
+    /// of query features and N is equal to n_dist. The value at position
+    /// IxJ indicates the index of the Jth smallest distance to the Ith
+    /// query value in the train data array. the index of the Ith smallest
+    /// distance of the Mth query.
+    /// - `dist`: `af.Array` of MxN size, where M is equal to the number
+    /// of query features and N is equal to n_dist. The value at position
+    /// IxJ indicates the Hamming distance of the Jth smallest distance
+    /// to the Ith query value in the train data `af.Array`.
+    pub fn hammingMatcher(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        train: *const Self,
+        dist_dim: i64,
+        n_dist: u32,
+    ) !struct {
+        idx: *Self,
+        dist: *Self,
+    } {
+        return af.ops.hammingMatcher(
+            allocator,
+            self,
+            train,
+            dist_dim,
+            n_dist,
+        );
+    }
+
+    /// Determines the nearest neighbouring points to a given set of points.
+    ///
+    /// Returns struct containing the fields:
+    /// - `idx`: `af.Array` of M×N size, where M is n_dist and N is the
+    /// number of queries. The value at position i,j is the index of the point
+    /// in train along dim1 (if dist_dim is 0) or along dim 0 (if dist_dim is 1),
+    /// with the ith smallest distance to the jth query point.
+    /// - `dist`: `af.Array` of M×N size, where M is n_dist and N is the number
+    /// of queries. The value at position i,j is the distance from the jth query
+    /// point to the point in train referred to by idx( i,j). This distance is
+    /// computed according to the dist_type chosen.
+    pub fn nearestNeighbor(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        train: *const Self,
+        dist_dim: i64,
+        n_dist: u32,
+        dist_type: af.MatchType,
+    ) !struct {
+        idx: *Self,
+        dist: *Self,
+    } {
+        return af.ops.nearestNeighbor(
+            allocator,
+            self,
+            train,
+            dist_dim,
+            n_dist,
+            dist_type,
+        );
+    }
+
+    /// Template matching is an image processing technique to find small patches
+    /// of an image which match a given template image. A more in depth discussion
+    /// on the topic can be found [here](https://en.wikipedia.org/wiki/Template_matching).
+    ///
+    /// Returns an `af.Array` containing disparity values for the window starting at
+    /// corresponding pixel position.
+    pub fn matchTemplate(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        template_img: *const Self,
+        m_type: af.MatchType,
+    ) !*Self {
+        return af.ops.matchTemplate(allocator, self, template_img, m_type);
+    }
+
+    /// SUSAN corner detector.
+    ///
+    /// Returns `af.Features` struct composed of `af.Array`s for x and y coordinates,
+    /// score, orientation and size of selected features.
+    pub fn susan(
+        self: *const Self,
+        allocator: std.mem.Allocator,
+        radius: u32,
+        diff_thr: f32,
+        geom_thr: f32,
+        feature_ratio: f32,
+        edge: u32,
+    ) !*af.Features {
+        return af.ops.susan(
+            allocator,
+            self,
+            radius,
+            diff_thr,
+            geom_thr,
+            feature_ratio,
+            edge,
+        );
+    }
+
+    /// Difference of Gaussians.
+    ///
+    /// Given an image, this function computes two different versions
+    /// of smoothed input image using the difference smoothing parameters
+    /// and subtracts one from the other and returns the result.
+    ///
+    /// Returns an `af.Array` containing the calculated difference of smoothed inputs.
+    pub fn dog(self: *const Self, allocator: std.mem.Allocator, radius1: i32, radius2: i32) !*Self {
+        return af.ops.dog(allocator, self, radius1, radius2);
     }
 };
