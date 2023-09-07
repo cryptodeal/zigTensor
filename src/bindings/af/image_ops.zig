@@ -72,13 +72,11 @@ pub inline fn deleteImageMem(ptr: ?*anyopaque) !void {
 /// This load image function allows you to load images as
 /// u8, u16 or f32 depending on the type of input image
 /// as shown by the table below:
+///
 /// ------------------------------------------------------------------------
 /// | Bits per Color (Gray/RGB/RGBA Bits Per Pixel) | Array Type | Range   |
-/// ------------------------------------------------------------------------
 /// | 8 ( 8/24/32 BPP)                              | u8         | 0-255   |
-/// ------------------------------------------------------------------------
 /// | 16 (16/48/64 BPP)                             | u16        | 0-65535 |
-/// ------------------------------------------------------------------------
 /// | 32 (32/96/128 BPP)                            | f32        | 0-1     |
 /// ------------------------------------------------------------------------
 pub inline fn loadImageNative(allocator: std.mem.Allocator, filename: []const u8) !*af.Array {
@@ -97,15 +95,12 @@ pub inline fn loadImageNative(allocator: std.mem.Allocator, filename: []const u8
 /// The best option for 32 bit images is TIFF. These allow lossless storage.
 ///
 /// The images stored have the following properties:
+///
 /// ------------------------------------------------------------------------
 /// | Array Type | Bits per Color (Gray/RGB/RGBA Bits Per Pixel) | Range   |
-/// ------------------------------------------------------------------------
 /// | u8         | 8 ( 8/24/32 BPP)                              | 0-255   |
-/// ------------------------------------------------------------------------
 /// | u16        | 16 (16/48/64 BPP)                             | 0-65535 |
-/// ------------------------------------------------------------------------
-/// | f32        | 32 (32/96/128 BPP)                            | f32     |
-/// ------------------------------------------------------------------------
+/// | f32        | 32 (32/96/128 BPP)                            | 0-1     |
 pub inline fn saveImageNative(filename: []const u8, in: *const af.Array) !void {
     try af.AF_CHECK(
         af.af_save_image_native(
@@ -168,10 +163,13 @@ pub inline fn resize(
 ///
 /// The operation is as below:
 /// tf = [r00 r10
+///
 /// r01 r11
+///
 /// t0 t1]
 ///
 /// x' = x * r00 + y * r01 + t0;
+///
 /// y' = x * r10 + y * r11 + t1;
 ///
 /// If matrix tf is is a 3x3 matrix, a perspective transformation will be performed.
@@ -179,10 +177,13 @@ pub inline fn resize(
 /// The operation is as below.
 ///
 /// tf = [r00 r10 r20
+///
 /// r01 r11 r21
+///
 /// t0 t1 t2]
 ///
 /// x' = (x * r00 + y * r01 + t0) / (x * r20 + y * r21 + t2);
+///
 /// y' = (x * r10 + y * r11 + t1) / (x * r20 + y * r21 + t2);
 ///
 /// The transformation matrix tf should always be of type f32.
@@ -866,15 +867,12 @@ pub inline fn rgb2Hsv(allocator: std.mem.Allocator, in: *const af.Array) !*af.Ar
 /// between zero & one is a gray value.
 ///
 /// Supported conversions:
+///
 /// -----------------
 /// | From  | To    |
-/// -----------------
 /// | .RGB  | .Gray |
-/// -----------------
 /// | .Gray | .RGB  |
-/// -----------------
 /// | .RGB  | .HSV  |
-/// -----------------
 /// | .HSV  | .RGB  |
 /// -----------------
 pub inline fn colorSpace(

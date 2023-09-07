@@ -684,7 +684,7 @@ pub inline fn iminAll(in: *const af.Array) !struct { real: f64, imag: f64, idx: 
     return res;
 }
 
-/// Returns minimum value and its location from the entire array.
+/// Returns maximum value and its location from the entire array.
 pub inline fn imaxAll(in: *const af.Array) !struct { real: f64, imag: f64, idx: u32 } {
     var res: struct { real: f64, imag: f64, idx: i32 } = .{
         .real = undefined,
@@ -1247,7 +1247,7 @@ pub inline fn or_(
     return af.Array.init(allocator, arr);
 }
 
-/// Evaluate the logical NOT of two `af.Array`s.
+/// Evaluate the logical NOT of the input `af.Array`.
 ///
 /// Returns ptr to the resulting `af.Array`.
 pub inline fn not(allocator: std.mem.Allocator, in: *const af.Array) !*af.Array {
@@ -2257,7 +2257,7 @@ pub inline fn isNan(allocator: std.mem.Allocator, in: *const af.Array) !*af.Arra
 pub inline fn deviceArray(
     allocator: std.mem.Allocator,
     data: ?*anyopaque,
-    ndims: usize,
+    ndims: u32,
     dims: af.Dims4,
     dtype: af.Dtype,
 ) !*af.Array {
@@ -2855,7 +2855,7 @@ pub inline fn getScalar(comptime T: type, arr: *const af.Array) !T {
 
 /// Get's the backend enum for an `af.Array`.
 ///
-/// This will return one of the values from the `AfBackend` enum.
+/// This will return one of the values from the `af.Backend` enum.
 /// The return value specifies which backend the `af.Array` was created on.
 pub inline fn getBackendId(arr: *const af.Array) !af.Backend {
     var backend: af.af_backend = undefined;
@@ -2919,13 +2919,13 @@ pub inline fn gemm(
 /// N.B. The following applies for Sparse-Dense matrix multiplication.
 /// This function can be used with one sparse input. The sparse input
 /// must always be the lhs and the dense matrix must be rhs. The sparse
-/// array can only be of AF_STORAGE_CSR format. The returned array is
-/// always dense. optLhs an only be one of `AFMatProp.None`, `AFMatProp.Trans`,
-/// `AFMatProp.CTrans`. optRhs can only be AF_MAT_NONE.
+/// array can only be of `af.Storage.CSR` format. The returned array is
+/// always dense. optLhs can only be one of `af.MatProp.None`, `af.MatProp.Trans`,
+/// `af.MatProp.CTrans`. optRhs can only be `af.MatProp.None`.
 pub inline fn matmul(
     allocator: std.mem.Allocator,
-    lhs: *af.Array,
-    rhs: *af.Array,
+    lhs: *const af.Array,
+    rhs: *const af.Array,
     optLhs: af.MatProp,
     optRhs: af.MatProp,
 ) !*af.Array {
@@ -2948,8 +2948,8 @@ pub inline fn matmul(
 /// Also referred to as the inner product.
 pub inline fn dot(
     allocator: std.mem.Allocator,
-    lhs: *af.Array,
-    rhs: *af.Array,
+    lhs: *const af.Array,
+    rhs: *const af.Array,
     optLhs: af.MatProp,
     optRhs: af.MatProp,
 ) !*af.Array {
@@ -3068,7 +3068,7 @@ pub inline fn constantComplex(
 /// Create an `af.Array` of type s64 from a scalar input value.
 ///
 /// The `af.Array` created has the same value at all locations.
-pub inline fn constantLong(
+pub inline fn constantI64(
     allocator: std.mem.Allocator,
     val: i64,
     ndims: u32,
@@ -3090,7 +3090,7 @@ pub inline fn constantLong(
 /// Create an `af.Array` of type u64 from a scalar input value.
 ///
 /// The `af.Array` created has the same value at all locations.
-pub inline fn constantUlong(
+pub inline fn constantU64(
     allocator: std.mem.Allocator,
     val: u64,
     ndims: u32,
@@ -3330,7 +3330,7 @@ pub inline fn shift(
 
 /// Modifies the dimensions of an input `af.Array` to the shape specified
 /// by an array of ndims dimensions.
-pub inline fn moddims(
+pub inline fn modDims(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     ndims: u32,
@@ -3862,12 +3862,12 @@ pub inline fn norm(in: *const af.Array, norm_type: af.NormType, p: f64, q: f64) 
 /// for the dimensions of the signals and filters.
 pub inline fn convolve2GradientNN(
     allocator: std.mem.Allocator,
-    incoming_gradient: *af.Array,
-    original_signal: *af.Array,
-    original_filter: *af.Array,
-    convolved_output: *af.Array,
+    incoming_gradient: *const af.Array,
+    original_signal: *const af.Array,
+    original_filter: *const af.Array,
+    convolved_output: *const af.Array,
     stride_dims: u32,
-    strides: *af.Dims4,
+    strides: af.Dims4,
     padding_dims: u32,
     paddings: af.Dims4,
     dilation_dims: u32,
@@ -3897,7 +3897,13 @@ pub inline fn convolve2GradientNN(
 
 /// Returns pointer to an `af.Array` of uniform numbers
 /// using a random engine.
-pub inline fn randomUniform(allocator: std.mem.Allocator, ndims: usize, dims: af.Dims4, dtype: af.Dtype, engine: *af.RandomEngine) !*af.Array {
+pub inline fn randomUniform(
+    allocator: std.mem.Allocator,
+    ndims: u32,
+    dims: af.Dims4,
+    dtype: af.Dtype,
+    engine: *af.RandomEngine,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_random_uniform(
@@ -3914,7 +3920,13 @@ pub inline fn randomUniform(allocator: std.mem.Allocator, ndims: usize, dims: af
 
 /// Returns pointer to an `af.Array` of normal numbers
 /// using a random engine.
-pub inline fn randomNormal(allocator: std.mem.Allocator, ndims: usize, dims: af.Dims4, dtype: af.Dtype, engine: *af.RandomEngine) !*af.Array {
+pub inline fn randomNormal(
+    allocator: std.mem.Allocator,
+    ndims: u32,
+    dims: af.Dims4,
+    dtype: af.Dtype,
+    engine: *af.RandomEngine,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_random_normal(
@@ -3930,7 +3942,12 @@ pub inline fn randomNormal(allocator: std.mem.Allocator, ndims: usize, dims: af.
 }
 
 /// Returns an `af.Array` of uniform numbers using a random engine.
-pub inline fn randu(allocator: std.mem.Allocator, ndims: usize, dims: af.Dims4, dtype: af.Dtype) !*af.Array {
+pub inline fn randu(
+    allocator: std.mem.Allocator,
+    ndims: u32,
+    dims: af.Dims4,
+    dtype: af.Dtype,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_randu(
@@ -3945,7 +3962,12 @@ pub inline fn randu(allocator: std.mem.Allocator, ndims: usize, dims: af.Dims4, 
 }
 
 /// Returns an `af.Array` of normal numbers using a random engine.
-pub inline fn randn(allocator: std.mem.Allocator, ndims: usize, dims: af.Dims4, dtype: af.Dtype) !*af.Array {
+pub inline fn randn(
+    allocator: std.mem.Allocator,
+    ndims: u32,
+    dims: af.Dims4,
+    dtype: af.Dtype,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_randn(
@@ -3961,7 +3983,13 @@ pub inline fn randn(allocator: std.mem.Allocator, ndims: usize, dims: af.Dims4, 
 
 /// Signals interpolation on one dimensional signals.
 /// Returns the result as a new `af.Array`.
-pub inline fn approx1(allocator: std.mem.Allocator, in: *const af.Array, pos: *const af.Array, method: af.InterpType, off_grid: f32) !*af.Array {
+pub inline fn approx1(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    pos: *const af.Array,
+    method: af.InterpType,
+    off_grid: f32,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_approx1(
@@ -3978,7 +4006,13 @@ pub inline fn approx1(allocator: std.mem.Allocator, in: *const af.Array, pos: *c
 
 /// Signals interpolation on one dimensional signals; accepts
 /// a pre-allocated array, `out`, where results are written.
-pub inline fn approx1V2(out: *af.Array, in: *const af.Array, pos: *const af.Array, method: af.InterpType, off_grid: f32) !void {
+pub inline fn approx1V2(
+    out: *af.Array,
+    in: *const af.Array,
+    pos: *const af.Array,
+    method: af.InterpType,
+    off_grid: f32,
+) !void {
     try af.AF_CHECK(
         af.af_approx1_v2(
             &out.array_,
@@ -4181,7 +4215,12 @@ pub inline fn approx2UniformV2(
 }
 
 /// Fast fourier transform on one dimensional signals.
-pub inline fn fft(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, odim0: i64) !*af.Array {
+pub inline fn fft(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    norm_factor: f64,
+    odim0: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_fft(
@@ -4275,7 +4314,12 @@ pub inline fn fft3Inplace(in: *af.Array, norm_factor: f64) !void {
 }
 
 /// Inverse fast fourier transform on one dimensional signals.
-pub inline fn ifft(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, odim0: i64) !*af.Array {
+pub inline fn ifft(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    norm_factor: f64,
+    odim0: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_ifft(
@@ -4301,7 +4345,13 @@ pub inline fn ifftInplace(in: *af.Array, norm_factor: f64) !void {
 }
 
 /// Inverse fast fourier transform on two dimensional signals.
-pub inline fn ifft2(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, odim0: i64, odim1: i64) !*af.Array {
+pub inline fn ifft2(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    norm_factor: f64,
+    odim0: i64,
+    odim1: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_ifft2(
@@ -4363,7 +4413,12 @@ pub inline fn ifft3Inplace(in: *af.Array, norm_factor: f64) !void {
 }
 
 /// Real to complex fast fourier transform for one dimensional signals.
-pub inline fn fftR2C(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, pad0: i64) !*af.Array {
+pub inline fn fftR2C(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    norm_factor: f64,
+    pad0: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_fft_r2c(
@@ -4377,8 +4432,14 @@ pub inline fn fftR2C(allocator: std.mem.Allocator, in: *const af.Array, norm_fac
     return af.Array.init(allocator, arr);
 }
 
-/// Real to complex fast fourier transform for one dimensional signals.
-pub inline fn fft2R2C(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, pad0: i64, pad1: i64) !*af.Array {
+/// Real to complex fast fourier transform for two dimensional signals.
+pub inline fn fft2R2C(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    norm_factor: f64,
+    pad0: i64,
+    pad1: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_fft2_r2c(
@@ -4394,7 +4455,14 @@ pub inline fn fft2R2C(allocator: std.mem.Allocator, in: *const af.Array, norm_fa
 }
 
 /// Real to complex fast fourier transform for three dimensional signals.
-pub inline fn fft3R2C(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, pad0: i64, pad1: i64, pad2: i64) !*af.Array {
+pub inline fn fft3R2C(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    norm_factor: f64,
+    pad0: i64,
+    pad1: i64,
+    pad2: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_fft3_r2c(
@@ -4411,7 +4479,12 @@ pub inline fn fft3R2C(allocator: std.mem.Allocator, in: *const af.Array, norm_fa
 }
 
 /// Complex to real fast fourier transform for one dimensional signals.
-pub inline fn fftC2R(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, is_odd: bool) !*af.Array {
+pub inline fn fftC2R(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    norm_factor: f64,
+    is_odd: bool,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_fft_c2r(
@@ -4426,7 +4499,12 @@ pub inline fn fftC2R(allocator: std.mem.Allocator, in: *const af.Array, norm_fac
 }
 
 /// Complex to real fast fourier transform for two dimensional signals.
-pub inline fn fft2C2R(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, is_odd: bool) !*af.Array {
+pub inline fn fft2C2R(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    norm_factor: f64,
+    is_odd: bool,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_fft2_c2r(
@@ -4441,7 +4519,12 @@ pub inline fn fft2C2R(allocator: std.mem.Allocator, in: *const af.Array, norm_fa
 }
 
 /// Complex to real fast fourier transform for three dimensional signals.
-pub inline fn fft3C2R(allocator: std.mem.Allocator, in: *const af.Array, norm_factor: f64, is_odd: bool) !*af.Array {
+pub inline fn fft3C2R(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    norm_factor: f64,
+    is_odd: bool,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_fft2_c2r(
@@ -4456,7 +4539,13 @@ pub inline fn fft3C2R(allocator: std.mem.Allocator, in: *const af.Array, norm_fa
 }
 
 /// Convolution on one dimensional signals.
-pub inline fn convolve1(allocator: std.mem.Allocator, signal: *const af.Array, filter: *af.Array, mode: af.ConvMode, domain: af.ConvDomain) !*af.Array {
+pub inline fn convolve1(
+    allocator: std.mem.Allocator,
+    signal: *const af.Array,
+    filter: *const af.Array,
+    mode: af.ConvMode,
+    domain: af.ConvDomain,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_convolve1(
@@ -4472,7 +4561,13 @@ pub inline fn convolve1(allocator: std.mem.Allocator, signal: *const af.Array, f
 }
 
 /// Convolution on two dimensional signals.
-pub inline fn convolve2(allocator: std.mem.Allocator, signal: *const af.Array, filter: *af.Array, mode: af.ConvMode, domain: af.ConvDomain) !*af.Array {
+pub inline fn convolve2(
+    allocator: std.mem.Allocator,
+    signal: *const af.Array,
+    filter: *const af.Array,
+    mode: af.ConvMode,
+    domain: af.ConvDomain,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_convolve2(
@@ -4487,10 +4582,56 @@ pub inline fn convolve2(allocator: std.mem.Allocator, signal: *const af.Array, f
     return af.Array.init(allocator, arr);
 }
 
-// TODO: pub inline fn convolve2NN()
+/// 2D convolution.
+///
+/// This version of convolution is consistent with the
+/// machine learning formulation that will spatially convolve
+/// a filter on 2-dimensions against a signal. Multiple signals
+/// and filters can be batched against each other. Furthermore,
+/// the signals and filters can be multi-dimensional however
+/// their dimensions must match.
+///
+/// Example: Signals with dimensions: d0 x d1 x d2 x Ns
+/// Filters with dimensions: d0 x d1 x d2 x Nf
+///
+/// Resulting Convolution: d0 x d1 x Nf x Ns
+pub inline fn convolve2NN(
+    allocator: std.mem.Allocator,
+    signal: *const af.Array,
+    filter: *const af.Array,
+    stride_dims: u32,
+    strides: af.Dims4,
+    padding_dims: u32,
+    paddings: af.Dims4,
+    dilation_dims: u32,
+    dilations: af.Dims4,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_convolve2_nn(
+            &arr,
+            signal.array_,
+            filter.array_,
+            @intCast(stride_dims),
+            &strides.dims,
+            @intCast(padding_dims),
+            &paddings.dims,
+            @intCast(dilation_dims),
+            &dilations.dims,
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
 
 /// Convolution on three dimensional signals.
-pub inline fn convolve3(allocator: std.mem.Allocator, signal: *const af.Array, filter: *af.Array, mode: af.ConvMode, domain: af.ConvDomain) !*af.Array {
+pub inline fn convolve3(
+    allocator: std.mem.Allocator,
+    signal: *const af.Array,
+    filter: *const af.Array,
+    mode: af.ConvMode,
+    domain: af.ConvDomain,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_convolve3(
@@ -4506,7 +4647,13 @@ pub inline fn convolve3(allocator: std.mem.Allocator, signal: *const af.Array, f
 }
 
 /// Separable convolution on two dimensional signals.
-pub inline fn convolve2Sep(allocator: std.mem.Allocator, col_filter: *const af.Array, row_filter: *const af.Array, signal: *const af.Array, mode: af.ConvMode) !*af.Array {
+pub inline fn convolve2Sep(
+    allocator: std.mem.Allocator,
+    col_filter: *const af.Array,
+    row_filter: *const af.Array,
+    signal: *const af.Array,
+    mode: af.ConvMode,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_convolve2_sep(
@@ -4522,7 +4669,12 @@ pub inline fn convolve2Sep(allocator: std.mem.Allocator, col_filter: *const af.A
 }
 
 /// Convolution on 1D signals using FFT.
-pub inline fn fftConvolve1(allocator: std.mem.Allocator, signal: *const af.Array, filter: *const af.Array, mode: af.ConvMode) !*af.Array {
+pub inline fn fftConvolve1(
+    allocator: std.mem.Allocator,
+    signal: *const af.Array,
+    filter: *const af.Array,
+    mode: af.ConvMode,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_fft_convolve1(
@@ -4537,7 +4689,12 @@ pub inline fn fftConvolve1(allocator: std.mem.Allocator, signal: *const af.Array
 }
 
 /// Convolution on 2D signals using FFT.
-pub inline fn fftConvolve2(allocator: std.mem.Allocator, signal: *const af.Array, filter: *const af.Array, mode: af.ConvMode) !*af.Array {
+pub inline fn fftConvolve2(
+    allocator: std.mem.Allocator,
+    signal: *const af.Array,
+    filter: *const af.Array,
+    mode: af.ConvMode,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_fft_convolve2(
@@ -4552,7 +4709,12 @@ pub inline fn fftConvolve2(allocator: std.mem.Allocator, signal: *const af.Array
 }
 
 /// Convolution on 3D signals using FFT.
-pub inline fn fftConvolve3(allocator: std.mem.Allocator, signal: *const af.Array, filter: *const af.Array, mode: af.ConvMode) !*af.Array {
+pub inline fn fftConvolve3(
+    allocator: std.mem.Allocator,
+    signal: *const af.Array,
+    filter: *const af.Array,
+    mode: af.ConvMode,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_fft_convolve3(
@@ -4567,7 +4729,11 @@ pub inline fn fftConvolve3(allocator: std.mem.Allocator, signal: *const af.Array
 }
 
 /// Finite impulse response filter.
-pub inline fn fir(allocator: std.mem.Allocator, b: *const af.Array, x: *const af.Array) !*af.Array {
+pub inline fn fir(
+    allocator: std.mem.Allocator,
+    b: *const af.Array,
+    x: *const af.Array,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_fir(
@@ -4581,7 +4747,12 @@ pub inline fn fir(allocator: std.mem.Allocator, b: *const af.Array, x: *const af
 }
 
 /// Infinite impulse response filter.
-pub inline fn iir(allocator: std.mem.Allocator, b: *const af.Array, a: *const af.Array, x: *const af.Array) !*af.Array {
+pub inline fn iir(
+    allocator: std.mem.Allocator,
+    b: *const af.Array,
+    a: *const af.Array,
+    x: *const af.Array,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_iir(
@@ -4596,10 +4767,16 @@ pub inline fn iir(allocator: std.mem.Allocator, b: *const af.Array, a: *const af
 }
 
 /// Median filter.
-pub inline fn medfilt(allocator: std.mem.Allocator, in: *const af.Array, wind_length: i64, wind_width: i64, edge_pad: af.BorderType) !*af.Array {
+pub inline fn medfilt(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    wind_length: i64,
+    wind_width: i64,
+    edge_pad: af.BorderType,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
-        af.af_medfilt(
+        af.af_medFilt(
             &arr,
             in.array_,
             @intCast(wind_length),
@@ -4612,7 +4789,12 @@ pub inline fn medfilt(allocator: std.mem.Allocator, in: *const af.Array, wind_le
 }
 
 /// 1D median filter.
-pub inline fn medfilt1(allocator: std.mem.Allocator, in: *const af.Array, wind_width: i64, edge_pad: af.BorderType) !*af.Array {
+pub inline fn medFilt1(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    wind_width: i64,
+    edge_pad: af.BorderType,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_medfilt1(
@@ -4627,7 +4809,13 @@ pub inline fn medfilt1(allocator: std.mem.Allocator, in: *const af.Array, wind_w
 }
 
 /// 2D median filter.
-pub inline fn medfilt2(allocator: std.mem.Allocator, in: *const af.Array, wind_length: i64, wind_width: i64, edge_pad: af.BorderType) !*af.Array {
+pub inline fn medFilt2(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    wind_length: i64,
+    wind_width: i64,
+    edge_pad: af.BorderType,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_medfilt2(
@@ -4643,7 +4831,15 @@ pub inline fn medfilt2(allocator: std.mem.Allocator, in: *const af.Array, wind_l
 }
 
 /// Converts `af.Array` of values, row indices and column indices into a sparse array.
-pub inline fn createSparseArray(allocator: std.mem.Allocator, nRows: i64, nCols: i64, values: *const af.Array, rowIdx: *const af.Array, colIdx: *const af.Array, stype: af.Storage) !*af.Array {
+pub inline fn createSparseArray(
+    allocator: std.mem.Allocator,
+    nRows: i64,
+    nCols: i64,
+    values: *const af.Array,
+    rowIdx: *const af.Array,
+    colIdx: *const af.Array,
+    stype: af.Storage,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_create_sparse_array(
@@ -4663,7 +4859,11 @@ pub inline fn createSparseArray(allocator: std.mem.Allocator, nRows: i64, nCols:
 // TODO: pub inline fn createSparseArrayFromPtr()
 
 /// Converts a dense `af.Array` into a sparse array.
-pub inline fn createSparseArrayFromDense(allocator: std.mem.Allocator, dense: *const af.Array, stype: af.Storage) !*af.Array {
+pub inline fn createSparseArrayFromDense(
+    allocator: std.mem.Allocator,
+    dense: *const af.Array,
+    stype: af.Storage,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_create_sparse_array_from_dense(
@@ -4683,7 +4883,11 @@ pub inline fn createSparseArrayFromDense(allocator: std.mem.Allocator, dense: *c
 /// When converting to `af.Storage.Dense`, a dense array is returned.
 ///
 /// N.B. `af.Storage.CSC` is currently not supported.
-pub inline fn sparseConvertTo(allocator: std.mem.Allocator, in: *const af.Array, destStorage: af.Storage) !*af.Array {
+pub inline fn sparseConvertTo(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    destStorage: af.Storage,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_sparse_convert_to(
@@ -4823,7 +5027,11 @@ pub inline fn sparseGetStorage(in: *const af.Array) !af.Storage {
 }
 
 /// Returns the mean of the input `af.Array` along the specified dimension.
-pub inline fn mean(allocator: std.mem.Allocator, in: *const af.Array, dim: i64) !*af.Array {
+pub inline fn mean(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    dim: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_mean(
@@ -4837,7 +5045,12 @@ pub inline fn mean(allocator: std.mem.Allocator, in: *const af.Array, dim: i64) 
 }
 
 /// Returns the mean of the weighted input `af.Array` along the specified dimension.
-pub inline fn meanWeighted(allocator: std.mem.Allocator, in: *const af.Array, weights: *const af.Array, dim: i64) !*af.Array {
+pub inline fn meanWeighted(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    weights: *const af.Array,
+    dim: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_mean_weighted(
@@ -4852,7 +5065,12 @@ pub inline fn meanWeighted(allocator: std.mem.Allocator, in: *const af.Array, we
 }
 
 /// Returns the variance of the input `af.Array` along the specified dimension.
-pub inline fn var_(allocator: std.mem.Allocator, in: *const af.Array, isBiased: bool, dim: i64) !*af.Array {
+pub inline fn var_(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    isBiased: bool,
+    dim: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_var(
@@ -4868,7 +5086,12 @@ pub inline fn var_(allocator: std.mem.Allocator, in: *const af.Array, isBiased: 
 
 /// Returns the variance of the input `af.Array` along the specified dimension.
 /// Type of bias specified using `af.VarBias` enum.
-pub inline fn varV2(allocator: std.mem.Allocator, in: *const af.Array, bias: af.VarBias, dim: i64) !*af.Array {
+pub inline fn varV2(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    bias: af.VarBias,
+    dim: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_var_v2(
@@ -4883,7 +5106,12 @@ pub inline fn varV2(allocator: std.mem.Allocator, in: *const af.Array, bias: af.
 }
 
 /// Returns the vairance of the weighted input `af.Array` along the specified dimension.
-pub inline fn varWeighted(allocator: std.mem.Allocator, in: *const af.Array, weights: *const af.Array, dim: i64) !*af.Array {
+pub inline fn varWeighted(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    weights: *const af.Array,
+    dim: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_var_weighted(
@@ -4904,7 +5132,13 @@ pub const MeanVar = struct {
 };
 
 /// Returns the mean and variance of the input `af.Array` along the specified dimension.
-pub inline fn meanVar(allocator: std.mem.Allocator, in: *const af.Array, weights: *const af.Array, bias: *const af.Array, dim: i64) !*af.Array {
+pub inline fn meanVar(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    weights: *const af.Array,
+    bias: *const af.Array,
+    dim: i64,
+) !*af.Array {
     var mean_: af.af_array = undefined;
     var variance: af.af_array = undefined;
     try af.AF_CHECK(
@@ -4925,7 +5159,11 @@ pub inline fn meanVar(allocator: std.mem.Allocator, in: *const af.Array, weights
 }
 
 /// Returns the standard deviation of the input `af.Array` along the specified dimension.
-pub inline fn stdev(allocator: std.mem.Allocator, in: *const af.Array, dim: i64) !*af.Array {
+pub inline fn stdev(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    dim: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_stdev(
@@ -4940,7 +5178,12 @@ pub inline fn stdev(allocator: std.mem.Allocator, in: *const af.Array, dim: i64)
 
 /// Returns the standard deviation of the input `af.Array` along the specified dimension.
 /// Type of bias used for variance calculation is specified with `af.VarBias` enum.
-pub inline fn stdevV2(allocator: std.mem.Allocator, in: *const af.Array, bias: af.VarBias, dim: i64) !*af.Array {
+pub inline fn stdevV2(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    bias: af.VarBias,
+    dim: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_stdev_v2(
@@ -4955,7 +5198,12 @@ pub inline fn stdevV2(allocator: std.mem.Allocator, in: *const af.Array, bias: a
 }
 
 /// Returns the covariance of the input `af.Array`s along the specified dimension.
-pub inline fn cov(allocator: std.mem.Allocator, X: *const af.Array, Y: *const af.Array, isBiased: bool) !*af.Array {
+pub inline fn cov(
+    allocator: std.mem.Allocator,
+    X: *const af.Array,
+    Y: *const af.Array,
+    isBiased: bool,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_cov(
@@ -4971,7 +5219,12 @@ pub inline fn cov(allocator: std.mem.Allocator, X: *const af.Array, Y: *const af
 
 /// Returns the covariance of the input `af.Array`s along the specified dimension.
 /// Type of bias used for variance calculation is specified with `af.VarBias` enum.
-pub inline fn covV2(allocator: std.mem.Allocator, X: *const af.Array, Y: *const af.Array, bias: af.VarBias) !*af.Array {
+pub inline fn covV2(
+    allocator: std.mem.Allocator,
+    X: *const af.Array,
+    Y: *const af.Array,
+    bias: af.VarBias,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_cov_v2(
@@ -4986,7 +5239,11 @@ pub inline fn covV2(allocator: std.mem.Allocator, X: *const af.Array, Y: *const 
 }
 
 /// Returns the median of the input `af.Array` across the specified dimension.
-pub inline fn median(allocator: std.mem.Allocator, in: *const af.Array, dim: i64) !*af.Array {
+pub inline fn median(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    dim: i64,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_median(
@@ -5023,7 +5280,10 @@ pub fn meanAll(in: *const af.Array) !ComplexParts {
 
 /// Returns both the real part and imaginary part of the mean
 /// of the entire weighted input `af.Array`.
-pub fn meanAllWeighted(in: *const af.Array, weights: *const af.Array) !ComplexParts {
+pub fn meanAllWeighted(
+    in: *const af.Array,
+    weights: *const af.Array,
+) !ComplexParts {
     var res = ComplexParts{};
     try af.AF_CHECK(
         af.af_mean_all_weighted(
@@ -5039,7 +5299,10 @@ pub fn meanAllWeighted(in: *const af.Array, weights: *const af.Array) !ComplexPa
 
 /// Returns both the real part and imaginary part of the variance
 /// of the entire weighted input `af.Array`.
-pub inline fn varAll(in: *const af.Array, isBiased: bool) !ComplexParts {
+pub inline fn varAll(
+    in: *const af.Array,
+    isBiased: bool,
+) !ComplexParts {
     var res = ComplexParts{};
     try af.AF_CHECK(
         af.af_var_all(
@@ -5058,7 +5321,10 @@ pub inline fn varAll(in: *const af.Array, isBiased: bool) !ComplexParts {
 ///
 /// Type of bias used for variance calculation is specified with
 /// `af.VarBias` enum.
-pub inline fn varAllV2(in: *const af.Array, bias: af.VarBias) !ComplexParts {
+pub inline fn varAllV2(
+    in: *const af.Array,
+    bias: af.VarBias,
+) !ComplexParts {
     var res = ComplexParts{};
     try af.AF_CHECK(
         af.af_var_all_v2(
@@ -5152,12 +5418,6 @@ pub inline fn corrcoef(X: *const af.Array, Y: *const af.Array) !ComplexParts {
     return res;
 }
 
-/// Data structure holding the results from calling `topk`.
-pub const TopKRes = struct {
-    values: *af.Array,
-    indices: *af.Array,
-};
-
 /// This function returns the top k values along a given dimension
 /// of the input `af.Array`.
 ///
@@ -5167,7 +5427,13 @@ pub const TopKRes = struct {
 /// This function is optimized for small values of k.
 ///
 /// This function performs the operation across all dimensions of the input array.
-pub inline fn topk(allocator: std.mem.Allocator, in: *const af.Array, k: i32, dim: i32, order: af.TopkFn) !TopKRes {
+pub inline fn topk(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    k: i32,
+    dim: i32,
+    order: af.TopkFn,
+) !struct { values: *af.Array, indices: *af.Array } {
     var values: af.af_array = undefined;
     var indices: af.af_array = undefined;
     try af.AF_CHECK(
@@ -5190,7 +5456,15 @@ pub inline fn topk(allocator: std.mem.Allocator, in: *const af.Array, k: i32, di
 /// Returns `af.Features` struct containing arrays for x and y coordinates
 /// and score, while array orientation is set to 0 as FAST does not compute
 /// orientation, and size is set to 1 as FAST does not compute multiple scales.
-pub inline fn fast(allocator: std.mem.Allocator, in: *const af.Array, thr: f32, arc_length: u32, non_max: bool, feature_ratio: f32, edge: u32) !*af.Features {
+pub inline fn fast(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    thr: f32,
+    arc_length: u32,
+    non_max: bool,
+    feature_ratio: f32,
+    edge: u32,
+) !*af.Features {
     var feat: af.af_features = undefined;
     try af.AF_CHECK(
         af.af_fast(
@@ -5210,7 +5484,15 @@ pub inline fn fast(allocator: std.mem.Allocator, in: *const af.Array, thr: f32, 
 /// Returns `af.Features` struct containing arrays for x and y coordinates
 /// and score (Harris response), while arrays orientation and size are set
 /// to 0 and 1, respectively, because Harris does not compute that information.
-pub inline fn harris(allocator: std.mem.Allocator, in: *const af.Array, max_corners: u32, min_response: f32, sigma: f32, block_size: u32, k_thr: f32) !*af.Features {
+pub inline fn harris(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    max_corners: u32,
+    min_response: f32,
+    sigma: f32,
+    block_size: u32,
+    k_thr: f32,
+) !*af.Features {
     var feat: af.af_features = undefined;
     try af.AF_CHECK(
         af.af_harris(
@@ -5227,19 +5509,20 @@ pub inline fn harris(allocator: std.mem.Allocator, in: *const af.Array, max_corn
     return af.Features.init(allocator, feat);
 }
 
-/// Data structure holding the results from calling
-/// `orb`, `sift`, or `gloh`.
-pub const FeatDesc = struct {
-    feat: *af.Features,
-    desc: *af.Array,
-};
-
-/// Returns `FeatDesc` struct containing the following fields:
+/// Returns struct containing the following fields:
 /// - `feat`: `af.Features` composed of arrays for x and y coordinates,
 /// score, orientation and size of selected features.
 /// - `desc`: Nx8 `af.Array` containing extracted
 /// descriptors, where N is the number of selected features.
-pub inline fn orb(allocator: std.mem.Allocator, in: *const af.Array, fast_thr: f32, max_feat: u32, scl_fctr: f32, levels: u32, blur_img: bool) !FeatDesc {
+pub inline fn orb(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    fast_thr: f32,
+    max_feat: u32,
+    scl_fctr: f32,
+    levels: u32,
+    blur_img: bool,
+) !struct { feat: *af.Features, desc: *af.Array } {
     var feat: af.af_features = undefined;
     var desc: af.af_array = undefined;
     try af.AF_CHECK(
@@ -5266,7 +5549,17 @@ pub inline fn orb(allocator: std.mem.Allocator, in: *const af.Array, fast_thr: f
 /// score, orientation and size of selected features.
 /// - `desc`: Nx128 `af.Array` containing extracted descriptors,
 /// where N is the number of features found by SIFT.
-pub inline fn sift(allocator: std.mem.Allocator, in: *const af.Array, n_layers: u32, contrast_thr: f32, edge_thr: f32, init_sigma: f32, double_input: bool, intensity_scale: f32, feature_ratio: f32) !FeatDesc {
+pub inline fn sift(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    n_layers: u32,
+    contrast_thr: f32,
+    edge_thr: f32,
+    init_sigma: f32,
+    double_input: bool,
+    intensity_scale: f32,
+    feature_ratio: f32,
+) !struct { feat: *af.Features, desc: *af.Array } {
     var feat: af.af_features = undefined;
     var desc: af.af_array = undefined;
     try af.AF_CHECK(
@@ -5295,7 +5588,17 @@ pub inline fn sift(allocator: std.mem.Allocator, in: *const af.Array, n_layers: 
 /// score, orientation and size of selected features.
 /// - `desc`: Nx272 `af.Array` containing extracted GLOH descriptors,
 /// where N is the number of features found by SIFT.
-pub inline fn gloh(allocator: std.mem.Allocator, in: *const af.Array, n_layers: u32, contrast_thr: f32, edge_thr: f32, init_sigma: f32, double_input: bool, intensity_scale: f32, feature_ratio: f32) !FeatDesc {
+pub inline fn gloh(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    n_layers: u32,
+    contrast_thr: f32,
+    edge_thr: f32,
+    init_sigma: f32,
+    double_input: bool,
+    intensity_scale: f32,
+    feature_ratio: f32,
+) !struct { feat: *af.Features, desc: *af.Array } {
     var feat: af.af_features = undefined;
     var desc: af.af_array = undefined;
     try af.AF_CHECK(
@@ -5319,13 +5622,6 @@ pub inline fn gloh(allocator: std.mem.Allocator, in: *const af.Array, n_layers: 
     };
 }
 
-/// Data structure holding the results from calling
-/// `hammingMatcher` or `nearestNeighbor`.
-pub const IdxDist = struct {
-    idx: *af.Array,
-    dist: *af.Array,
-};
-
 /// Calculates Hamming distances between two 2-dimensional `af.Array`s containing
 /// features, one of the `af.Array`s containing the training data and the other
 /// the query data. One of the dimensions of the both `af.Array`s must be equal
@@ -5346,7 +5642,13 @@ pub const IdxDist = struct {
 /// of query features and N is equal to n_dist. The value at position
 /// IxJ indicates the Hamming distance of the Jth smallest distance
 /// to the Ith query value in the train data `af.Array`.
-pub inline fn hammingMatcher(allocator: std.mem.Allocator, query: *const af.Array, train: *const af.Array, dist_dim: i64, n_dist: u32) !IdxDist {
+pub inline fn hammingMatcher(
+    allocator: std.mem.Allocator,
+    query: *const af.Array,
+    train: *const af.Array,
+    dist_dim: i64,
+    n_dist: u32,
+) !struct { idx: *af.Array, dist: *af.Array } {
     var idx: af.af_array = undefined;
     var dist: af.af_array = undefined;
     try af.AF_CHECK(
@@ -5377,7 +5679,14 @@ pub inline fn hammingMatcher(allocator: std.mem.Allocator, query: *const af.Arra
 /// of queries. The value at position i,j is the distance from the jth query
 /// point to the point in train referred to by idx( i,j). This distance is
 /// computed according to the dist_type chosen.
-pub inline fn nearestNeighbor(allocator: std.mem.Allocator, query: *const af.Array, train: *const af.Array, dist_dim: i64, n_dist: u32, dist_type: af.MatchType) !IdxDist {
+pub inline fn nearestNeighbor(
+    allocator: std.mem.Allocator,
+    query: *const af.Array,
+    train: *const af.Array,
+    dist_dim: i64,
+    n_dist: u32,
+    dist_type: af.MatchType,
+) !struct { idx: *af.Array, dist: *af.Array } {
     var idx: af.af_array = undefined;
     var dist: af.af_array = undefined;
     try af.AF_CHECK(
@@ -5404,7 +5713,12 @@ pub inline fn nearestNeighbor(allocator: std.mem.Allocator, query: *const af.Arr
 ///
 /// Returns an `af.Array` containing disparity values for the window starting at
 /// corresponding pixel position.
-pub inline fn matchTemplate(allocator: std.mem.Allocator, search_img: *const af.Array, template_img: *const af.Array, m_type: af.MatchType) !*af.Array {
+pub inline fn matchTemplate(
+    allocator: std.mem.Allocator,
+    search_img: *const af.Array,
+    template_img: *const af.Array,
+    m_type: af.MatchType,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
         af.af_match_template(
@@ -5422,7 +5736,15 @@ pub inline fn matchTemplate(allocator: std.mem.Allocator, search_img: *const af.
 ///
 /// Returns `af.Features` struct composed of `af.Array`s for x and y coordinates,
 /// score, orientation and size of selected features.
-pub inline fn susan(allocator: std.mem.Allocator, in: *const af.Array, radius: u32, diff_thr: f32, geom_thr: f32, feature_ratio: f32, edge: u32) !*af.Features {
+pub inline fn susan(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    radius: u32,
+    diff_thr: f32,
+    geom_thr: f32,
+    feature_ratio: f32,
+    edge: u32,
+) !*af.Features {
     var feat: af.af_features = undefined;
     try af.AF_CHECK(
         af.af_susan(
@@ -5446,17 +5768,16 @@ pub inline fn susan(allocator: std.mem.Allocator, in: *const af.Array, radius: u
 /// and subtracts one from the other and returns the result.
 ///
 /// Returns an `af.Array` containing the calculated difference of smoothed inputs.
-pub inline fn dog(allocator: std.mem.Allocator, in: *const af.Array, radius1: i32, radius2: i32) !*af.Array {
+pub inline fn dog(
+    allocator: std.mem.Allocator,
+    in: *const af.Array,
+    radius1: i32,
+    radius2: i32,
+) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_dog(&arr, in.array_, @intCast(radius1), @intCast(radius2)), @src());
     return af.Array.init(allocator, arr);
 }
-
-/// Data structure holding the results from calling `homography`.
-pub const HomographyRes = struct {
-    out: *af.Array,
-    inliers: i32,
-};
 
 /// Homography estimation find a perspective transform between two sets
 /// of 2D points. Currently, two methods are supported for the estimation,
@@ -5489,7 +5810,7 @@ pub inline fn homography(
     inlier_thr: f32,
     iterations: u32,
     otype: af.Dtype,
-) !*HomographyRes {
+) !struct { out: *af.Array, inliers: i32 } {
     var arr: af.af_array = undefined;
     var inliers_: c_int = undefined;
     try af.AF_CHECK(
