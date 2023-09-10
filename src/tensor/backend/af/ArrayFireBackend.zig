@@ -12,17 +12,19 @@ const getDeviceTypes = rt_device_type.getDeviceTypes;
 
 const ArrayFireCPUStream = @import("ArrayFireCPUStream.zig").ArrayFireCPUStream;
 const Arc = zigrc.Arc;
+const ArrayFireTensor = @import("ArrayFireTensor.zig").ArrayFireTensor;
 const toArray = @import("ArrayFireTensor.zig").toArray;
 const ZT_BACKEND_CUDA = build_options.ZT_BACKEND_CUDA;
+const ZT_BACKEND_CPU = build_options.ZT_BACKEND_CPU;
 const ZT_ARRAYFIRE_USE_CUDA = build_options.ZT_ARRAYFIRE_USE_CUDA;
 const ZT_ARRAYFIRE_USE_CPU = build_options.ZT_ARRAYFIRE_USE_CPU;
-const ZT_BACKEND_CPU = build_options.ZT_BACKEND_CPU;
 const TensorBackendType = base.TensorBackendType;
 const Stream = rt_stream.Stream;
 const DType = zt_types.DType;
 const DeviceManager = rt_device_manager.DeviceManager;
 const Tensor = base.Tensor;
 const Shape = zt_shape.Shape;
+const Dim = zt_shape.Dim;
 
 var memoryInitFlag = std.once(init);
 
@@ -41,17 +43,22 @@ fn init() void {
 
 /// Get the stream associated with given device in the given map; if it's not in
 /// the map, initialize it (by wrapping or creating) and put it into the map.
-fn getOrWrapAfDeviceStream(allocator: std.mem.Allocator, afId: i32, nativeId: i32, afIdToStream: *std.AutoHashMap(i32, Arc(Stream))) !*Stream {
+fn getOrWrapAfDeviceStream(
+    allocator: std.mem.Allocator,
+    afId: i32,
+    nativeId: i32,
+    afIdToStream: *std.AutoHashMap(i32, Arc(Stream)),
+) !Stream {
     _ = nativeId;
     var iter = afIdToStream.get(afId);
     if (iter != null) {
-        return iter.?.value;
+        return iter.?.value.*;
     }
 
     if (ZT_ARRAYFIRE_USE_CPU) {
         var stream = try ArrayFireCPUStream.create(allocator);
         try afIdToStream.put(afId, stream);
-        return stream.value;
+        return stream.value.*;
     }
     //  else if (ZT_ARRAYFIRE_USE_CUDA) {
     //      TODO: add CUDA support
@@ -165,28 +172,27 @@ pub const ArrayFireBackend = struct {
     }
 
     /// Returns the enum value indicating the backend type.
-    pub fn backendType(_: *ArrayFireBackend) TensorBackendType {
+    pub fn backendType(_: *const ArrayFireBackend) TensorBackendType {
         return .ArrayFire;
     }
 
     // -------------------------- Compute Functions --------------------------
 
     /// Evaluate any expressions in the ArrayFire array backing the tensor.
-    pub fn eval(tensor: Tensor) !void {
+    pub fn eval(_: *const ArrayFireBackend, tensor: Tensor) !void {
         try af.AF_CHECK(af.af_eval(try toArray(tensor)), @src());
     }
 
     /// Returns the stream from which the given array was created.
-    pub fn getStreamOfArray(self: *ArrayFireBackend, allocator: std.mem.Allocator, arr: af.af_array) !*Stream {
+    pub fn getStreamOfArray(self: *ArrayFireBackend, allocator: std.mem.Allocator, arr: *af.Array) !Stream {
         // TODO once we enforce integrate Device.setDevice into fl.setDevice, each
         // array's stream should always be wrapped already (via setDevice callback).
-        var afId: i32 = undefined;
-        try af.AF_CHECK(af.af_get_device_id(&afId, arr), @src());
+        const afId = try arr.getDeviceId();
         const nativeId = self.idToNativeId_.get(afId).?;
         return getOrWrapAfDeviceStream(allocator, afId, nativeId, self.afIdToStream_.value);
     }
 
-    pub fn supportsDataType(_: *ArrayFireBackend, dtype: DType) !bool {
+    pub fn supportsDataType(_: *const ArrayFireBackend, dtype: DType) !bool {
         return switch (dtype) {
             .f16 => {
                 var half_support: bool = try af.ops.getHalfSupport(try af.ops.getDevice());
@@ -207,38 +213,59 @@ pub const ArrayFireBackend = struct {
     // TODO: pub fn setMemMgrFlushInterval()
 
     // -------------------------- Rand Functions --------------------------
-    pub fn setSeed(seed: u64) !void {
-        try af.AF_CHECK(af.af_set_seed(@intCast(seed)));
+    pub fn setSeed(_: *const ArrayFireBackend, seed: u64) !void {
+        try af.ops.setSeed(seed);
     }
 
-    pub fn randn(shape: *const Shape, dtype: DType) !Tensor {
-        var dims = try af.ztToAfDims(shape);
-        var arr: af.af_array = undefined;
-        try af.AF_CHECK(af.af_randn(&arr, @intCast(shape.ndim()), &dims.dims, dtype.toAfDtype()), @src());
-        // TODO: coerce af.af_array to Tensor
-    }
-
-    pub fn rand(shape: *const Shape, dtype: DType) !Tensor {
+    pub fn randn(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
         var dims = try shape.toAfDims();
-        var arr: af.af_array = undefined;
-        try af.AF_CHECK(af.af_randu(&arr, @intCast(shape.ndim()), &dims.dims, dtype.toAfDtype()), @src());
-        // TODO: coerce af.af_array to Tensor
+        const ndims = shape.ndim();
+        var arr = try af.Array.randn(allocator, @intCast(ndims), dims, dtype.toAfDtype());
+        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, arr, ndims));
+    }
+
+    pub fn rand(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
+        var dims = try shape.toAfDims();
+        const ndims = shape.ndim();
+        var arr = try af.Array.randu(allocator, @intCast(ndims), dims, dtype.toAfDtype());
+        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, arr, ndims));
     }
 
     // --------------------------- Tensor Operators ---------------------------
 
     // use comptime type param for `template` semantics
-    // TODO: pub fn fromScalar()
+    // TODO: pub fn fromScalar(_: *const ArrayFireBackend, allocator: std.mem.Allocator, )
 
     // TODO: pub fn full()
 
-    // TODO: pub fn identity()
+    pub fn identity(_: *const ArrayFireBackend, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
+        const dims = af.Dim4{ .dims = [_]af.dim_t{ @intCast(dim), @intCast(dim), 1, 1 } };
+        var arr = try af.ops.identity(allocator, 2, dims, dtype.toAfDtype());
+        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, arr, 2));
+    }
 
-    // TODO: pub fn arange()
+    pub fn arange(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) !Tensor {
+        var dims = try shape.toAfDims();
+        const ndims = shape.ndim();
+        var arr = try af.ops.range(allocator, @intCast(ndims), dims, @intCast(seq_dim), dtype.toAfDtype());
+        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, arr, ndims));
+    }
 
-    // TODO: pub fn iota()
+    pub fn iota(_: *const ArrayFireBackend, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) !Tensor {
+        var afDims = try dims.toAfDims();
+        var afTileDims = try tile_dims.toAfDims();
+        var arr = try af.ops.iota(allocator, @intCast(afDims.ndims()), afDims, @intCast(afTileDims.ndims()), afTileDims, dtype.toAfDtype());
+        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, arr, @max(afDims.ndims(), afTileDims.ndims())));
+    }
 
-    // TODO: pub fn where()
+    pub fn where(_: *const ArrayFireBackend, allocator: std.mem.Allocator, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
+        _ = allocator;
+        _ = condition;
+        _ = y;
+        var orig: Tensor = x;
+        _ = orig;
+        // TODO: finish impl
+    }
 
     // TODO: pub fn topk()
 
@@ -248,6 +275,9 @@ pub const ArrayFireBackend = struct {
 
     // TODO: pub fn argsort()
 
+    pub fn reshape(tensor: Tensor) Tensor {
+        _ = tensor;
+    }
 };
 
 test "ArrayFireBackend supportsDataType" {

@@ -627,24 +627,36 @@ pub const ConvGradientType = enum(af.af_conv_gradient_type) {
 };
 
 /// ArrayFire's
-pub const Dims4 = struct {
+pub const Dim4 = struct {
     dims: [4]af.dim_t = [_]af.dim_t{1} ** 4,
 
-    pub fn init(dims: ?[4]af.dim_t) Dims4 {
-        var self: Dims4 = .{};
+    pub fn init(dims: ?[4]af.dim_t) Dim4 {
+        var self: Dim4 = .{};
         if (dims != null) {
             self.dims = dims.?;
         }
         return self;
     }
 
-    pub fn condenseDims(self: Dims4) Dims4 {
+    pub fn ndims(self: *const Dim4) usize {
+        const num = self.elements();
+        if (num == 0) return 0;
+        if (num == 1) return 1;
+
+        if (self.dims[3] != 1) return 4;
+        if (self.dims[2] != 1) return 3;
+        if (self.dims[1] != 1) return 2;
+
+        return 1;
+    }
+
+    pub fn condenseDims(self: Dim4) Dim4 {
         if (self.elements() == 0) {
-            return Dims4.init([_]af.dim_t{ 0, 1, 1, 1 });
+            return Dim4.init([_]af.dim_t{ 0, 1, 1, 1 });
         }
 
         // Find the condensed shape
-        var new_dims = Dims4.init([_]af.dim_t{ 1, 1, 1, 1 });
+        var new_dims = Dim4.init([_]af.dim_t{ 1, 1, 1, 1 });
         var new_dim_idx: usize = 0;
         for (0..af.AF_MAX_DIMS) |i| {
             if (self.dims[i] != 1) {
@@ -656,11 +668,11 @@ pub const Dims4 = struct {
         return new_dims;
     }
 
-    pub fn elements(self: *const Dims4) usize {
+    pub fn elements(self: *const Dim4) usize {
         return @intCast(self.dims[0] * self.dims[1] * self.dims[2] * self.dims[3]);
     }
 
-    pub fn toZtShapeRaw(self: *const Dims4, num_dims: usize, s: *Shape) !void {
+    pub fn toZtShapeRaw(self: *const Dim4, num_dims: usize, s: *Shape) !void {
         if (num_dims > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.err("afToZtDims: num_dims ({d}) > af.AF_MAX_DIMS ({d} )", .{ num_dims, af.AF_MAX_DIMS });
         }
@@ -684,7 +696,7 @@ pub const Dims4 = struct {
         for (0..num_dims) |i| storage.items[i] = @intCast(self.dims[i]);
     }
 
-    pub fn toZtShape(self: *const Dims4, allocator: std.mem.Allocator, num_dims: usize) !Shape {
+    pub fn toZtShape(self: *const Dim4, allocator: std.mem.Allocator, num_dims: usize) !Shape {
         var shape = Shape.initRaw(allocator);
         try self.toZtShapeRaw(num_dims, &shape);
         return shape;
@@ -708,25 +720,25 @@ test "AfDtype.toZtType" {
 test "afToZtDims" {
     const allocator = std.testing.allocator;
 
-    var dims1 = Dims4.init([_]af.dim_t{ 2, 1, 1, 1 });
+    var dims1 = Dim4.init([_]af.dim_t{ 2, 1, 1, 1 });
     var shape = try dims1.toZtShape(allocator, 1);
     var exp1 = [_]Dim{2};
     try std.testing.expectEqualSlices(Dim, &exp1, shape.dims_.items);
     shape.deinit();
 
-    var dims2 = Dims4.init([_]af.dim_t{ 2, 3, 1, 1 });
+    var dims2 = Dim4.init([_]af.dim_t{ 2, 3, 1, 1 });
     shape = try dims2.toZtShape(allocator, 2);
     var exp2 = [_]Dim{ 2, 3 };
     try std.testing.expectEqualSlices(Dim, &exp2, shape.dims_.items);
     shape.deinit();
 
-    var dims3 = Dims4.init([_]af.dim_t{ 2, 3, 4, 1 });
+    var dims3 = Dim4.init([_]af.dim_t{ 2, 3, 4, 1 });
     shape = try dims3.toZtShape(allocator, 3);
     var exp3 = [_]Dim{ 2, 3, 4 };
     try std.testing.expectEqualSlices(Dim, &exp3, shape.dims_.items);
     shape.deinit();
 
-    var dims4 = Dims4.init([_]af.dim_t{ 2, 3, 4, 5 });
+    var dims4 = Dim4.init([_]af.dim_t{ 2, 3, 4, 5 });
     shape = try dims4.toZtShape(allocator, 4);
     var exp4 = [_]Dim{ 2, 3, 4, 5 };
     try std.testing.expectEqualSlices(Dim, &exp4, shape.dims_.items);

@@ -111,7 +111,7 @@ pub const IndexTypeTag = enum { Literal, Range, Tensor };
 /// - An index literal, which refers to a single subtensor
 /// of the tensor being indexed.
 pub const Index = struct {
-    pub const IndexVariant = union(IndexTypeTag) { Literal: Dim, Range: Range, Tensor: Tensor };
+    pub const IndexVariant = union { Literal: Dim, Range: Range, Tensor: Tensor };
 
     /// The type of Indexing operator.
     type_: IndexType,
@@ -119,21 +119,21 @@ pub const Index = struct {
     /// Underlying data referred to by the index.
     index_: IndexVariant,
 
-    fn initTensor(tensor: *Tensor) Index {
+    fn initTensor(tensor: Tensor) Index {
         return .{
             .type_ = .Tensor,
             .index_ = .{ .Tensor = tensor },
         };
     }
 
-    pub fn initRange(comptime range: Range) Index {
+    pub fn initRange(range: Range) Index {
         return .{
             .type_ = if (std.meta.eql(range, span)) .Span else .Range,
             .index_ = .{ .Range = range },
         };
     }
 
-    pub fn initDim(comptime idx: Dim) Index {
+    pub fn initDim(idx: Dim) Index {
         return .{
             .type_ = .Literal,
             .index_ = .{ .Literal = idx },
@@ -148,22 +148,22 @@ pub const Index = struct {
     }
 
     /// Returns the index type for this index.
-    pub fn idxType(comptime self: *const Index) IndexType {
+    pub fn idxType(self: *const Index) IndexType {
         return self.type_;
     }
 
-    pub fn isSpan(comptime self: *const Index) bool {
+    pub fn isSpan(self: *const Index) bool {
         return self.type_ == .Span;
     }
 
     pub fn get(self: *Index, comptime T: type) !T {
-        switch (self.index) {
+        switch (self.type_) {
             .Literal => {
                 if (T == Dim) {
                     return self.index_.Literal;
                 }
             },
-            .Range => {
+            .Range, .Span => {
                 if (T == Range) {
                     return self.index_.Range;
                 }

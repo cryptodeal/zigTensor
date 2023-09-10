@@ -1,6 +1,7 @@
 const std = @import("std");
 const af = @cImport({
     @cInclude("arrayfire.h");
+    @cInclude("af/internal.h");
 });
 
 pub usingnamespace af;

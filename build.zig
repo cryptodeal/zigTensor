@@ -7,6 +7,7 @@ pub fn build(b: *std.Build) !void {
     // capture build cli flags
     const ZT_BACKEND_CUDA = b.option(bool, "ZT_BACKEND_CUDA", "Use CUDA backend") orelse false;
     const ZT_BACKEND_CPU = b.option(bool, "ZT_BACKEND_CPU", "Use CPU backend") orelse false;
+    const ZT_BACKEND_OPENCL = b.option(bool, "ZT_BACKEND_OPENCL", "Use OpenCL backend") orelse false;
     const ZT_ARRAYFIRE_USE_CPU = b.option(bool, "ZT_ARRAYFIRE_USE_CPU", "Use ArrayFire with CPU backend") orelse false;
     const ZT_ARRAYFIRE_USE_OPENCL = b.option(bool, "ZT_ARRAYFIRE_USE_OPENCL", "Use ArrayFire with OpenCL backend") orelse false;
     const ZT_ARRAYFIRE_USE_CUDA = b.option(bool, "ZT_ARRAYFIRE_USE_CUDA", "Use ArrayFire with CUDA backend") orelse false;
@@ -22,6 +23,7 @@ pub fn build(b: *std.Build) !void {
     var shared_opts = b.addOptions();
     shared_opts.addOption(bool, "ZT_BACKEND_CUDA", ZT_BACKEND_CUDA);
     shared_opts.addOption(bool, "ZT_BACKEND_CPU", ZT_BACKEND_CPU);
+    shared_opts.addOption(bool, "ZT_BACKEND_OPENCL", ZT_BACKEND_OPENCL);
     shared_opts.addOption(bool, "ZT_ARRAYFIRE_USE_CPU", ZT_ARRAYFIRE_USE_CPU);
     shared_opts.addOption(bool, "ZT_ARRAYFIRE_USE_OPENCL", ZT_ARRAYFIRE_USE_OPENCL);
     shared_opts.addOption(bool, "ZT_ARRAYFIRE_USE_CUDA", ZT_ARRAYFIRE_USE_CUDA);

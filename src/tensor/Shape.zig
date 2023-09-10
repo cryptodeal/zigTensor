@@ -99,14 +99,14 @@ pub const Shape = struct {
         return &self.dims_;
     }
 
-    pub fn toAfDims(self: *const Shape) !af.Dims4 {
+    pub fn toAfDims(self: *const Shape) !af.Dim4 {
         if (self.ndim() > 4) {
             std.log.err("ztToAfDims: ArrayFire shapes can't be more than 4 dimensions\n", .{});
             return error.ArrayFireCannotExceed4Dimensions;
         }
-        var af_dims4 = af.Dims4.init(null);
-        for (0..self.ndim()) |i| af_dims4.dims[i] = @intCast(try self.dim(i));
-        return af_dims4;
+        var af_Dim4 = af.Dim4.init(null);
+        for (0..self.ndim()) |i| af_Dim4.dims[i] = @intCast(try self.dim(i));
+        return af_Dim4;
     }
 
     /// Formats Shape for printing to writer.
@@ -160,8 +160,8 @@ test "Shape ndim" {
     try std.testing.expect(s.ndim() == 3);
     s.deinit();
 
-    var dims4 = [_]Dim{ 5, 2, 3 };
-    s = try Shape.init(allocator, &dims4);
+    var Dim4 = [_]Dim{ 5, 2, 3 };
+    s = try Shape.init(allocator, &Dim4);
     try std.testing.expect(s.ndim() == 3);
     s.deinit();
 
@@ -204,8 +204,8 @@ test "Shape elements" {
     try std.testing.expect(s.elements() == 1);
     s.deinit();
 
-    var dims4 = [_]Dim{ 1, 2, 3, 4 };
-    s = try Shape.init(allocator, &dims4);
+    var Dim4 = [_]Dim{ 1, 2, 3, 4 };
+    s = try Shape.init(allocator, &Dim4);
     try std.testing.expect(s.elements() == 24);
     s.deinit();
 
@@ -238,8 +238,8 @@ test "Shape equality" {
     a.deinit();
     b.deinit();
 
-    var dims4 = [_]Dim{ 5, 2, 3 };
-    a = try Shape.init(allocator, &dims4);
+    var Dim4 = [_]Dim{ 5, 2, 3 };
+    a = try Shape.init(allocator, &Dim4);
     var dims5 = [_]Dim{ 5, 2, 3, 1 };
     b = try Shape.init(allocator, &dims5);
     try std.testing.expect(!a.eql(&b));
@@ -284,8 +284,8 @@ test "Shape string" {
     s.deinit();
     str.clearAndFree();
 
-    var dims4 = [_]Dim{ 7, 7, 7, 7, 7, 7, 7 };
-    s = try Shape.init(allocator, &dims4);
+    var Dim4 = [_]Dim{ 7, 7, 7, 7, 7, 7, 7 };
+    s = try Shape.init(allocator, &Dim4);
     try str.writer().print("{any}", .{s});
     try std.testing.expectEqualStrings("(7, 7, 7, 7, 7, 7, 7)", str.items);
     s.deinit();
@@ -316,8 +316,8 @@ test "shape.toAfDims" {
     try std.testing.expectEqualSlices(c_longlong, &exp3, &res3.dims);
     shape.deinit();
 
-    var dims4 = [_]Dim{ 2, 3, 4, 5 };
-    shape = try Shape.init(allocator, &dims4);
+    var Dim4 = [_]Dim{ 2, 3, 4, 5 };
+    shape = try Shape.init(allocator, &Dim4);
     var res4 = try shape.toAfDims();
     var exp4 = [_]c_longlong{ 2, 3, 4, 5 };
     try std.testing.expectEqualSlices(c_longlong, &exp4, &res4.dims);

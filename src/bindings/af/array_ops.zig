@@ -2258,7 +2258,7 @@ pub inline fn deviceArray(
     allocator: std.mem.Allocator,
     data: ?*anyopaque,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
     dtype: af.Dtype,
 ) !*af.Array {
     var arr: af.af_array = undefined;
@@ -2573,7 +2573,7 @@ pub inline fn createArray(
     allocator: std.mem.Allocator,
     data: ?*const anyopaque,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
     dtype: af.Dtype,
 ) !*af.Array {
     var res: af.af_array = undefined;
@@ -2603,7 +2603,7 @@ pub inline fn createArray(
 pub inline fn createHandle(
     allocator: std.mem.Allocator,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
     dtype: af.Dtype,
 ) !*af.Array {
     var arr: af.af_array = undefined;
@@ -2714,8 +2714,8 @@ pub inline fn getType(arr: *const af.Array) !af.Dtype {
 }
 
 /// Returns the dimensions of an `af.Array`.
-pub inline fn getDims(arr: *const af.Array) !af.Dims4 {
-    var dims: af.Dims4 = .{};
+pub inline fn getDims(arr: *const af.Array) !af.Dim4 {
+    var dims: af.Dim4 = .{};
     try af.AF_CHECK(
         af.af_get_dims(
             &dims.dims[0],
@@ -3022,7 +3022,7 @@ pub inline fn constant(
     allocator: std.mem.Allocator,
     val: f64,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
     dtype: af.Dtype,
 ) !*af.Array {
     var arr: af.af_array = undefined;
@@ -3047,7 +3047,7 @@ pub inline fn constantComplex(
     real_: f64,
     imag_: f64,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
     dtype: af.Dtype,
 ) !*af.Array {
     var arr: af.af_array = undefined;
@@ -3072,7 +3072,7 @@ pub inline fn constantI64(
     allocator: std.mem.Allocator,
     val: i64,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
 ) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
@@ -3094,7 +3094,7 @@ pub inline fn constantU64(
     allocator: std.mem.Allocator,
     val: u64,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
 ) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
@@ -3114,7 +3114,7 @@ pub inline fn constantU64(
 pub inline fn range(
     allocator: std.mem.Allocator,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
     seq_dim: i32,
     dtype: af.Dtype,
 ) !*af.Array {
@@ -3139,9 +3139,9 @@ pub inline fn range(
 pub inline fn iota(
     allocator: std.mem.Allocator,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
     t_ndims: u32,
-    tdims: af.Dims4,
+    tdims: af.Dim4,
     dtype: af.Dtype,
 ) !*af.Array {
     var arr: af.af_array = undefined;
@@ -3163,7 +3163,7 @@ pub inline fn iota(
 pub inline fn identity(
     allocator: std.mem.Allocator,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
     dtype: af.Dtype,
 ) !*af.Array {
     var arr: af.af_array = undefined;
@@ -3334,7 +3334,7 @@ pub inline fn modDims(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
 ) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
@@ -3513,9 +3513,9 @@ pub inline fn pad(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     begin_ndims: u32,
-    begin_dims: af.Dims4,
+    begin_dims: af.Dim4,
     end_ndims: u32,
-    end_dims: af.Dims4,
+    end_dims: af.Dim4,
     pad_fill_type: af.BorderType,
 ) !*af.Array {
     var arr: af.af_array = undefined;
@@ -3867,11 +3867,11 @@ pub inline fn convolve2GradientNN(
     original_filter: *const af.Array,
     convolved_output: *const af.Array,
     stride_dims: u32,
-    strides: af.Dims4,
+    strides: af.Dim4,
     padding_dims: u32,
-    paddings: af.Dims4,
+    paddings: af.Dim4,
     dilation_dims: u32,
-    dilations: af.Dims4,
+    dilations: af.Dim4,
     grad_type: af.ConvGradientType,
 ) !*af.Array {
     var res: af.af_array = undefined;
@@ -3900,7 +3900,7 @@ pub inline fn convolve2GradientNN(
 pub inline fn randomUniform(
     allocator: std.mem.Allocator,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
     dtype: af.Dtype,
     engine: *af.RandomEngine,
 ) !*af.Array {
@@ -3923,7 +3923,7 @@ pub inline fn randomUniform(
 pub inline fn randomNormal(
     allocator: std.mem.Allocator,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
     dtype: af.Dtype,
     engine: *af.RandomEngine,
 ) !*af.Array {
@@ -3945,7 +3945,7 @@ pub inline fn randomNormal(
 pub inline fn randu(
     allocator: std.mem.Allocator,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
     dtype: af.Dtype,
 ) !*af.Array {
     var arr: af.af_array = undefined;
@@ -3965,7 +3965,7 @@ pub inline fn randu(
 pub inline fn randn(
     allocator: std.mem.Allocator,
     ndims: u32,
-    dims: af.Dims4,
+    dims: af.Dim4,
     dtype: af.Dtype,
 ) !*af.Array {
     var arr: af.af_array = undefined;
@@ -4600,11 +4600,11 @@ pub inline fn convolve2NN(
     signal: *const af.Array,
     filter: *const af.Array,
     stride_dims: u32,
-    strides: af.Dims4,
+    strides: af.Dim4,
     padding_dims: u32,
-    paddings: af.Dims4,
+    paddings: af.Dim4,
     dilation_dims: u32,
-    dilations: af.Dims4,
+    dilations: af.Dim4,
 ) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
@@ -5626,7 +5626,7 @@ pub inline fn gloh(
 /// of these distances in the training `af.Array`s. The resulting 1-dimensional `af.Array`s
 /// have length equal to the number of features contained in the query `af.Array`.
 ///
-/// Returns `IdxDist` struct containing the fields:
+/// Returns struct containing the fields:
 /// - `idx`: `af.Array` of MxN size, where M is equal to the number
 /// of query features and N is equal to n_dist. The value at position
 /// IxJ indicates the index of the Jth smallest distance to the Ith
@@ -5664,7 +5664,7 @@ pub inline fn hammingMatcher(
 
 /// Determines the nearest neighbouring points to a given set of points.
 ///
-/// Returns `IdxDist` struct containing the fields:
+/// Returns struct containing the fields:
 /// - `idx`: `af.Array` of M×N size, where M is n_dist and N is the
 /// number of queries. The value at position i,j is the index of the point
 /// in train along dim1 (if dist_dim is 0) or along dim 0 (if dist_dim is 1),
@@ -5787,7 +5787,7 @@ pub inline fn dog(
 /// are all of the points that fall within a maximum L2 distance from the value
 /// passed to the inlier_thr argument.
 ///
-/// Returns `HomographyRes` struct composed of the following fields:
+/// Returns struct composed of the following fields:
 /// - `out`: a 3x3 `af.Array` containing the estimated homography.
 /// - `inliers`: he number of inliers that the homography was estimated
 /// to comprise, in the case that htype is AF_HOMOGRAPHY_RANSAC, a higher
@@ -5829,6 +5829,57 @@ pub inline fn homography(
     };
 }
 
+/// Create an `af.Array` with specified strides and offset.
+pub inline fn createStridedArray(
+    allocator: std.mem.Allocator,
+    data: ?*const anyopaque,
+    offset: i64,
+    ndims: u32,
+    dims: af.Dim4,
+    strides: af.Dim4,
+    ty: af.Dtype,
+    location: af.Source,
+) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_create_strided_array(
+            &arr,
+            data,
+            @intCast(offset),
+            @intCast(ndims),
+            &dims.dims,
+            &strides.dims,
+            ty.value(),
+            location.value(),
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
+/// Get strides of underlying data.
+pub inline fn getStrides(arr: *const af.Array) !af.Dim4 {
+    var dims = af.Dim4{};
+    try af.AF_CHECK(
+        af.af_get_strides(
+            &dims.dims[0],
+            &dims.dims[1],
+            &dims.dims[2],
+            &dims.dims[3],
+            arr,
+        ),
+        @src(),
+    );
+    return dims;
+}
+
+/// Returns bool indicating whether all elements in an `af.Array` are contiguous.
+pub inline fn isLinear(arr: *const af.Array) !bool {
+    var res: bool = undefined;
+    try af.AF_CHECK(af.af_is_linear(&res, arr.array_), @src());
+    return res;
+}
+
 // unit tests
 
 test "createArray" {
@@ -5840,7 +5891,13 @@ test "createArray" {
     var shape = try Shape.init(allocator, &dim);
     defer shape.deinit();
 
-    var arr = try createArray(allocator, data.ptr, @intCast(shape.ndim()), try shape.toAfDims(), .f32);
+    var arr = try createArray(
+        allocator,
+        data.ptr,
+        @intCast(shape.ndim()),
+        try shape.toAfDims(),
+        .f32,
+    );
     defer arr.deinit();
     const elements = try arr.getElements();
     try std.testing.expect(elements == 100);
@@ -5849,7 +5906,7 @@ test "createArray" {
 test "constant" {
     const allocator = std.testing.allocator;
     var d = [4]af.dim_t{ 100, 1, 1, 1 };
-    var dims = af.Dims4.init(d);
+    var dims = af.Dim4.init(d);
     var arr = try constant(allocator, 5, 4, dims, .f64);
     defer arr.deinit();
 

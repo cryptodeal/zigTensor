@@ -24,7 +24,7 @@ pub const Array = struct {
     pub fn initHandle(
         allocator: std.mem.Allocator,
         ndims: u32,
-        dims: af.Dims4,
+        dims: af.Dim4,
         dtype: af.Dtype,
     ) !*Self {
         return af.ops.createHandle(allocator, ndims, dims, dtype);
@@ -37,7 +37,7 @@ pub const Array = struct {
         allocator: std.mem.Allocator,
         data: ?*anyopaque,
         ndims: u32,
-        dims: af.Dims4,
+        dims: af.Dim4,
         dtype: DType,
     ) !*Self {
         return af.ops.deviceArray(
@@ -54,8 +54,8 @@ pub const Array = struct {
         allocator: std.mem.Allocator,
         data: ?*const anyopaque,
         ndims: u32,
-        dims: af.Dims4,
-        dtype: DType,
+        dims: af.Dim4,
+        dtype: af.Dtype,
     ) !*Self {
         return af.ops.createArray(
             allocator,
@@ -92,7 +92,7 @@ pub const Array = struct {
         allocator: std.mem.Allocator,
         val: f64,
         ndims: u32,
-        dims: af.Dims4,
+        dims: af.Dim4,
         dtype: af.Dtype,
     ) !*Self {
         return af.ops.constant(
@@ -111,7 +111,7 @@ pub const Array = struct {
         allocator: std.mem.Allocator,
         val: i64,
         ndims: u32,
-        dims: af.Dims4,
+        dims: af.Dim4,
     ) !*Self {
         return af.ops.constantI64(allocator, val, ndims, dims);
     }
@@ -123,7 +123,7 @@ pub const Array = struct {
         allocator: std.mem.Allocator,
         val: u64,
         ndims: u32,
-        dims: af.Dims4,
+        dims: af.Dim4,
     ) !*Self {
         return af.ops.constantU64(allocator, val, ndims, dims);
     }
@@ -133,7 +133,7 @@ pub const Array = struct {
     pub fn range(
         allocator: std.mem.Allocator,
         ndims: u32,
-        dims: af.Dims4,
+        dims: af.Dim4,
         seq_dim: i32,
         dtype: af.Dtype,
     ) !*Self {
@@ -153,9 +153,9 @@ pub const Array = struct {
     pub fn iota(
         allocator: std.mem.Allocator,
         ndims: u32,
-        dims: af.Dims4,
+        dims: af.Dim4,
         t_ndims: u32,
-        tdims: af.Dims4,
+        tdims: af.Dim4,
         dtype: af.Dtype,
     ) !*Self {
         return af.ops.iota(
@@ -172,7 +172,7 @@ pub const Array = struct {
     pub fn identity(
         allocator: std.mem.Allocator,
         ndims: u32,
-        dims: af.Dims4,
+        dims: af.Dim4,
         dtype: af.Dtype,
     ) !*Self {
         return af.ops.identity(allocator, ndims, dims, dtype);
@@ -183,7 +183,7 @@ pub const Array = struct {
     pub fn randomUniform(
         allocator: std.mem.Allocator,
         ndims: u32,
-        dims: af.Dims4,
+        dims: af.Dim4,
         dtype: af.Dtype,
         engine: *af.RandomEngine,
     ) !*Self {
@@ -195,7 +195,7 @@ pub const Array = struct {
     pub fn randomNormal(
         allocator: std.mem.Allocator,
         ndims: u32,
-        dims: af.Dims4,
+        dims: af.Dim4,
         dtype: af.Dtype,
         engine: *af.RandomEngine,
     ) !*Self {
@@ -204,13 +204,13 @@ pub const Array = struct {
 
     /// Returns ptr to an `af.Array` of uniform numbers
     /// using a random engine.
-    pub fn randu(allocator: std.mem.Allocator, ndims: u32, dims: af.Dims4, dtype: af.Dtype) !*Self {
+    pub fn randu(allocator: std.mem.Allocator, ndims: u32, dims: af.Dim4, dtype: af.Dtype) !*Self {
         return af.ops.randu(allocator, ndims, dims, dtype);
     }
 
     /// Returns ptr to an `af.Array` of normal numbers
     /// using a random engine.
-    pub fn randn(allocator: std.mem.Allocator, ndims: u32, dims: af.Dims4, dtype: af.Dtype) !*Self {
+    pub fn randn(allocator: std.mem.Allocator, ndims: u32, dims: af.Dim4, dtype: af.Dtype) !*Self {
         return af.ops.randn(allocator, ndims, dims, dtype);
     }
 
@@ -237,7 +237,7 @@ pub const Array = struct {
     }
 
     /// Converts a dense `af.Array` into a sparse array.
-    pub fn createSpareArrayFromDense(allocator: std.mem.Allocator, dense: *const Self, stype: af.Storage) !*Self {
+    pub fn createSparseArrayFromDense(allocator: std.mem.Allocator, dense: *const Self, stype: af.Storage) !*Self {
         return af.ops.createSparseArrayFromDense(allocator, dense, stype);
     }
 
@@ -968,7 +968,7 @@ pub const Array = struct {
     /// Casts this `af.Array` from one type to another.
     ///
     /// Returns ptr to the resulting `af.Array`.
-    pub fn cast(self: *const Self, allocator: std.mem.Allocator, dtype: DType) !*Self {
+    pub fn cast(self: *const Self, allocator: std.mem.Allocator, dtype: af.Dtype) !*Self {
         return af.ops.cast(allocator, self, dtype);
     }
 
@@ -1388,17 +1388,17 @@ pub const Array = struct {
     }
 
     /// Lock the device buffer in the memory manager.
-    pub fn lockArray(self: *const Self) !void {
+    pub fn lock(self: *const Self) !void {
         return af.ops.lockArray(self);
     }
 
     /// Unlock the device buffer in the memory manager.
-    pub fn unlockArray(self: *const Self) !void {
+    pub fn unlock(self: *const Self) !void {
         return af.ops.unlockArray(self);
     }
 
     /// Query if `af.Array` has been locked by the user.
-    pub fn isLockedArray(self: *const Self) !bool {
+    pub fn isLocked(self: *const Self) !bool {
         return af.ops.isLockedArray(self);
     }
 
@@ -1538,12 +1538,12 @@ pub const Array = struct {
     }
 
     /// Deep copy this `af.Array` to another.
-    pub fn copyArray(self: *const Self, allocator: std.mem.Allocator) !*Self {
+    pub fn copy(self: *const Self, allocator: std.mem.Allocator) !*Self {
         return af.ops.copyArray(allocator, self);
     }
 
     /// Copy data from a C pointer (host/device) to the underlying `af.af_array`.
-    pub fn writeArray(
+    pub fn write(
         self: *Self,
         data: ?*const anyopaque,
         bytes: usize,
@@ -1591,7 +1591,7 @@ pub const Array = struct {
     }
 
     /// Returns the dimensions of this `af.Array`.
-    pub fn getDims(self: *const Self) !af.Dims4 {
+    pub fn getDims(self: *const Self) !af.Dim4 {
         return af.ops.getDims(self);
     }
 
@@ -1830,7 +1830,7 @@ pub const Array = struct {
         self: *const Self,
         allocator: std.mem.Allocator,
         ndims: u32,
-        dims: af.Dims4,
+        dims: af.Dim4,
     ) !*Self {
         return af.ops.modDims(allocator, self, ndims, dims);
     }
@@ -1919,9 +1919,9 @@ pub const Array = struct {
         self: *const Self,
         allocator: std.mem.Allocator,
         begin_ndims: u32,
-        begin_dims: af.Dims4,
+        begin_dims: af.Dim4,
         end_ndims: u32,
-        end_dims: af.Dims4,
+        end_dims: af.Dim4,
         pad_fill_type: af.BorderType,
     ) !*Self {
         return af.ops.pad(
@@ -2486,11 +2486,11 @@ pub const Array = struct {
         allocator: std.mem.Allocator,
         filter: *const Self,
         strid_dims: u32,
-        strides: af.Dims4,
+        strides: af.Dim4,
         padding_dims: u32,
-        padding: af.Dims4,
+        padding: af.Dim4,
         dilation_dims: u32,
-        dilations: af.Dims4,
+        dilations: af.Dim4,
     ) !*Self {
         return af.ops.convolve2NN(
             allocator,
@@ -3084,5 +3084,15 @@ pub const Array = struct {
     /// Returns an `af.Array` containing the calculated difference of smoothed inputs.
     pub fn dog(self: *const Self, allocator: std.mem.Allocator, radius1: i32, radius2: i32) !*Self {
         return af.ops.dog(allocator, self, radius1, radius2);
+    }
+
+    /// Get strides of underlying data.
+    pub fn getStrides(self: *const Self) !af.Dim4 {
+        return af.ops.getStrides(self);
+    }
+
+    /// Returns bool indicating whether all elements in an `af.Array` are contiguous.
+    pub fn isLinear(self: *const Self) !bool {
+        return af.ops.isLinear(self);
     }
 };
