@@ -5,7 +5,9 @@ const zt_types = @import("Types.zig");
 const zt_tensor_backend = @import("TensorBackend.zig");
 const rt_stream = @import("../runtime/Stream.zig");
 const af = @import("../bindings/af/ArrayFire.zig");
+const zt_idx = @import("Index.zig");
 
+const Index = zt_idx.Index;
 const Stream = rt_stream.Stream;
 const TensorBackend = zt_tensor_backend.TensorBackend;
 const Shape = zt_shape.Shape;
@@ -115,19 +117,23 @@ pub const Tensor = struct {
     }
 
     pub fn elements(self: *Tensor, allocator: std.mem.Allocator) !usize {
-        return (self.shape(allocator)).elements();
+        var shape_ = try self.shape(allocator);
+        return shape_.elements();
     }
 
     pub fn dim(self: *Tensor, allocator: std.mem.Allocator, dimension: usize) !Dim {
-        return (self.shape(allocator)).dim(dimension);
+        var shape_ = try self.shape(allocator);
+        return shape_.dim(dimension);
     }
 
     pub fn ndim(self: *Tensor, allocator: std.mem.Allocator) !usize {
-        return (self.shape(allocator)).ndim();
+        var shape_ = try self.shape(allocator);
+        return shape_.ndim();
     }
 
     pub fn isEmpty(self: *Tensor, allocator: std.mem.Allocator) !bool {
-        return self.elements(allocator) == 0;
+        var elements_ = try self.elements(allocator);
+        return elements_ == 0;
     }
 
     // TODO: implement
@@ -136,7 +142,9 @@ pub const Tensor = struct {
     // }
 
     pub fn bytes(self: *Tensor, allocator: std.mem.Allocator) !usize {
-        return self.elements(allocator) * (self.dtype(allocator)).getSize();
+        var elements_ = try self.elements(allocator);
+        var dtype_ = try self.dtype(allocator);
+        return elements_ * dtype_.getSize();
     }
 
     pub fn dtype(self: *Tensor, allocator: std.mem.Allocator) !DType {
@@ -147,12 +155,13 @@ pub const Tensor = struct {
         return self.impl_.isSparse(allocator);
     }
 
-    // TODO: implement
-    // pub fn astype(self: *Tensor, allocator: std.mem.Allocator, new_type: DType) !Tensor {
-    // return self.impl_.astype(allocator, new_type);
-    // }
+    pub fn astype(self: *Tensor, allocator: std.mem.Allocator, new_type: DType) !Tensor {
+        return self.impl_.astype(allocator, new_type);
+    }
 
-    // TODO: equivalent of operator for indexing
+    pub fn index(self: *Tensor, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
+        return self.impl_.index(allocator, indices);
+    }
 
     pub fn flatten(self: *Tensor, allocator: std.mem.Allocator) !Tensor {
         return self.impl_.flatten(allocator);
@@ -201,11 +210,11 @@ pub const Tensor = struct {
         return self.impl_.stream(allocator);
     }
 
-    pub fn setContext(self: *Tensor, context: ?*anyopaque) void {
+    pub fn setContext(self: *Tensor, context: ?*anyopaque) !void {
         return self.impl_.setContext(context);
     }
 
-    pub fn getContext(self: *Tensor) ?*anyopaque {
+    pub fn getContext(self: *Tensor) !?*anyopaque {
         return self.impl_.getContext();
     }
 

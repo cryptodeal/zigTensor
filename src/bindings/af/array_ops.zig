@@ -8,6 +8,20 @@ const Location = zt_base.Location;
 const Shape = zt_shape.Shape;
 const Dim = zt_shape.Dim;
 
+pub inline fn copy(dst: *af.Array, src: *const af.Array, indices: []af.af_index_t) !void {
+    const nd = try dst.getNumDims();
+    try af.AF_CHECK(
+        af.af_assign_gen(
+            &dst.array_,
+            dst.array_,
+            @intCast(nd),
+            indices.ptr,
+            src.array_,
+        ),
+        @src(),
+    );
+}
+
 /// Returns the sum of the elements of the input `af.Array`
 /// along the given dimension.
 pub inline fn sum(
@@ -2386,7 +2400,7 @@ pub inline fn indexGen(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     ndims: i64,
-    indices: []const af.af_index_t,
+    indices: []af.af_index_t,
 ) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
@@ -2410,9 +2424,9 @@ pub inline fn indexGen(
 /// Returns ptr to the resulting `af.Array`.
 pub inline fn assignGen(
     allocator: std.mem.Allocator,
-    lhs: *const af.Array,
+    lhs: *af.Array,
     ndims: i64,
-    indices: *const af.af_index_t,
+    indices: []af.af_index_t,
     rhs: *const af.Array,
 ) !*af.Array {
     var arr: af.af_array = undefined;
@@ -2421,7 +2435,7 @@ pub inline fn assignGen(
             &arr,
             lhs.array_,
             @intCast(ndims),
-            indices,
+            indices.ptr,
             rhs.array_,
         ),
         @src(),
@@ -3237,7 +3251,7 @@ pub inline fn join(
 pub inline fn joinMany(
     allocator: std.mem.Allocator,
     dim: i32,
-    inputs: []const *af.Array,
+    inputs: []*af.Array,
 ) !*af.Array {
     var in_arrays = try allocator.alloc(af.af_array, inputs.len);
     defer allocator.free(in_arrays);

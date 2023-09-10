@@ -1,5 +1,55 @@
 const std = @import("std");
 const af = @import("ArrayFire.zig");
+const zt_idx = @import("../../tensor/Index.zig");
+
+const ArrayFireTensor = @import("../../tensor/backend/af/ArrayFireTensor.zig").ArrayFireTensor;
+
+const Index = zt_idx.Index;
+const Range = zt_idx.Range;
+
+pub fn ztRangeToAfSeq(range: Range) af.af_seq {
+    const end = range.end() orelse -1;
+    return .{
+        .begin = @floatFromInt(range.start()),
+        .end = @floatFromInt(end),
+        .step = @floatFromInt(range.stride()),
+    };
+}
+
+pub fn ztToAfIndex(idx: Index) af.af_index_t {
+    return switch (idx.idxType()) {
+        .Tensor => {
+            var tensor = idx.index_.Tensor;
+            var adapter: *ArrayFireTensor = tensor.getAdapter(ArrayFireTensor);
+            return .{
+                .isSeq = false,
+                .isBatch = false,
+                .idx = .{ .arr = adapter.arrayHandle_.value.*.array_ },
+            };
+        },
+        .Span => .{
+            .isSeq = true,
+            .isBatch = false,
+            .idx = .{ .seq = af.af_span },
+        },
+        .Range => .{
+            .isSeq = true,
+            .isBatch = false,
+            .idx = .{ .seq = ztRangeToAfSeq(idx.index_.Range) },
+        },
+        .Literal => .{
+            .isSeq = true,
+            .isBatch = false,
+            .idx = .{
+                .seq = .{
+                    .begin = @floatFromInt(idx.index_.Literal),
+                    .end = @floatFromInt(idx.index_.Literal),
+                    .step = 1,
+                },
+            },
+        },
+    };
+}
 
 /// Display ArrayFire and device info.
 pub inline fn info() !void {

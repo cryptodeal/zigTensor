@@ -43,9 +43,9 @@ pub const TensorAdapterBase = struct {
         strides: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Shape,
         stream: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Stream,
         astype: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dType: DType) anyerror!Tensor,
-        // index: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) anyerror!Tensor,
+        index: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) anyerror!Tensor,
         flatten: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Tensor,
-        // TODO - might need allocator: flat: *const fn (ctx: *anyopaque, idx: *Index) Tensor
+        flat: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, idx: Index) anyerror!Tensor,
         asContiguousTensor: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Tensor,
         setContext: *const fn (ctx: *anyopaque, context: ?*anyopaque) anyerror!void,
         getContext: *const fn (ctx: *anyopaque) anyerror!?*anyopaque,
@@ -152,16 +152,26 @@ pub const TensorAdapterBase = struct {
         return self.vtable.stream(self.ptr, allocator);
     }
 
-    // TODO: might need to pass in allocator
     /// Returns a tensor with elements cast as a particular type.
     pub fn astype(self: *Self, allocator: std.mem.Allocator, dType: DType) !Tensor {
         return self.vtable.astype(self.ptr, allocator, dType);
     }
 
-    // TODO: might need to pass in allocator
+    /// Index into a tensor with a variable number of indices.
+    ///
+    /// Returns an indexed Tensor.
+    pub fn index(self: *Self, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
+        return self.vtable.index(self.ptr, allocator, indices);
+    }
+
     /// Returns a representation of the tensor in 1 dimension.
     pub fn flatten(self: *Self, allocator: std.mem.Allocator) !Tensor {
         return self.vtable.flatten(self.ptr, allocator);
+    }
+
+    /// Returns a representation of the tensor in 1 dimension.
+    pub fn flat(self: *Self, allocator: std.mem.Allocator, idx: Index) !Tensor {
+        return self.vtable.flat(self.ptr, allocator, idx);
     }
 
     /// Returns a copy of the tensor that is contiguous in memory.
@@ -170,7 +180,7 @@ pub const TensorAdapterBase = struct {
     }
 
     /// Sets arbitrary data on a tensor. May be a no-op for some backends.
-    pub fn setContext(self: *Self, context: ?*anyopaque) void {
+    pub fn setContext(self: *Self, context: ?*anyopaque) !void {
         return self.vtable.setContext(self.ptr, context);
     }
 
@@ -288,9 +298,19 @@ pub const TensorAdapterBase = struct {
                 return self.astype(allocator, dType);
             }
 
+            fn index(ctx: *anyopaque, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.astype(allocator, indices);
+            }
+
             fn flatten(ctx: *anyopaque, allocator: std.mem.Allocator) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.flatten(allocator);
+            }
+
+            fn flat(ctx: *anyopaque, allocator: std.mem.Allocator, idx: Index) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.flat(allocator, idx);
             }
 
             fn asContiguousTensor(ctx: *anyopaque, allocator: std.mem.Allocator) !Tensor {
@@ -335,7 +355,9 @@ pub const TensorAdapterBase = struct {
                 .strides = impl.strides,
                 .stream = impl.stream,
                 .astype = impl.astype,
+                .index = impl.index,
                 .flatten = impl.flatten,
+                .flat = impl.flat,
                 .asContiguousTensor = impl.asContiguousTensor,
                 .setContext = impl.setContext,
                 .getContext = impl.getContext,

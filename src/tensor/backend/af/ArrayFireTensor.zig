@@ -8,6 +8,7 @@ const zigrc = @import("zigrc");
 const build_options = @import("build_options");
 const runtime = @import("../../../runtime/runtime.zig");
 
+const assert = std.debug.assert;
 const TensorAdapterBase = @import("../../TensorAdapter.zig").TensorAdapterBase;
 const ArrayFireBackend = @import("ArrayFireBackend.zig").ArrayFireBackend;
 const TensorBackend = @import("../../TensorBackend.zig").TensorBackend;
@@ -76,7 +77,7 @@ pub const ArrayFireTensor = struct {
 
     /// Indices in the event that this tensor is about to be indexed. Cleared
     /// the next time this array handle is acquired (see `getHandle`).
-    indices_: ?[]const af.af_index_t = null,
+    indices_: ?[]af.af_index_t = null,
 
     /// Necessary to maintain the types of each index, as ArrayFire
     /// doesn't distinguish between an integer index literal and
@@ -108,7 +109,7 @@ pub const ArrayFireTensor = struct {
 
     // An interface to visit when getting an array handle. Indexes lazily
     // because we can't store an af::array::proxy as an lvalue. See getHandle().
-    handle_: HandleUnion = undefined,
+    handle_: HandleUnion = .{ .array = ArrayComponent{} },
 
     allocator: std.mem.Allocator,
 
@@ -117,17 +118,21 @@ pub const ArrayFireTensor = struct {
     pub fn initLazyIndexing(
         allocator: std.mem.Allocator,
         handle: Arc(*af.Array),
-        af_indices: std.ArrayList(*Index),
+        af_indices: []af.af_index_t,
         index_types: std.ArrayList(IndexType),
         num_dims: usize,
         is_flat: bool,
     ) !*ArrayFireTensor {
-        _ = is_flat;
-        _ = num_dims;
-        _ = index_types;
-        _ = af_indices;
-        _ = handle;
-        _ = allocator;
+        var self = try allocator.create(ArrayFireTensor);
+        self.* = .{
+            .arrayHandle_ = handle,
+            .indices_ = af_indices,
+            .indexTypes_ = index_types,
+            .handle_ = .{ .indexedArray = IndexedArrayComponent.init(is_flat) },
+            .numDims_ = num_dims,
+            .allocator = allocator,
+        };
+        return self;
     }
 
     /// Initializes a new ArrayFireTensor from an ArrayFire array
@@ -135,10 +140,12 @@ pub const ArrayFireTensor = struct {
     /// gauranteed shallow-copies.
     pub fn initFromShared(allocator: std.mem.Allocator, arr: Arc(*af.Array), num_dims: usize) !*ArrayFireTensor {
         var self = try allocator.create(ArrayFireTensor);
+        var afDims = try arr.value.*.getDims();
         self.* = .{
             .arrayHandle_ = arr,
             .numDims_ = num_dims,
             .allocator = allocator,
+            .shape_ = try afDims.toZtShape(allocator, afDims.ndims()),
         };
         return self;
     }
@@ -187,7 +194,6 @@ pub const ArrayFireTensor = struct {
         self.* = .{
             .arrayHandle_ = try Arc(*af.Array).init(allocator, arr),
             .numDims_ = _shape.ndim(),
-            .handle_ = .{ .array = ArrayComponent{} },
             .shape_ = _shape,
             .allocator = allocator,
         };
@@ -362,7 +368,6 @@ pub const ArrayFireTensor = struct {
     }
 
     pub fn index(self: *ArrayFireTensor, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
-        _ = allocator;
         if (indices.items.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.err("ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n", .{});
             return error.IndicesExceedMaxDims;
@@ -373,31 +378,121 @@ pub const ArrayFireTensor = struct {
         // If indexing by a single element and it's a tensor with the same number of
         // indices as the array being indexed, do a flat index as this is probably a
         // filter-based index (for example: a(a < 5)).
-        const completeTensorIndex = indices.items.len == 1 and indices.items[0].idxType() == .Tensor and (try indices.items[0].get(Tensor)).elements() == @as(usize, @intCast((try self.getHandle()).getElements()));
-        _ = completeTensorIndex;
+        const completeTensorIndex = indices.items.len == 1 and indices.items[0].idxType() == .Tensor and try indices.items[0].Tensor.elements() == @as(usize, @intCast((try self.getHandle()).getElements()));
+        var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
+        if (completeTensorIndex) {
+            try af.ops.setSeqIndexer(afIndices, &af.af_seq{ .begin = 0, .end = 0, .step = 1 }, 0, false);
+        }
 
-        // TODO: finish implementing
+        if (indices.items.len > afIndices.len) {
+            std.log.err("ArrayFireTensor.index internal error - passed indices is larger than the number of af indices.\n", .{});
+            return error.PassedIndicesLargerThanAfIndices;
+        }
+
+        // Fill in corresponding index types for each af index
+        var indexTypes = try std.ArrayList(IndexType).initCapacity(allocator, afIndices.len);
+        var i: usize = 0;
+        while (i < indices.items.len) : (i += 1) {
+            indexTypes.appendAssumeCapacity(indices.items[i].idxType());
+            afIndices[i] = af.ops.ztToAfIndex(indices.items[i]);
+        }
+
+        // If we're adding implicit spans, fill those indexTypes in
+        while (i < afIndices.len) : (i += 1) {
+            indexTypes.appendAssumeCapacity(.Span);
+        }
+
+        _ = try self.getHandle(allocator); // if this tensor was a view, run indexing and promote
+
+        assert(afIndices.len == indexTypes.items.len);
+        // Compute numDims for the new Tensor
+        var newNumDims = self.numDims();
+
+        if (completeTensorIndex) {
+            // TODO/FIXME: compute this based on the number of els in the indexing
+            // tensor(s)
+            newNumDims = 1;
+        } else {
+            for (indexTypes.items) |iType| {
+                if (iType == .Literal) newNumDims -= 1;
+            }
+        }
+        newNumDims = @max(newNumDims, 1);
+
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initLazyIndexing(
+                    allocator,
+                    self.arrayHandle_.retain(),
+                    afIndices,
+                    indexTypes,
+                    newNumDims,
+                    false,
+                ),
+            ),
+        );
     }
 
     pub fn flatten(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Tensor {
         var arr = try self.getHandle(allocator);
         var flattenedArr = try arr.flat(allocator);
-        return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, flattenedArr, 1)));
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    flattenedArr,
+                    1,
+                ),
+            ),
+        );
     }
 
-    // TODO: pub fn flat()
+    pub fn flat(self: *ArrayFireTensor, allocator: std.mem.Allocator, idx: Index) !Tensor {
+        _ = try self.getHandle(allocator); // if this tensor was a view, run indexing and promote
+        // Return a lazy indexing operation. Indexing with a single index on an
+        // ArrayFire tensor (with a type that is not an af::array) ends up doing
+        // flat indexing, so all index assignment operators will work as they are.
+        var indices = try af.ops.createIndexers();
+        indices[0] = af.ops.ztToAfIndex(idx);
+        var index_types = std.ArrayList(IndexType).init(allocator);
+        try index_types.append(idx.idxType());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initLazyIndexing(
+                    allocator,
+                    self.arrayHandle_.retain(),
+                    indices,
+                    index_types,
+                    1,
+                    true,
+                ),
+            ),
+        );
+    }
 
     pub fn asContiguousTensor(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Tensor {
         if (try self.isContiguous(allocator)) {
-            var other_arr = try self.getHandle(allocator);
-            return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, other_arr, self.numDims())));
+            _ = try self.getHandle(allocator);
+            var other = self.arrayHandle_.retain();
+            return Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromShared(
+                        allocator,
+                        other,
+                        self.numDims(),
+                    ),
+                ),
+            );
         }
 
         var arr = try self.getHandle(allocator);
         var newDims = af.Dim4{};
         newDims.dims[0] = @as(af.dim_t, @intCast(try arr.getElements()));
         var linearArr = try af.Array.initHandle(allocator, 1, newDims, try arr.getType());
-        // TODO: copy arr into linearArr
+        var indices = try af.ops.createIndexers();
+        try af.ops.setSeqIndexer(indices, &af.af_span, 0, false);
+        try af.ops.copy(linearArr, arr, indices);
+        try af.ops.releaseIndexers(indices);
         return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, linearArr, 1)));
     }
 
@@ -509,24 +604,3 @@ pub const ArrayFireTensor = struct {
         }
     }
 };
-
-test "ArrayFireTensor.init" {
-    const allocator = std.testing.allocator;
-    var dims = [_]Dim{ 100, 10 };
-    var shape = try Shape.init(allocator, &dims);
-    var data = try allocator.alloc(f32, 1000);
-    defer allocator.free(data);
-    for (data) |*v| v.* = 12;
-    var t1 = try ArrayFireTensor.init(allocator, shape, DType.f32, data.ptr, .Host);
-    defer t1.deinit();
-
-    const strides = try t1.strides(allocator);
-    defer strides.deinit();
-
-    var t2 = try t1.astype(allocator, DType.f64);
-    defer t2.deinit();
-
-    var str = try t2.toString(allocator);
-    defer af.ops.freeHost(@ptrCast(@constCast(str.ptr))) catch unreachable;
-    std.debug.print("t2 string: {s}\n", .{str});
-}

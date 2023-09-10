@@ -1472,10 +1472,10 @@ pub const Array = struct {
     ///
     /// Returns ptr to the resulting `af.Array`.
     pub fn assignGen(
-        self: *const Self,
+        self: *Self,
         allocator: std.mem.Allocator,
         ndims: i64,
-        indices: *const af.af_index_t,
+        indices: []af.af_index_t,
         rhs: *const af.Array,
     ) !*Self {
         return af.ops.assignGen(

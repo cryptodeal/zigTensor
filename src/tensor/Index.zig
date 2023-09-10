@@ -65,15 +65,15 @@ pub const Range = struct {
         return self;
     }
 
-    pub fn start(self: *Range) Dim {
+    pub fn start(self: *const Range) Dim {
         return self.start_;
     }
 
-    pub fn end(self: *Range) ?Dim {
+    pub fn end(self: *const Range) ?Dim {
         return self.end_;
     }
 
-    pub fn endVal(self: *Range) !Dim {
+    pub fn endVal(self: *const Range) !Dim {
         if (self.end_ != null) {
             return self.end_.?;
         }
@@ -81,11 +81,11 @@ pub const Range = struct {
         return RangeError.FailedToGetEndVal;
     }
 
-    pub fn stride(self: *Range) Dim {
+    pub fn stride(self: *const Range) Dim {
         return self.stride_;
     }
 
-    pub fn eql(self: *Range, other: *Range) bool {
+    pub fn eql(self: *const Range, other: *const Range) bool {
         return std.meta.eql(self.*, other.*);
     }
 };
