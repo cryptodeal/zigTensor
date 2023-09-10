@@ -88,108 +88,117 @@ pub const PadType = enum {
 };
 
 pub const Tensor = struct {
-    impl_: *TensorAdapterBase,
+    impl_: TensorAdapterBase,
 
-    // TODO: various Tensor constructors
-
-    pub fn copy(self: *Tensor) Tensor {
-        return self.impl_.copy();
+    pub fn init(impl: TensorAdapterBase) Tensor {
+        return Tensor{ .impl_ = impl };
     }
 
-    pub fn shallowCopy(self: *Tensor) Tensor {
-        return self.impl_.shallowCopy();
+    pub fn deinit(self: *Tensor) void {
+        self.impl_.deinit();
     }
 
-    pub fn shape(self: *Tensor) *const Shape {
-        return self.impl_.shape();
+    pub fn copy(self: *Tensor, allocator: std.mem.Allocator) !Tensor {
+        return self.impl_.copy(allocator);
     }
 
-    pub fn location(self: *Tensor) Location {
-        return self.impl_.location();
+    pub fn shallowCopy(self: *Tensor, allocator: std.mem.Allocator) !Tensor {
+        return self.impl_.shallowCopy(allocator);
     }
 
-    pub fn elements(self: *Tensor) usize {
-        return (self.shape()).elements();
+    pub fn shape(self: *Tensor, allocator: std.mem.Allocator) !Shape {
+        return self.impl_.shape(allocator);
     }
 
-    pub fn dim(self: *Tensor, dimension: usize) Dim {
-        return (self.shape()).dim(dimension);
+    pub fn location(self: *Tensor, allocator: std.mem.Allocator) !Location {
+        return self.impl_.location(allocator);
     }
 
-    pub fn ndim(self: *Tensor) usize {
-        return (self.shape()).ndim();
+    pub fn elements(self: *Tensor, allocator: std.mem.Allocator) !usize {
+        return (self.shape(allocator)).elements();
     }
 
-    pub fn isEmpty(self: *Tensor) bool {
-        return self.elements() == 0;
+    pub fn dim(self: *Tensor, allocator: std.mem.Allocator, dimension: usize) !Dim {
+        return (self.shape(allocator)).dim(dimension);
     }
 
-    pub fn hasAdapter(self: *Tensor) bool {
-        return self.impl_.get() != null;
+    pub fn ndim(self: *Tensor, allocator: std.mem.Allocator) !usize {
+        return (self.shape(allocator)).ndim();
     }
 
-    pub fn bytes(self: *Tensor) usize {
-        return self.elements() * (self.dtype()).getSize();
+    pub fn isEmpty(self: *Tensor, allocator: std.mem.Allocator) !bool {
+        return self.elements(allocator) == 0;
     }
 
-    pub fn dtype(self: *Tensor) DType {
-        return self.impl_.dtype();
+    // TODO: implement
+    // pub fn hasAdapter(self: *Tensor) bool {
+    // return self.impl_.get() != null;
+    // }
+
+    pub fn bytes(self: *Tensor, allocator: std.mem.Allocator) !usize {
+        return self.elements(allocator) * (self.dtype(allocator)).getSize();
     }
 
-    pub fn isSparse(self: *Tensor) bool {
-        return self.impl_.isSparse();
+    pub fn dtype(self: *Tensor, allocator: std.mem.Allocator) !DType {
+        return self.impl_.dtype(allocator);
     }
 
-    pub fn astype(self: *Tensor, new_type: DType) Tensor {
-        return self.impl_.astype(new_type);
+    pub fn isSparse(self: *Tensor, allocator: std.mem.Allocator) !bool {
+        return self.impl_.isSparse(allocator);
     }
+
+    // TODO: implement
+    // pub fn astype(self: *Tensor, allocator: std.mem.Allocator, new_type: DType) !Tensor {
+    // return self.impl_.astype(allocator, new_type);
+    // }
 
     // TODO: equivalent of operator for indexing
 
-    pub fn flatten(self: *Tensor) Tensor {
-        return self.impl_.flatten();
+    pub fn flatten(self: *Tensor, allocator: std.mem.Allocator) !Tensor {
+        return self.impl_.flatten(allocator);
     }
 
-    pub fn flat(self: *Tensor) Tensor {
-        return self.impl_.flat();
+    // TODO: implement
+    // pub fn flat(self: *Tensor) Tensor {
+    // return self.impl_.flat();
+    // }
+
+    pub fn asContiguousTensor(self: *Tensor, allocator: std.mem.Allocator) !Tensor {
+        return self.impl_.asContiguousTensor(allocator);
     }
 
-    pub fn asContiguousTensor(self: *Tensor) Tensor {
-        return self.impl_.asContiguousTensor();
-    }
-
-    pub fn backendType(self: *Tensor) TensorBackendType {
+    pub fn backendType(self: *const Tensor) TensorBackendType {
         return self.impl_.backendType();
     }
 
-    pub fn getAdapter(self: *Tensor, comptime T: type) *T {
-        return @ptrCast(self.impl_.get());
+    pub fn getAdapter(self: *const Tensor, comptime T: type) *T {
+        return @ptrCast(@alignCast(self.impl_.ptr));
     }
 
-    pub fn backend(self: *Tensor) TensorBackend {
-        return self.impl_.backend();
+    pub fn backend(self: *Tensor, allocator: std.mem.Allocator) !TensorBackend {
+        return self.impl_.backend(allocator);
     }
 
     // TODO: FL_CREATE_MEMORY_OPS macro equivalent
 
-    pub fn unlock(self: *Tensor) void {
-        return self.impl_.unlock();
+    pub fn unlock(self: *Tensor, allocator: std.mem.Allocator) !void {
+        return self.impl_.unlock(allocator);
     }
 
-    pub fn isLocked(self: *Tensor) bool {
-        return self.impl_.isLocked();
+    pub fn isLocked(self: *Tensor, allocator: std.mem.Allocator) !bool {
+        return self.impl_.isLocked(allocator);
     }
 
-    pub fn isContiguous(self: *Tensor) bool {
-        return self.impl_.isContiguous();
+    pub fn isContiguous(self: *Tensor, allocator: std.mem.Allocator) !bool {
+        return self.impl_.isContiguous(allocator);
     }
 
-    pub fn strides(self: *Tensor) Shape {
-        return self.impl_.strides();
+    pub fn strides(self: *Tensor, allocator: std.mem.Allocator) !Shape {
+        return self.impl_.strides(allocator);
     }
 
-    pub fn stream(self: *Tensor) Stream {
-        return self.impl_.stream();
+    pub fn stream(self: *Tensor, allocator: std.mem.Allocator) !Stream {
+        return self.impl_.stream(allocator);
     }
 
     pub fn setContext(self: *Tensor, context: ?*anyopaque) void {
@@ -200,7 +209,9 @@ pub const Tensor = struct {
         return self.impl_.getContext();
     }
 
-    // TODO: pub fn toString(self: *Tensor, allocator: std.mem.Allocator) ![]const u8 {}
+    pub fn toString(self: *Tensor, allocator: std.mem.Allocator) ![]const u8 {
+        return self.impl_.toString(allocator);
+    }
 
     // TODO: equivalent of assignment operators
 

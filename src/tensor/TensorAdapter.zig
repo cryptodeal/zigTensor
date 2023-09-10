@@ -30,16 +30,16 @@ pub const TensorAdapterBase = struct {
         shallowCopy: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Tensor,
         backendType: *const fn (ctx: *anyopaque) TensorBackendType,
         backend: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!TensorBackend,
-        shape: *const fn (ctx: *anyopaque) anyerror!Shape,
-        dtype: *const fn (ctx: *anyopaque) anyerror!DType,
-        isSparse: *const fn (ctx: *anyopaque) anyerror!bool,
-        location: *const fn (ctx: *anyopaque) anyerror!Location,
-        scalar: *const fn (ctx: *anyopaque, out: ?*anyopaque) anyerror!void,
-        device: *const fn (ctx: *anyopaque, out: *?*anyopaque) anyerror!void,
-        host: *const fn (ctx: *anyopaque, out: ?*anyopaque) anyerror!void,
-        unlock: *const fn (ctx: *anyopaque) anyerror!void,
-        isLocked: *const fn (ctx: *anyopaque) anyerror!bool,
-        isContiguous: *const fn (ctx: *anyopaque) anyerror!bool,
+        shape: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Shape,
+        dtype: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!DType,
+        isSparse: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!bool,
+        location: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Location,
+        scalar: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, out: ?*anyopaque) anyerror!void,
+        device: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, out: *?*anyopaque) anyerror!void,
+        host: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, out: ?*anyopaque) anyerror!void,
+        unlock: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!void,
+        isLocked: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!bool,
+        isContiguous: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!bool,
         strides: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Shape,
         stream: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Stream,
         astype: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dType: DType) anyerror!Tensor,
@@ -49,8 +49,8 @@ pub const TensorAdapterBase = struct {
         asContiguousTensor: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Tensor,
         setContext: *const fn (ctx: *anyopaque, context: ?*anyopaque) anyerror!void,
         getContext: *const fn (ctx: *anyopaque) anyerror!?*anyopaque,
-        toString: *const fn (ctx: *anyopaque) anyerror![]const u8,
-        // TODO: format: *const fn (value: *anyopaque, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) anyerror!void,
+        toString: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror![]const u8,
+        // TODO: format: *const fn (value: anyopaque, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) anyerror!void,
     };
 
     /// Free all associated memory.
@@ -77,7 +77,7 @@ pub const TensorAdapterBase = struct {
     }
 
     /// Returns the TensorBackendType enum associated with the backend.
-    pub fn backendType(self: *Self) TensorBackendType {
+    pub fn backendType(self: *const Self) TensorBackendType {
         return self.vtable.backendType(self.ptr);
     }
 
@@ -87,55 +87,55 @@ pub const TensorAdapterBase = struct {
     }
 
     /// Returns the shape of the tensor.
-    pub fn shape(self: *Self) !Shape {
-        return self.vtable.shape(self.ptr);
+    pub fn shape(self: *Self, allocator: std.mem.Allocator) !Shape {
+        return self.vtable.shape(self.ptr, allocator);
     }
 
     /// Returns the data type (DType) of the tensor.
-    pub fn dtype(self: *Self) !DType {
-        return self.vtable.dtype(self.ptr);
+    pub fn dtype(self: *Self, allocator: std.mem.Allocator) !DType {
+        return self.vtable.dtype(self.ptr, allocator);
     }
 
     /// Returns true if the tensor is sparse, else false.
-    pub fn isSparse(self: *Self) !bool {
-        return self.vtable.isSparse(self.ptr);
+    pub fn isSparse(self: *Self, allocator: std.mem.Allocator) !bool {
+        return self.vtable.isSparse(self.ptr, allocator);
     }
 
     /// Returns the tensor's location -- host or some device.
-    pub fn location(self: *Self) !Location {
-        return self.vtable.location(self.ptr);
+    pub fn location(self: *Self, allocator: std.mem.Allocator) !Location {
+        return self.vtable.location(self.ptr, allocator);
     }
 
     /// Populate a pointer with a scalar for the first element of the tensor.
-    pub fn scalar(self: *Self, out: ?*anyopaque) !void {
-        return self.vtable.scalar(self.ptr, out);
+    pub fn scalar(self: *Self, allocator: std.mem.Allocator, out: ?*anyopaque) !void {
+        return self.vtable.scalar(self.ptr, allocator, out);
     }
 
     /// Returns a pointer to the tensor in device memory.
-    pub fn device(self: *Self, out: *?*anyopaque) void {
-        return self.vtable.device(self.ptr, out);
+    pub fn device(self: *Self, allocator: std.mem.Allocator, out: *?*anyopaque) void {
+        return self.vtable.device(self.ptr, allocator, out);
     }
 
     /// Populates a pointer with a pointer value in memory pointing
     /// to a host buffer containing tensor data.
-    pub fn host(self: *Self, out: ?*anyopaque) void {
-        return self.vtable.host(self.ptr, out);
+    pub fn host(self: *Self, allocator: std.mem.Allocator, out: ?*anyopaque) void {
+        return self.vtable.host(self.ptr, allocator, out);
     }
 
     /// Unlocks any device memory associated with the tensor that was
     /// acquired with `Tensor.device`, making it eligible to be freed.
-    pub fn unlock(self: *Self) !void {
-        return self.vtable.unlock(self.ptr);
+    pub fn unlock(self: *Self, allocator: std.mem.Allocator) !void {
+        return self.vtable.unlock(self.ptr, allocator);
     }
 
     /// Returns true if the tensor has been memory-locked per a call to `Tensor.device`.
-    pub fn isLocked(self: *Self) !bool {
-        return self.vtable.isLocked(self.ptr);
+    pub fn isLocked(self: *Self, allocator: std.mem.Allocator) !bool {
+        return self.vtable.isLocked(self.ptr, allocator);
     }
 
     /// Returns a bool based on tensor contiguousness in memory.
-    pub fn isContiguous(self: *Self) !bool {
-        return self.vtable.isContiguous(self.ptr);
+    pub fn isContiguous(self: *Self, allocator: std.mem.Allocator) !bool {
+        return self.vtable.isContiguous(self.ptr, allocator);
     }
 
     /// Returns the dimension-wise strides for this tensor -- the number of bytes
@@ -181,8 +181,8 @@ pub const TensorAdapterBase = struct {
 
     /// Returns a string representation of a tensor. Not intended to be
     /// portable across backends.
-    pub fn toString(self: *Self) ![]const u8 {
-        return self.vtable.toString(self.ptr);
+    pub fn toString(self: *Self, allocator: std.mem.Allocator) ![]const u8 {
+        return self.vtable.toString(self.ptr, allocator);
     }
 
     /// Initializes a new `TensorAdapter`.
@@ -200,7 +200,7 @@ pub const TensorAdapterBase = struct {
 
             fn clone(ctx: *anyopaque, allocator: std.mem.Allocator) !Self {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return zigrc.Arc(Self).init(allocator, Self.init(self.clone(allocator)));
+                return self.clone(allocator);
             }
 
             fn copy(ctx: *anyopaque, allocator: std.mem.Allocator) !Tensor {
@@ -220,60 +220,60 @@ pub const TensorAdapterBase = struct {
 
             fn backendType(ctx: *anyopaque) TensorBackendType {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.trialRunStarted();
+                return self.backendType();
             }
 
-            fn shape(ctx: *anyopaque) !Shape {
+            fn shape(ctx: *anyopaque, allocator: std.mem.Allocator) !Shape {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.shape();
+                return self.shape(allocator);
             }
 
-            fn dtype(ctx: *anyopaque) !DType {
+            fn dtype(ctx: *anyopaque, allocator: std.mem.Allocator) !DType {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.dtype();
+                return self.dtype(allocator);
             }
 
-            fn isSparse(ctx: *anyopaque) !bool {
+            fn isSparse(ctx: *anyopaque, allocator: std.mem.Allocator) !bool {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.isSparse();
+                return self.isSparse(allocator);
             }
 
-            fn location(ctx: *anyopaque) !Location {
+            fn location(ctx: *anyopaque, allocator: std.mem.Allocator) !Location {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.location();
+                return self.location(allocator);
             }
 
-            fn scalar(ctx: *anyopaque, out: ?*anyopaque) !void {
+            fn scalar(ctx: *anyopaque, allocator: std.mem.Allocator, out: ?*anyopaque) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.scalar(out);
+                return self.scalar(allocator, out);
             }
 
-            fn device(ctx: *anyopaque, out: *?*anyopaque) !void {
+            fn device(ctx: *anyopaque, allocator: std.mem.Allocator, out: *?*anyopaque) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.device(out);
+                return self.device(allocator, out);
             }
 
-            fn host(ctx: *anyopaque, out: ?*anyopaque) !void {
+            fn host(ctx: *anyopaque, allocator: std.mem.Allocator, out: ?*anyopaque) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.host(out);
+                return self.host(allocator, out);
             }
 
-            fn unlock(ctx: *anyopaque) !void {
+            fn unlock(ctx: *anyopaque, allocator: std.mem.Allocator) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.unlock();
+                return self.unlock(allocator);
             }
 
-            fn isLocked(ctx: *anyopaque) !bool {
+            fn isLocked(ctx: *anyopaque, allocator: std.mem.Allocator) !bool {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.isLocked();
+                return self.isLocked(allocator);
             }
 
-            fn isContiguous(ctx: *anyopaque) !bool {
+            fn isContiguous(ctx: *anyopaque, allocator: std.mem.Allocator) !bool {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.isContiguous();
+                return self.isContiguous(allocator);
             }
 
-            fn strides(ctx: *anyopaque, allocator: std.mem.Allocator) Shape {
+            fn strides(ctx: *anyopaque, allocator: std.mem.Allocator) !Shape {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.strides(allocator);
             }
@@ -300,7 +300,7 @@ pub const TensorAdapterBase = struct {
 
             fn setContext(ctx: *anyopaque, context: ?*anyopaque) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                self.setContext(context);
+                try self.setContext(context);
             }
 
             fn getContext(ctx: *anyopaque) !?*anyopaque {
@@ -308,9 +308,9 @@ pub const TensorAdapterBase = struct {
                 return self.getContext();
             }
 
-            fn toString(ctx: *anyopaque) ![]const u8 {
+            fn toString(ctx: *anyopaque, allocator: std.mem.Allocator) ![]const u8 {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.toString();
+                return self.toString(allocator);
             }
         };
         return .{

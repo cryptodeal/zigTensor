@@ -2386,7 +2386,7 @@ pub inline fn indexGen(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     ndims: i64,
-    indices: *const af.af_index_t,
+    indices: []const af.af_index_t,
 ) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
@@ -2394,7 +2394,7 @@ pub inline fn indexGen(
             &arr,
             in.array_,
             @intCast(ndims),
-            indices,
+            indices.ptr,
         ),
         @src(),
     );
@@ -2859,14 +2859,14 @@ pub inline fn getScalar(comptime T: type, arr: *const af.Array) !T {
 /// The return value specifies which backend the `af.Array` was created on.
 pub inline fn getBackendId(arr: *const af.Array) !af.Backend {
     var backend: af.af_backend = undefined;
-    try af.AF_CHECK(af.af_get_backend_id(&backend, arr), @src());
+    try af.AF_CHECK(af.af_get_backend_id(&backend, arr.array_), @src());
     return @enumFromInt(backend);
 }
 
 /// Returns the id of the device an `af.Array` was created on.
 pub inline fn getDeviceId(arr: *const af.Array) !i32 {
     var device: c_int = undefined;
-    try af.AF_CHECK(af.af_get_device_id(&device, arr.af_array), @src());
+    try af.AF_CHECK(af.af_get_device_id(&device, arr.array_), @src());
     return @intCast(device);
 }
 
@@ -5866,7 +5866,7 @@ pub inline fn getStrides(arr: *const af.Array) !af.Dim4 {
             &dims.dims[1],
             &dims.dims[2],
             &dims.dims[3],
-            arr,
+            arr.array_,
         ),
         @src(),
     );

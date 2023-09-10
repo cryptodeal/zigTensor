@@ -19,6 +19,7 @@ const ZT_BACKEND_CPU = build_options.ZT_BACKEND_CPU;
 const ZT_ARRAYFIRE_USE_CUDA = build_options.ZT_ARRAYFIRE_USE_CUDA;
 const ZT_ARRAYFIRE_USE_CPU = build_options.ZT_ARRAYFIRE_USE_CPU;
 const TensorBackendType = base.TensorBackendType;
+const TensorAdapterBase = @import("../../TensorAdapter.zig").TensorAdapterBase;
 const Stream = rt_stream.Stream;
 const DType = zt_types.DType;
 const DeviceManager = rt_device_manager.DeviceManager;
@@ -179,8 +180,8 @@ pub const ArrayFireBackend = struct {
     // -------------------------- Compute Functions --------------------------
 
     /// Evaluate any expressions in the ArrayFire array backing the tensor.
-    pub fn eval(_: *const ArrayFireBackend, tensor: Tensor) !void {
-        try af.AF_CHECK(af.af_eval(try toArray(tensor)), @src());
+    pub fn eval(_: *const ArrayFireBackend, allocator: std.mem.Allocator, tensor: Tensor) !void {
+        try af.AF_CHECK(af.af_eval(try toArray(allocator, tensor)), @src());
     }
 
     /// Returns the stream from which the given array was created.
@@ -221,14 +222,14 @@ pub const ArrayFireBackend = struct {
         var dims = try shape.toAfDims();
         const ndims = shape.ndim();
         var arr = try af.Array.randn(allocator, @intCast(ndims), dims, dtype.toAfDtype());
-        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, arr, ndims));
+        return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, arr, ndims)));
     }
 
     pub fn rand(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
         var dims = try shape.toAfDims();
         const ndims = shape.ndim();
         var arr = try af.Array.randu(allocator, @intCast(ndims), dims, dtype.toAfDtype());
-        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, arr, ndims));
+        return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, arr, ndims)));
     }
 
     // --------------------------- Tensor Operators ---------------------------
@@ -241,21 +242,21 @@ pub const ArrayFireBackend = struct {
     pub fn identity(_: *const ArrayFireBackend, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
         const dims = af.Dim4{ .dims = [_]af.dim_t{ @intCast(dim), @intCast(dim), 1, 1 } };
         var arr = try af.ops.identity(allocator, 2, dims, dtype.toAfDtype());
-        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, arr, 2));
+        return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, arr, 2)));
     }
 
     pub fn arange(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) !Tensor {
         var dims = try shape.toAfDims();
         const ndims = shape.ndim();
         var arr = try af.ops.range(allocator, @intCast(ndims), dims, @intCast(seq_dim), dtype.toAfDtype());
-        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, arr, ndims));
+        return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, arr, ndims)));
     }
 
     pub fn iota(_: *const ArrayFireBackend, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) !Tensor {
         var afDims = try dims.toAfDims();
         var afTileDims = try tile_dims.toAfDims();
         var arr = try af.ops.iota(allocator, @intCast(afDims.ndims()), afDims, @intCast(afTileDims.ndims()), afTileDims, dtype.toAfDtype());
-        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, arr, @max(afDims.ndims(), afTileDims.ndims())));
+        return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, arr, @max(afDims.ndims(), afTileDims.ndims()))));
     }
 
     pub fn where(_: *const ArrayFireBackend, allocator: std.mem.Allocator, condition: Tensor, x: Tensor, y: Tensor) !Tensor {

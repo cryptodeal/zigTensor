@@ -25,6 +25,8 @@ pub usingnamespace @import("RandomEngine.zig");
 pub usingnamespace @import("types.zig");
 pub usingnamespace @import("Window.zig");
 
+pub const Errors = error{ArrayFireError};
+
 /// Utility function for handling `af.af_err` when calling
 /// directly into ArrayFire's C API from Zig.
 pub inline fn AF_CHECK(v: af.af_err, src: std.builtin.SourceLocation) !void {

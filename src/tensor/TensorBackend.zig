@@ -2,7 +2,7 @@
 
 const std = @import("std");
 const zigrc = @import("zigrc");
-const DType = @import("types.zig").DType;
+const DType = @import("Types.zig").DType;
 const base = @import("TensorBase.zig");
 const zt_shape = @import("Shape.zig");
 
@@ -31,21 +31,21 @@ pub const TensorBackend = struct {
 
     pub const VTable = struct {
         deinit: *const fn (ctx: *anyopaque) void,
-        backendType: *const fn (ctx: *const anyopaque) TensorBackendType,
-        eval: *const fn (ctx: *const anyopaque) anyerror!void,
-        supportsDataType: *const fn (ctx: *const anyopaque, data_type: DType) anyerror!bool,
+        backendType: *const fn (ctx: *anyopaque) TensorBackendType,
+        eval: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!void,
+        supportsDataType: *const fn (ctx: *anyopaque, data_type: DType) anyerror!bool,
         // TODO: getMemMgrInfo: *const fn (ctx: *anyopaque) ,
         // TODO: setMemMgrLogStream: *const fn (ctx: *anyopaque) ,
         // TODO: setMemMgrLoggingEnabled: *const fn (ctx: *anyopaque) ,
         // TODO: setMemMgrFlushInterval: *const fn (ctx: *anyopaque) ,
-        setSeed: *const fn (ctx: *const anyopaque, seed: u64) anyerror!void,
-        randn: *const fn (ctx: *const anyopaque, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) anyerror!Tensor,
-        rand: *const fn (ctx: *const anyopaque, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) anyerror!Tensor,
+        setSeed: *const fn (ctx: *anyopaque, seed: u64) anyerror!void,
+        randn: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) anyerror!Tensor,
+        rand: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) anyerror!Tensor,
         // TODO: fromScalar: *const fn (ctx: *const anyopaque, allocator: std.mem.Allocator, ) ,
         // TODO: full: *const fn (ctx: *const anyopaque, allocator: std.mem.Allocator, ) ,
-        identity: *const fn (ctx: *const anyopaque, allocator: std.mem.Allocator, dim: Dim, dtype: DType) anyerror!Tensor,
-        arange: *const fn (ctx: *const anyopaque, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) anyerror!Tensor,
-        iota: *const fn (ctx: *const anyopaque, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) anyerror!Tensor,
+        identity: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dim: Dim, dtype: DType) anyerror!Tensor,
+        arange: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) anyerror!Tensor,
+        iota: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) anyerror!Tensor,
     };
 
     pub fn deinit(self: *Self) void {
@@ -56,8 +56,8 @@ pub const TensorBackend = struct {
         return self.vtable.backendType(self.ptr);
     }
 
-    pub fn eval(self: *Self) !void {
-        return self.vtable.eval(self.ptr);
+    pub fn eval(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !void {
+        return self.vtable.eval(self.ptr, allocator, tensor);
     }
 
     pub fn supportsDataType(self: *Self, data_type: DType) !bool {
@@ -100,47 +100,47 @@ pub const TensorBackend = struct {
                 self.deinit();
             }
 
-            fn backendType(ctx: *const anyopaque) TensorBackendType {
+            fn backendType(ctx: *anyopaque) TensorBackendType {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.trialRunStarted();
+                return self.backendType();
             }
 
-            fn eval(ctx: *const anyopaque) !void {
+            fn eval(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.trialRunFinished();
+                return self.eval(allocator, tensor);
             }
 
-            fn supportsDataType(ctx: *const anyopaque, data_type: DType) !bool {
+            fn supportsDataType(ctx: *anyopaque, data_type: DType) !bool {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.supportsDataType(data_type);
             }
 
-            fn setSeed(ctx: *const anyopaque, seed: u64) !void {
+            fn setSeed(ctx: *anyopaque, seed: u64) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.setSeed(seed);
             }
 
-            fn randn(ctx: *const anyopaque, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
+            fn randn(ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.randn(allocator, shape, dtype);
             }
 
-            fn rand(ctx: *const anyopaque, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
+            fn rand(ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.rand(allocator, shape, dtype);
             }
 
-            fn identity(ctx: *const anyopaque, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
+            fn identity(ctx: *anyopaque, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.identity(allocator, dim, dtype);
             }
 
-            fn arange(ctx: *const anyopaque, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) !Tensor {
+            fn arange(ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.arange(allocator, shape, seq_dim, dtype);
             }
 
-            fn iota(ctx: *const anyopaque, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) !Tensor {
+            fn iota(ctx: *anyopaque, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.iota(allocator, dims, tile_dims, dtype);
             }

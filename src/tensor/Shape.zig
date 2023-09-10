@@ -51,7 +51,7 @@ pub const Shape = struct {
     }
 
     /// Frees all associated memory.
-    pub fn deinit(self: *Shape) void {
+    pub fn deinit(self: *const Shape) void {
         self.dims_.deinit();
     }
 

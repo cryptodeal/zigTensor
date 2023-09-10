@@ -1,7 +1,6 @@
 const std = @import("std");
-const af_backend = @import("ArrayFireBackend.zig");
-
-pub const ArrayFireBackend = af_backend.ArrayFireBackend;
+pub usingnamespace @import("ArrayFireBackend.zig");
+pub usingnamespace @import("ArrayFireTensor.zig");
 
 test {
     std.testing.refAllDecls(@This());

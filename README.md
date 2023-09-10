@@ -33,7 +33,7 @@ is solely focused on OSx and leveraging ArrayFire for the backend.
 ### Roadmap
 
 - [ ] bindings
-  - [ ] ArrayFire (WIP)
+  - [x] ArrayFire
 - [ ] autograd
 - [ ] common
 - [ ] contrib

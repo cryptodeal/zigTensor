@@ -38,7 +38,7 @@ pub const Array = struct {
         data: ?*anyopaque,
         ndims: u32,
         dims: af.Dim4,
-        dtype: DType,
+        dtype: af.Dtype,
     ) !*Self {
         return af.ops.deviceArray(
             allocator,
@@ -1554,7 +1554,7 @@ pub const Array = struct {
 
     /// Copy data from the underlying `af.af_array` to a pointer.
     pub fn getDataPtr(self: *const Self, data: ?*anyopaque) !void {
-        return af.ops.getDataPtr(self, data);
+        return af.ops.getDataPtr(data, self);
     }
 
     /// Reduce the reference count of this `af.Array`.

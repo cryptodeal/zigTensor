@@ -26,12 +26,14 @@ const Dim = zt_shape.Dim;
 const DType = zt_types.DType;
 const Arc = zigrc.Arc;
 
-pub fn toArray(tensor: Tensor) !*af.Array {
+const GetHandleErrors = std.mem.Allocator.Error || af.Errors;
+
+pub fn toArray(allocator: std.mem.Allocator, tensor: Tensor) !*af.Array {
     if (tensor.backendType() != .ArrayFire) {
         std.log.err("toArray: tensor is not ArrayFire-backed\n", .{});
         return error.TensorNotArrayFireBacked;
     }
-    return tensor.getAdapter(ArrayFireTensor).getHandle();
+    return tensor.getAdapter(ArrayFireTensor).getHandle(allocator);
 }
 
 /// Tensor adapter for the internal ArrayFire array. Maps operations
@@ -48,12 +50,12 @@ pub const ArrayFireTensor = struct {
             return .{ .isFlat = _isFlat };
         }
 
-        pub fn get(allocator: std.mem.Allocator, inst: *const ArrayFireTensor) !*af.Array {
+        pub fn get(_: *const IndexedArrayComponent, allocator: std.mem.Allocator, inst: *ArrayFireTensor) !*af.Array {
             return af.ops.indexGen(
                 allocator,
-                try inst.getHandle(),
+                try inst.getHandle(allocator),
                 @intCast(inst.numDims_),
-                inst.indices_.?.ptr,
+                inst.indices_.?,
             );
         }
     };
@@ -61,10 +63,12 @@ pub const ArrayFireTensor = struct {
     /// To be visited when this tensor is holding an array without needing
     /// indexing. Passthrough - returns the array directly.
     pub const ArrayComponent = struct {
-        pub fn get(inst: *const ArrayFireTensor) *af.Array {
+        pub fn get(_: *const ArrayComponent, inst: *const ArrayFireTensor) *af.Array {
             return inst.arrayHandle_.value.*;
         }
     };
+
+    pub const HandleUnion = union(ComponentTypeTag) { array: ArrayComponent, indexedArray: IndexedArrayComponent };
 
     /// A pointer to the internal ArrayFire array. Shared
     /// amongst tensors that are shallow-copied.
@@ -72,7 +76,7 @@ pub const ArrayFireTensor = struct {
 
     /// Indices in the event that this tensor is about to be indexed. Cleared
     /// the next time this array handle is acquired (see `getHandle`).
-    indices_: ?[]af.af_index_t = null,
+    indices_: ?[]const af.af_index_t = null,
 
     /// Necessary to maintain the types of each index, as ArrayFire
     /// doesn't distinguish between an integer index literal and
@@ -104,7 +108,9 @@ pub const ArrayFireTensor = struct {
 
     // An interface to visit when getting an array handle. Indexes lazily
     // because we can't store an af::array::proxy as an lvalue. See getHandle().
-    handle_: union(ComponentTypeTag) { array: ArrayComponent, indexedArray: IndexedArrayComponent } = undefined,
+    handle_: HandleUnion = undefined,
+
+    allocator: std.mem.Allocator,
 
     /// Initializes a new ArrayFireTensor that will be lazily indexed.
     /// Intended for internal use only.
@@ -132,16 +138,21 @@ pub const ArrayFireTensor = struct {
         self.* = .{
             .arrayHandle_ = arr,
             .numDims_ = num_dims,
+            .allocator = allocator,
         };
         return self;
     }
 
     pub fn initFromArray(allocator: std.mem.Allocator, arr: *af.Array, num_dims: usize) !*ArrayFireTensor {
         var self = try allocator.create(ArrayFireTensor);
+        var afDims = try arr.getDims();
         self.* = .{
             .arrayHandle_ = try Arc(*af.Array).init(allocator, arr),
             .numDims_ = num_dims,
+            .shape_ = try afDims.toZtShape(allocator, afDims.ndims()),
+            .allocator = allocator,
         };
+        return self;
     }
 
     pub fn initRaw(allocator: std.mem.Allocator) !*ArrayFireTensor {
@@ -150,25 +161,25 @@ pub const ArrayFireTensor = struct {
 
     pub fn init(
         allocator: std.mem.Allocator,
-        _shape: *const Shape,
+        _shape: Shape,
         data_type: DType,
-        ptr: ?*const anyopaque,
+        ptr: ?*anyopaque,
         loc: Location,
     ) !*ArrayFireTensor {
         var self = try allocator.create(ArrayFireTensor);
         var arr: *af.Array = undefined;
         switch (loc) {
-            .Host => try af.Array.initFromPtr(
+            .Host => arr = try af.Array.initFromPtr(
                 allocator,
                 ptr,
-                @intCast(shape.ndim()),
+                @intCast(_shape.ndim()),
                 try _shape.toAfDims(),
                 data_type.toAfDtype(),
             ),
-            .Device => try af.Array.initFromDevicePtr(
+            .Device => arr = try af.Array.initFromDevicePtr(
                 allocator,
                 ptr,
-                @intCast(shape.ndim()),
+                @intCast(_shape.ndim()),
                 try _shape.toAfDims(),
                 data_type.toAfDtype(),
             ),
@@ -176,8 +187,11 @@ pub const ArrayFireTensor = struct {
         self.* = .{
             .arrayHandle_ = try Arc(*af.Array).init(allocator, arr),
             .numDims_ = _shape.ndim(),
-            .handle_ = ArrayComponent{},
+            .handle_ = .{ .array = ArrayComponent{} },
+            .shape_ = _shape,
+            .allocator = allocator,
         };
+        return self;
     }
 
     pub fn initSparse(allocator: std.mem.Allocator, n_rows: Dim, n_cols: Dim, values: Tensor, row_idx: Tensor, col_idx: Tensor, storage_type: StorageType) !*ArrayFireTensor {
@@ -194,16 +208,17 @@ pub const ArrayFireTensor = struct {
         self.arrayHandle_.releaseWithFn(af.Array.deinit);
         // remove indices
         if (self.indices_ != null) {
-            af.ops.releaseIndexers(self.indices_) catch unreachable;
+            af.ops.releaseIndexers(@constCast(self.indices_.?)) catch unreachable;
         }
         // remove IndexTypes
         if (self.indexTypes_ != null) {
             self.indexTypes_.?.deinit();
         }
         self.shape_.deinit();
+        self.allocator.destroy(self);
     }
 
-    pub fn getHandle(self: *ArrayFireTensor, allocator: std.mem.Allocator) !*af.Array {
+    pub fn getHandle(self: *ArrayFireTensor, allocator: std.mem.Allocator) GetHandleErrors!*af.Array {
         if (@as(ComponentTypeTag, self.handle_) != .array) {
             const idxComp: IndexedArrayComponent = self.handle_.indexedArray;
             var oldHandle = self.arrayHandle_;
@@ -223,7 +238,7 @@ pub const ArrayFireTensor = struct {
             self.handle_ = .{ .array = ArrayComponent{} }; // set to passthrough
             // remove indices
             if (self.indices_ != null) {
-                try af.ops.releaseIndexers(self.indices_);
+                try af.ops.releaseIndexers(@constCast(self.indices_.?));
                 self.indices_ = null;
             }
             // remove IndexTypes
@@ -251,13 +266,13 @@ pub const ArrayFireTensor = struct {
     pub fn copy(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Tensor {
         _ = try self.getHandle(allocator); // if this tensor was a view, run indexing and promote
         var copiedArr = try self.arrayHandle_.value.*.copy(allocator);
-        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, copiedArr, self.numDims()));
+        return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, copiedArr, self.numDims())));
     }
 
     pub fn shallowCopy(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Tensor {
         _ = try self.getHandle(allocator); // if this tensor was a view, run indexing and promote
         var sharedArr = self.arrayHandle_.retain();
-        return Tensor.init(try ArrayFireTensor.initFromShared(allocator, sharedArr, self.numDims()));
+        return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromShared(allocator, sharedArr, self.numDims())));
     }
 
     pub fn backendType(_: *ArrayFireTensor) TensorBackendType {
@@ -268,67 +283,67 @@ pub const ArrayFireTensor = struct {
         return TensorBackend.init(try ArrayFireBackend.getInstance(allocator));
     }
 
-    pub fn shape(self: *ArrayFireTensor) !Shape {
+    pub fn shape(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Shape {
         // Update the Shape in-place. Doesn't change any underlying data; only the
         // mirrored Shape metadata.
-        const afDims: af.Dim4 = (try self.getHandle()).getDims();
-        afDims.toZtShapeRaw(self.numDims(), &self.shape_);
+        const afDims: af.Dim4 = try (try self.getHandle(allocator)).getDims();
+        try afDims.toZtShapeRaw(self.numDims(), &self.shape_);
         return self.shape_;
     }
 
-    pub fn dtype(self: *ArrayFireTensor) !DType {
-        var arr = try self.getHandle();
+    pub fn dtype(self: *ArrayFireTensor, allocator: std.mem.Allocator) !DType {
+        var arr = try self.getHandle(allocator);
         var afType = try arr.getType();
         return afType.toZtDType();
     }
 
-    pub fn isSparse(self: *ArrayFireTensor) !bool {
-        var arr = try self.getHandle();
+    pub fn isSparse(self: *ArrayFireTensor, allocator: std.mem.Allocator) !bool {
+        var arr = try self.getHandle(allocator);
         return arr.isSparse();
     }
 
     // TODO: pub fn afHandleType()
 
-    pub fn location(self: *ArrayFireTensor) !Location {
-        return switch (try af.ops.getBackendId(try self.getHandle())) {
+    pub fn location(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Location {
+        return switch (try af.ops.getBackendId(try self.getHandle(allocator))) {
             .CUDA, .OpenCL => .Device,
             .CPU => .Host,
             else => error.UnsupportedBackend,
         };
     }
 
-    pub fn scalar(self: *ArrayFireTensor, out: ?*anyopaque) !void {
-        var arr = try self.getHandle();
+    pub fn scalar(self: *ArrayFireTensor, allocator: std.mem.Allocator, out: ?*anyopaque) !void {
+        var arr = try self.getHandle(allocator);
         try af.AF_CHECK(af.af_get_scalar(out, arr.array_), @src());
     }
 
-    pub fn device(self: *ArrayFireTensor, out: *?*anyopaque) !void {
-        var arr = try self.getHandle();
+    pub fn device(self: *ArrayFireTensor, allocator: std.mem.Allocator, out: *?*anyopaque) !void {
+        var arr = try self.getHandle(allocator);
         try af.AF_CHECK(af.af_get_device_ptr(out, arr.array_), @src());
     }
 
-    pub fn host(self: *ArrayFireTensor, out: ?*anyopaque) !void {
-        var arr = try self.getHandle();
+    pub fn host(self: *ArrayFireTensor, allocator: std.mem.Allocator, out: ?*anyopaque) !void {
+        var arr = try self.getHandle(allocator);
         try arr.getDataPtr(out);
     }
 
-    pub fn unlock(self: *ArrayFireTensor) !void {
-        var arr = try self.getHandle();
+    pub fn unlock(self: *ArrayFireTensor, allocator: std.mem.Allocator) !void {
+        var arr = try self.getHandle(allocator);
         try arr.unlock();
     }
 
-    pub fn isLocked(self: *ArrayFireTensor) !bool {
-        var arr = try self.getHandle();
+    pub fn isLocked(self: *ArrayFireTensor, allocator: std.mem.Allocator) !bool {
+        var arr = try self.getHandle(allocator);
         return arr.isLocked();
     }
 
-    pub fn isContiguous(self: *ArrayFireTensor) !bool {
-        var arr = try self.getHandle();
+    pub fn isContiguous(self: *ArrayFireTensor, allocator: std.mem.Allocator) !bool {
+        var arr = try self.getHandle(allocator);
         return arr.isLinear();
     }
 
     pub fn strides(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Shape {
-        var arr = try self.getHandle();
+        var arr = try self.getHandle(allocator);
         var afStrides = try arr.getStrides();
         return afStrides.toZtShape(allocator, self.numDims());
     }
@@ -343,7 +358,7 @@ pub const ArrayFireTensor = struct {
     pub fn astype(self: *ArrayFireTensor, allocator: std.mem.Allocator, dType: DType) !Tensor {
         var arr = try self.getHandle(allocator);
         var convertedArr = try arr.cast(allocator, dType.toAfDtype());
-        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, convertedArr, self.numDims()));
+        return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, convertedArr, self.numDims())));
     }
 
     pub fn index(self: *ArrayFireTensor, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
@@ -367,19 +382,23 @@ pub const ArrayFireTensor = struct {
     pub fn flatten(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Tensor {
         var arr = try self.getHandle(allocator);
         var flattenedArr = try arr.flat(allocator);
-        return Tensor.init(try ArrayFireTensor.initFromArray(allocator, flattenedArr, 1));
+        return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, flattenedArr, 1)));
     }
 
     // TODO: pub fn flat()
 
     pub fn asContiguousTensor(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Tensor {
-        if (try self.isContiguous()) {
+        if (try self.isContiguous(allocator)) {
             var other_arr = try self.getHandle(allocator);
-            return Tensor.init(try ArrayFireTensor.initFromArray(allocator, other_arr, self.numDims()));
+            return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, other_arr, self.numDims())));
         }
 
-        // TODO: handle other case
-        // const arr = try self.getHandle(allocator);
+        var arr = try self.getHandle(allocator);
+        var newDims = af.Dim4{};
+        newDims.dims[0] = @as(af.dim_t, @intCast(try arr.getElements()));
+        var linearArr = try af.Array.initHandle(allocator, 1, newDims, try arr.getType());
+        // TODO: copy arr into linearArr
+        return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, linearArr, 1)));
     }
 
     pub fn setContext(self: *ArrayFireTensor, context: ?*anyopaque) !void {
@@ -388,21 +407,21 @@ pub const ArrayFireTensor = struct {
         _ = context;
     }
 
-    pub fn getContext(self: *ArrayFireTensor, comptime T: type) ?T {
+    pub fn getContext(self: *ArrayFireTensor) ?*anyopaque {
         _ = self;
         // no-op
         return null;
     }
 
-    pub fn toString(self: *ArrayFireTensor) []const u8 {
-        var arr = try self.getHandle();
+    pub fn toString(self: *ArrayFireTensor, allocator: std.mem.Allocator) ![]const u8 {
+        var arr = try self.getHandle(allocator);
         return arr.toString("ArrayFireTensor", 4, true);
     }
 
-    fn adjustInPlaceOperandDims(self: *ArrayFireTensor, allocator: std.mem.Allocator, operand: Tensor) !*af.Array {
+    fn adjustInPlaceOperandDims(self: *ArrayFireTensor, allocator: std.mem.Allocator, operand: *Tensor) !*af.Array {
         // optimstically try to moddims the operand's singleton dims
         const preIdxDims: af.Dim4 = try self.arrayHandle_.value.*.getDims();
-        const operandArr: *af.Array = toArray(operand);
+        const operandArr: *af.Array = toArray(allocator, operand);
 
         // dims to which to try to modify the input if doing indexing
         var newDims: af.Dim4 = undefined;
@@ -498,8 +517,16 @@ test "ArrayFireTensor.init" {
     var data = try allocator.alloc(f32, 1000);
     defer allocator.free(data);
     for (data) |*v| v.* = 12;
-    var t1 = try ArrayFireTensor.init(allocator, &shape, DType.f32, data.ptr, .Host);
+    var t1 = try ArrayFireTensor.init(allocator, shape, DType.f32, data.ptr, .Host);
+    defer t1.deinit();
 
-    const str = try t1.strides(allocator);
-    defer str.deinit();
+    const strides = try t1.strides(allocator);
+    defer strides.deinit();
+
+    var t2 = try t1.astype(allocator, DType.f64);
+    defer t2.deinit();
+
+    var str = try t2.toString(allocator);
+    defer af.ops.freeHost(@ptrCast(@constCast(str.ptr))) catch unreachable;
+    std.debug.print("t2 string: {s}\n", .{str});
 }
