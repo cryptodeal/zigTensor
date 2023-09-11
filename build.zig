@@ -47,8 +47,8 @@ pub fn build(b: *std.Build) !void {
         .root_source_file = main_module.source_file,
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
-    lib.linkLibC();
     linkBackend(lib);
     b.installArtifact(lib);
 
@@ -57,8 +57,8 @@ pub fn build(b: *std.Build) !void {
         .root_source_file = main_module.source_file,
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
-    main_tests.linkLibC();
     linkBackend(main_tests);
 
     main_tests.addOptions("build_options", shared_opts);

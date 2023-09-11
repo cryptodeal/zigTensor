@@ -12,6 +12,10 @@ const Shape = zt_shape.Shape;
 const Dim = zt_shape.Dim;
 const TensorBackendType = base.TensorBackendType;
 
+pub fn areBackendsEqual(self: TensorBackend, other: TensorBackend) bool {
+    return self.backendType() == other.backendType();
+}
+
 /// A Tensor backend that can be used to store global state associated with a
 /// particular tensor implementation.
 ///
@@ -41,12 +45,31 @@ pub const TensorBackend = struct {
         setSeed: *const fn (ctx: *anyopaque, seed: u64) anyerror!void,
         randn: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) anyerror!Tensor,
         rand: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) anyerror!Tensor,
-        // TODO: fromScalar: *const fn (ctx: *const anyopaque, allocator: std.mem.Allocator, ) ,
-        // TODO: full: *const fn (ctx: *const anyopaque, allocator: std.mem.Allocator, ) ,
+        constant: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: ?*const Shape, value: f64, dtype: DType) anyerror!Tensor,
         identity: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dim: Dim, dtype: DType) anyerror!Tensor,
         arange: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) anyerror!Tensor,
         iota: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) anyerror!Tensor,
     };
+
+    pub fn fromScalar(self: *Self, allocator: std.mem.Allocator, comptime T: type, value: T, dtype: DType) !Tensor {
+        var f: f64 = undefined;
+        switch (@typeInfo(T)) {
+            .Float => f = @floatCast(value),
+            .Int => f = @floatFromInt(value),
+            else => return error.InvalidTypePassedToFromScalar,
+        }
+        return self.vtable.constant(self.ptr, allocator, null, f, dtype);
+    }
+
+    pub fn full(self: *Self, allocator: std.mem.Allocator, shape: *const Shape, comptime T: type, value: T, dtype: DType) !Tensor {
+        var f: f64 = undefined;
+        switch (@typeInfo(T)) {
+            .Float => f = @floatCast(value),
+            .Int => f = @floatFromInt(value),
+            else => return error.InvalidTypePassedToFromScalar,
+        }
+        return self.vtable.constant(self.ptr, allocator, shape, f, dtype);
+    }
 
     pub fn deinit(self: *Self) void {
         return self.vtable.deinit(self.ptr);
@@ -74,6 +97,18 @@ pub const TensorBackend = struct {
 
     pub fn rand(self: *Self, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
         return self.vtable.rand(self.ptr, allocator, shape, dtype);
+    }
+
+    pub fn constant(self: *Self, allocator: std.mem.Allocator, shape: ?*const Shape, value: f64, dtype: DType) !Tensor {
+        return self.vtable.constant(self.ptr, allocator, shape, value, dtype);
+    }
+
+    pub fn constantI64(self: *Self, allocator: std.mem.Allocator, shape: ?*const Shape, value: i64, dtype: DType) !Tensor {
+        return self.vtable.constantI64(self.ptr, allocator, shape, value, dtype);
+    }
+
+    pub fn constantU64(self: *Self, allocator: std.mem.Allocator, shape: ?*const Shape, value: u64, dtype: DType) !Tensor {
+        return self.vtable.constantU64(self.ptr, allocator, shape, value, dtype);
     }
 
     pub fn identity(self: *Self, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
@@ -130,6 +165,11 @@ pub const TensorBackend = struct {
                 return self.rand(allocator, shape, dtype);
             }
 
+            fn constant(ctx: *anyopaque, allocator: std.mem.Allocator, shape: ?*const Shape, value: f64, dtype: DType) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.constant(allocator, shape, value, dtype);
+            }
+
             fn identity(ctx: *anyopaque, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.identity(allocator, dim, dtype);
@@ -155,6 +195,7 @@ pub const TensorBackend = struct {
                 .setSeed = impl.setSeed,
                 .randn = impl.randn,
                 .rand = impl.rand,
+                .constant = impl.constant,
                 .identity = impl.identity,
                 .arange = impl.arange,
                 .iota = impl.iota,

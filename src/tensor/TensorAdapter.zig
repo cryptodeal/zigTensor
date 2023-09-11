@@ -300,7 +300,7 @@ pub const TensorAdapterBase = struct {
 
             fn index(ctx: *anyopaque, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.astype(allocator, indices);
+                return self.index(allocator, indices);
             }
 
             fn flatten(ctx: *anyopaque, allocator: std.mem.Allocator) !Tensor {

@@ -47,8 +47,8 @@ pub const ArrayFireTensor = struct {
     pub const IndexedArrayComponent = struct {
         isFlat_: bool,
 
-        pub fn init(_isFlat: bool) IndexedArrayComponent {
-            return .{ .isFlat = _isFlat };
+        pub fn init(isFlat: bool) IndexedArrayComponent {
+            return .{ .isFlat_ = isFlat };
         }
 
         pub fn get(_: *const IndexedArrayComponent, allocator: std.mem.Allocator, inst: *ArrayFireTensor) !*af.Array {
@@ -378,7 +378,7 @@ pub const ArrayFireTensor = struct {
         // If indexing by a single element and it's a tensor with the same number of
         // indices as the array being indexed, do a flat index as this is probably a
         // filter-based index (for example: a(a < 5)).
-        const completeTensorIndex = indices.items.len == 1 and indices.items[0].idxType() == .Tensor and try indices.items[0].Tensor.elements() == @as(usize, @intCast((try self.getHandle()).getElements()));
+        const completeTensorIndex = indices.items.len == 1 and indices.items[0].idxType() == .Tensor and try indices.items[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try self.getHandle(allocator)).getElements()));
         var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
         if (completeTensorIndex) {
             try af.ops.setSeqIndexer(afIndices, &af.af_seq{ .begin = 0, .end = 0, .step = 1 }, 0, false);

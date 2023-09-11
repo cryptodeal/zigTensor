@@ -116,7 +116,7 @@ pub const Tensor = struct {
         return self.impl_.location(allocator);
     }
 
-    pub fn elements(self: *Tensor, allocator: std.mem.Allocator) !usize {
+    pub fn elements(self: *Tensor, allocator: std.mem.Allocator) !Dim {
         var shape_ = try self.shape(allocator);
         return shape_.elements();
     }
