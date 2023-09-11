@@ -180,15 +180,15 @@ pub const ArrayFireTensor = struct {
                 allocator,
                 ptr,
                 @intCast(_shape.ndim()),
-                try _shape.toAfDims(),
-                data_type.toAfDtype(),
+                try af.ops.ztToAfDims(_shape),
+                af.ops.ztToAfType(data_type),
             ),
             .Device => arr = try af.Array.initFromDevicePtr(
                 allocator,
                 ptr,
                 @intCast(_shape.ndim()),
-                try _shape.toAfDims(),
-                data_type.toAfDtype(),
+                try af.ops.ztToAfDims(_shape),
+                af.ops.ztToAfType(data_type),
             ),
         }
         self.* = .{
@@ -363,7 +363,7 @@ pub const ArrayFireTensor = struct {
 
     pub fn astype(self: *ArrayFireTensor, allocator: std.mem.Allocator, dType: DType) !Tensor {
         var arr = try self.getHandle(allocator);
-        var convertedArr = try arr.cast(allocator, dType.toAfDtype());
+        var convertedArr = try arr.cast(allocator, af.ops.ztToAfType(dType));
         return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, convertedArr, self.numDims())));
     }
 

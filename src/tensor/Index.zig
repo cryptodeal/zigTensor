@@ -17,7 +17,7 @@ pub const end: end_t = .{};
 /// Allowed indexing operators.
 pub const IndexType = enum(u8) { Tensor = 0, Range = 1, Literal = 2, Span = 3 };
 
-pub const RangeIdxTypeTag = enum { end, dim };
+pub const RangeIdxTypeTag = enum(u8) { end, dim };
 
 pub const RangeError = error{FailedToGetEndVal};
 
@@ -94,7 +94,7 @@ pub const span: Range = Range.initWithStride(-1, .{ .dim = -1 }, 0);
 
 pub const IndexErrors = error{IndexGetTypeMismatch};
 
-pub const IndexTypeTag = enum { Literal, Range, Tensor };
+pub const IndexTypeTag = enum(u8) { Literal, Range, Tensor };
 
 /// An entity used to index a tensor.
 ///

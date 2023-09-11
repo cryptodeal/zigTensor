@@ -99,16 +99,6 @@ pub const Shape = struct {
         return &self.dims_;
     }
 
-    pub fn toAfDims(self: *const Shape) !af.Dim4 {
-        if (self.ndim() > 4) {
-            std.log.err("ztToAfDims: ArrayFire shapes can't be more than 4 dimensions\n", .{});
-            return error.ArrayFireCannotExceed4Dimensions;
-        }
-        var af_Dim4 = af.Dim4.init(null);
-        for (0..self.ndim()) |i| af_Dim4.dims[i] = @intCast(try self.dim(i));
-        return af_Dim4;
-    }
-
     /// Formats Shape for printing to writer.
     pub fn format(value: Shape, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         var tmp_shape = @constCast(&value);
@@ -290,36 +280,4 @@ test "Shape string" {
     try std.testing.expectEqualStrings("(7, 7, 7, 7, 7, 7, 7)", str.items);
     s.deinit();
     str.deinit();
-}
-
-test "shape.toAfDims" {
-    const allocator = std.testing.allocator;
-
-    var dims1 = [_]Dim{2};
-    var shape = try Shape.init(allocator, &dims1);
-    var res1 = try shape.toAfDims();
-    var exp1 = [_]c_longlong{ 2, 1, 1, 1 };
-    try std.testing.expectEqualSlices(c_longlong, &exp1, &res1.dims);
-    shape.deinit();
-
-    var dims2 = [_]Dim{ 2, 3 };
-    shape = try Shape.init(allocator, &dims2);
-    var res2 = try shape.toAfDims();
-    var exp2 = [_]c_longlong{ 2, 3, 1, 1 };
-    try std.testing.expectEqualSlices(c_longlong, &exp2, &res2.dims);
-    shape.deinit();
-
-    var dims3 = [_]Dim{ 2, 3, 4 };
-    shape = try Shape.init(allocator, &dims3);
-    var res3 = try shape.toAfDims();
-    var exp3 = [_]c_longlong{ 2, 3, 4, 1 };
-    try std.testing.expectEqualSlices(c_longlong, &exp3, &res3.dims);
-    shape.deinit();
-
-    var Dim4 = [_]Dim{ 2, 3, 4, 5 };
-    shape = try Shape.init(allocator, &Dim4);
-    var res4 = try shape.toAfDims();
-    var exp4 = [_]c_longlong{ 2, 3, 4, 5 };
-    try std.testing.expectEqualSlices(c_longlong, &exp4, &res4.dims);
-    shape.deinit();
 }

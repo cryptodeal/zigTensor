@@ -48,22 +48,6 @@ pub const DType = enum(u8) {
         };
     }
 
-    pub fn toAfDtype(self: DType) af.Dtype {
-        return switch (self) {
-            .f16 => af.Dtype.f16,
-            .f32 => af.Dtype.f32,
-            .f64 => af.Dtype.f64,
-            .b8 => af.Dtype.b8,
-            .s16 => af.Dtype.s16,
-            .s32 => af.Dtype.s32,
-            .s64 => af.Dtype.s64,
-            .u8 => af.Dtype.u8,
-            .u16 => af.Dtype.u16,
-            .u32 => af.Dtype.u32,
-            .u64 => af.Dtype.u64,
-        };
-    }
-
     pub fn getSize(self: *DType) usize {
         return switch (self) {
             .f16 => @sizeOf(f16),
@@ -87,17 +71,3 @@ pub const DType = enum(u8) {
         return DTypeError.InvalidStringInput;
     }
 };
-
-test "DType.toAfDtype" {
-    try std.testing.expect(DType.f16.toAfDtype() == af.Dtype.f16);
-    try std.testing.expect(DType.f32.toAfDtype() == af.Dtype.f32);
-    try std.testing.expect(DType.f64.toAfDtype() == af.Dtype.f64);
-    try std.testing.expect(DType.b8.toAfDtype() == af.Dtype.b8);
-    try std.testing.expect(DType.s16.toAfDtype() == af.Dtype.s16);
-    try std.testing.expect(DType.s32.toAfDtype() == af.Dtype.s32);
-    try std.testing.expect(DType.s64.toAfDtype() == af.Dtype.s64);
-    try std.testing.expect(DType.u8.toAfDtype() == af.Dtype.u8);
-    try std.testing.expect(DType.u16.toAfDtype() == af.Dtype.u16);
-    try std.testing.expect(DType.u32.toAfDtype() == af.Dtype.u32);
-    try std.testing.expect(DType.u64.toAfDtype() == af.Dtype.u64);
-}

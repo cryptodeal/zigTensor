@@ -18,6 +18,8 @@ const ZT_BACKEND_CUDA = build_options.ZT_BACKEND_CUDA;
 const ZT_BACKEND_CPU = build_options.ZT_BACKEND_CPU;
 const ZT_ARRAYFIRE_USE_CUDA = build_options.ZT_ARRAYFIRE_USE_CUDA;
 const ZT_ARRAYFIRE_USE_CPU = build_options.ZT_ARRAYFIRE_USE_CPU;
+const SortMode = base.SortMode;
+const MatrixProperty = base.MatrixProperty;
 const TensorBackendType = base.TensorBackendType;
 const TensorAdapterBase = @import("../../TensorAdapter.zig").TensorAdapterBase;
 const Stream = rt_stream.Stream;
@@ -219,9 +221,9 @@ pub const ArrayFireBackend = struct {
     }
 
     pub fn randn(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
-        var dims = try shape.toAfDims();
+        var dims = try af.ops.ztToAfDims(shape);
         const ndims = shape.ndim();
-        var arr = try af.Array.randn(allocator, @intCast(ndims), dims, dtype.toAfDtype());
+        var arr = try af.Array.randn(allocator, @intCast(ndims), dims, af.ops.ztToAfType(dtype));
         return Tensor.init(
             TensorAdapterBase.init(
                 try ArrayFireTensor.initFromArray(
@@ -234,9 +236,9 @@ pub const ArrayFireBackend = struct {
     }
 
     pub fn rand(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
-        var dims = try shape.toAfDims();
+        var dims = try af.ops.ztToAfDims(shape);
         const ndims = shape.ndim();
-        var arr = try af.Array.randu(allocator, @intCast(ndims), dims, dtype.toAfDtype());
+        var arr = try af.Array.randu(allocator, @intCast(ndims), dims, af.ops.ztToAfType(dtype));
         return Tensor.init(
             TensorAdapterBase.init(
                 try ArrayFireTensor.initFromArray(
@@ -252,13 +254,13 @@ pub const ArrayFireBackend = struct {
     pub fn constant(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: ?*const Shape, value: f64, dtype: DType) !Tensor {
         const ndim: usize = if (shape != null) shape.?.ndim() else 0;
         const afNdim: usize = if (shape != null) shape.?.ndim() else 1;
-        const afDim = if (shape != null) try shape.?.toAfDims() else af.Dim4{};
+        const afDim = if (shape != null) try af.ops.ztToAfDims(shape.?) else af.Dim4{};
         var arr: *af.Array = try af.Array.constant(
             allocator,
             value,
             @intCast(afNdim),
             afDim,
-            dtype.toAfDtype(),
+            af.ops.ztToAfType(dtype),
         );
         return Tensor.init(
             TensorAdapterBase.init(
@@ -273,7 +275,7 @@ pub const ArrayFireBackend = struct {
 
     pub fn identity(_: *const ArrayFireBackend, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
         const dims = af.Dim4{ .dims = [_]af.dim_t{ @intCast(dim), @intCast(dim), 1, 1 } };
-        var arr = try af.ops.identity(allocator, 2, dims, dtype.toAfDtype());
+        var arr = try af.ops.identity(allocator, 2, dims, af.ops.ztToAfType(dtype));
         return Tensor.init(
             TensorAdapterBase.init(
                 try ArrayFireTensor.initFromArray(
@@ -286,14 +288,14 @@ pub const ArrayFireBackend = struct {
     }
 
     pub fn arange(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) !Tensor {
-        var dims = try shape.toAfDims();
+        var dims = try af.ops.ztToAfDims(shape);
         const ndims = shape.ndim();
         var arr = try af.ops.range(
             allocator,
             @intCast(ndims),
             dims,
             @intCast(seq_dim),
-            dtype.toAfDtype(),
+            af.ops.ztToAfType(dtype),
         );
         return Tensor.init(
             TensorAdapterBase.init(
@@ -307,15 +309,15 @@ pub const ArrayFireBackend = struct {
     }
 
     pub fn iota(_: *const ArrayFireBackend, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) !Tensor {
-        var afDims = try dims.toAfDims();
-        var afTileDims = try tile_dims.toAfDims();
+        var afDims = try af.ops.ztToAfDims(dims);
+        var afTileDims = try try af.ops.ztToAfDims(tile_dims);
         var arr = try af.ops.iota(
             allocator,
             @intCast(afDims.ndims()),
             afDims,
             @intCast(afTileDims.ndims()),
             afTileDims,
-            dtype.toAfDtype(),
+            af.ops.ztToAfType(dtype),
         );
         return Tensor.init(
             TensorAdapterBase.init(
@@ -328,27 +330,233 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn where(_: *const ArrayFireBackend, allocator: std.mem.Allocator, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
-        _ = allocator;
-        _ = condition;
-        _ = y;
+    pub fn where(_: *const ArrayFireBackend, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
         var orig: Tensor = x;
-        _ = orig;
-        // TODO: finish impl
+        try af.ops.replace(try toArray(orig), try toArray(condition), try toArray(y));
+        return orig;
     }
 
-    // TODO: pub fn topk()
+    pub fn topk(
+        _: *const ArrayFireBackend,
+        allocator: std.mem.Allocator,
+        input: Tensor,
+        k: u32,
+        axis: Dim,
+        sort_mode: SortMode,
+    ) !struct { values: Tensor, indices: Tensor } {
+        var output = try af.ops.topk(
+            allocator,
+            try toArray(input),
+            @intCast(k),
+            @intCast(axis),
+            af.ops.ztToAfTopKSortMode(sort_mode),
+        );
+        return .{
+            .values = Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        output.values,
+                        try input.ndim(allocator),
+                    ),
+                ),
+            ),
+            .indices = Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        output.indices,
+                        try input.ndim(allocator),
+                    ),
+                ),
+            ),
+        };
+    }
 
-    // TODO: pub fn sort()
+    pub fn sort(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
+        if (sort_mode != .Descending and sort_mode != .Ascending) {
+            std.log.err(
+                "Cannot sort ArrayFire tensor with given SortMode: only Descending and Ascending supported.\n",
+                .{@tagName(sort_mode)},
+            );
+            return error.UnsupportedSortMode;
+        }
+        var arr = try af.ops.sort(allocator, try toArray(input), @intCast(axis), sort_mode == .Ascending);
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    try input.ndim(allocator),
+                ),
+            ),
+        );
+    }
 
-    // TODO: pub fn sort2()
+    pub fn sortIndex(
+        _: *const ArrayFireBackend,
+        allocator: std.mem.Allocator,
+        input: Tensor,
+        axis: Dim,
+        sort_mode: SortMode,
+    ) !struct { out: Tensor, idx: Tensor } {
+        if (sort_mode != .Descending and sort_mode != .Ascending) {
+            std.log.err(
+                "Cannot sort ArrayFire tensor with given SortMode: only Descending and Ascending supported.\n",
+                .{@tagName(sort_mode)},
+            );
+            return error.UnsupportedSortMode;
+        }
+        var output = try af.ops.sortIndex(allocator, try toArray(input), @intCast(axis), sort_mode == .Ascending);
+        return .{
+            .out = Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        output.out,
+                        try input.ndim(allocator),
+                    ),
+                ),
+            ),
+            .idx = Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        output.idx,
+                        try input.ndim(allocator),
+                    ),
+                ),
+            ),
+        };
+    }
 
-    // TODO: pub fn argsort()
+    pub fn argsort(
+        _: *const ArrayFireBackend,
+        allocator: std.mem.Allocator,
+        input: Tensor,
+        axis: Dim,
+        sort_mode: SortMode,
+    ) !Tensor {
+        if (sort_mode != .Descending and sort_mode != .Ascending) {
+            std.log.err(
+                "Cannot sort ArrayFire tensor with given SortMode: only Descending and Ascending supported.\n",
+                .{@tagName(sort_mode)},
+            );
+            return error.UnsupportedSortMode;
+        }
+        var output = try af.ops.sortIndex(allocator, try toArray(input), @intCast(axis), sort_mode == .Ascending);
+        defer output.out.deinit();
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    output.idx,
+                    try input.ndim(allocator),
+                ),
+            ),
+        );
+    }
 
-    pub fn reshape(tensor: Tensor) Tensor {
-        _ = tensor;
+    pub fn matmul(
+        _: *const ArrayFireBackend,
+        allocator: std.mem.Allocator,
+        lhs: Tensor,
+        rhs: Tensor,
+        lhs_prop: MatrixProperty,
+        rhs_prop: MatrixProperty,
+    ) !Tensor {
+        var lhsProp = lhs_prop;
+        var rhsProp = rhs_prop;
+        var lhsNumDims = try lhs.ndim(allocator);
+        var rhsNumDims = try rhs.ndim(allocator);
+        var numDims = @max(lhsNumDims, rhsNumDims);
+        if ((lhsNumDims == 1 or rhsNumDims == 1) and numDims > 1) {
+            numDims -= 1;
+        }
+
+        var lhsArray = try toArray(allocator, lhs);
+        var modLhsArray = false;
+        defer if (modLhsArray) lhsArray.deinit();
+        var rhsArray = try toArray(allocator, rhs);
+        var modRhsArray = false;
+        defer if (modRhsArray) rhsArray.deinit();
+
+        if (lhsNumDims == 1 and rhsNumDims == 1) {
+            // Simulate a dot product by transposing the lhs:
+            // (1, k) x (k, 1) --> (1, 1) --> reshape to (1)
+            // Ignore other transposes since 1D tensors are the transpose of themselves.
+            // ArrayFire would otherwise transpose a (k) tensor to (1, k) since (k) =
+            // (k, 1, 1, 1) and ArrayFire transpose transposes the first two dimensions.
+            lhsProp = .Transpose;
+            rhsProp = .None;
+            numDims = 1;
+        } else {
+            if (rhsNumDims == 1) {
+                var dims = af.Dim4{};
+                dims[0] = @intCast(try rhs.dim(allocator, 0));
+                rhsArray = try af.ops.modDims(allocator, rhsArray, 2, dims);
+                modRhsArray = true;
+            }
+            if (lhsNumDims == 1) {
+                var dims = af.Dim4{};
+                dims[0] = @intCast(try lhs.dim(allocator, 0));
+                lhsArray = try af.ops.modDims(allocator, lhsArray, 2, dims);
+                modLhsArray = true;
+            }
+        }
+
+        var arr = try af.ops.matmul(
+            allocator,
+            lhsArray,
+            rhsArray,
+            af.ops.ztToAfMatrixProperty(lhsProp),
+            af.ops.ztToAfMatrixProperty(rhsProp),
+        );
+
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    numDims,
+                ),
+            ),
+        );
+    }
+
+    pub fn reshape(_: *const ArrayFireBackend, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
+        var arr = try af.ops.modDims(
+            allocator,
+            try toArray(tensor),
+            @intCast(shape.ndim()),
+            try af.ops.ztToAfDims(shape),
+        );
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    shape.ndim(),
+                ),
+            ),
+        );
     }
 };
+
+pub fn canBroadcast(lhs: *const Shape, rhs: *const Shape) bool {
+    var nDim: usize = @max(lhs.ndim(), rhs.ndim());
+    for (0..nDim) |i| {
+        if (i + 1 > lhs.ndim() or i + 1 > rhs.ndim()) {
+            // One Shape has more dimensions than the other - will broadcast to the
+            // smaller tensor
+            continue;
+        }
+        if (lhs.dims_.items[i] != rhs.dims_.items[i] and lhs.dims_.items[i] != 1 and rhs.dims_.items[i] != 1) {
+            return false;
+        }
+    }
+    return true;
+}
 
 test "ArrayFireBackend supportsDataType" {
     var allocator = std.testing.allocator;

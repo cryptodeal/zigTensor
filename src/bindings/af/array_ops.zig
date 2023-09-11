@@ -5909,7 +5909,7 @@ test "createArray" {
         allocator,
         data.ptr,
         @intCast(shape.ndim()),
-        try shape.toAfDims(),
+        try af.ops.ztToAfDims(&shape),
         .f32,
     );
     defer arr.deinit();

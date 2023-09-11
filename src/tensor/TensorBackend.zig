@@ -8,6 +8,8 @@ const zt_shape = @import("Shape.zig");
 
 const assert = std.debug.assert;
 const Tensor = base.Tensor;
+const SortMode = base.SortMode;
+const MatrixProperty = base.MatrixProperty;
 const Shape = zt_shape.Shape;
 const Dim = zt_shape.Dim;
 const TensorBackendType = base.TensorBackendType;
@@ -49,6 +51,13 @@ pub const TensorBackend = struct {
         identity: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dim: Dim, dtype: DType) anyerror!Tensor,
         arange: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) anyerror!Tensor,
         iota: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) anyerror!Tensor,
+        where: *const fn (ctx: *anyopaque, condition: Tensor, x: Tensor, y: Tensor) anyerror!Tensor,
+        topk: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) anyerror!struct { values: Tensor, indices: Tensor },
+        sort: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) anyerror!Tensor,
+        sortIndex: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) anyerror!struct { out: Tensor, idx: Tensor },
+        argsort: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) anyerror!Tensor,
+        matmul: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, lhs_prop: MatrixProperty, rhs_prop: MatrixProperty) anyerror!Tensor,
+        reshape: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) anyerror!Tensor,
     };
 
     pub fn fromScalar(self: *Self, allocator: std.mem.Allocator, comptime T: type, value: T, dtype: DType) !Tensor {
@@ -123,6 +132,34 @@ pub const TensorBackend = struct {
         return self.vtable.iota(self.ptr, allocator, dims, tile_dims, dtype);
     }
 
+    pub fn topk(self: *Self, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !struct { values: Tensor, indices: Tensor } {
+        return self.vtable.topk(self.ptr, allocator, input, k, axis, sort_mode);
+    }
+
+    pub fn where(self: *Self, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
+        return self.vtable.where(self.ptr, condition, x, y);
+    }
+
+    pub fn sort(self: *Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
+        return self.vtable.sort(self.ptr, allocator, input, axis, sort_mode);
+    }
+
+    pub fn sortIndex(self: *Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !struct { out: Tensor, idx: Tensor } {
+        return self.vtable.sortIndex(self.ptr, allocator, input, axis, sort_mode);
+    }
+
+    pub fn argsort(self: *Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
+        return self.vtable.argsort(self.ptr, allocator, input, axis, sort_mode);
+    }
+
+    pub fn matmul(self: *Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, lhs_prop: MatrixProperty, rhs_prop: MatrixProperty) !Tensor {
+        return self.vtable.matmul(self.ptr, allocator, lhs, rhs, lhs_prop, rhs_prop);
+    }
+
+    pub fn reshape(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
+        return self.vtable.reshape(self.ptr, allocator, tensor, shape);
+    }
+
     pub fn init(backend_impl: anytype) Self {
         const Ptr = @TypeOf(backend_impl);
         const PtrInfo = @typeInfo(Ptr);
@@ -184,6 +221,41 @@ pub const TensorBackend = struct {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.iota(allocator, dims, tile_dims, dtype);
             }
+
+            fn where(ctx: *anyopaque, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.where(condition, x, y);
+            }
+
+            fn topk(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !struct { values: Tensor, indices: Tensor } {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.topk(allocator, input, k, axis, sort_mode);
+            }
+
+            fn sort(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.sort(allocator, input, axis, sort_mode);
+            }
+
+            fn sortIndex(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !struct { out: Tensor, idx: Tensor } {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.sortIndex(allocator, input, axis, sort_mode);
+            }
+
+            fn argsort(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.argsort(allocator, input, axis, sort_mode);
+            }
+
+            fn matmul(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, lhs_prop: MatrixProperty, rhs_prop: MatrixProperty) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.matmul(allocator, lhs, rhs, lhs_prop, rhs_prop);
+            }
+
+            fn reshape(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.reshape(allocator, tensor, shape);
+            }
         };
         return .{
             .ptr = backend_impl,
@@ -199,6 +271,13 @@ pub const TensorBackend = struct {
                 .identity = impl.identity,
                 .arange = impl.arange,
                 .iota = impl.iota,
+                .where = impl.where,
+                .topk = impl.topk,
+                .sort = impl.sort,
+                .sortIndex = impl.sortIndex,
+                .argsort = impl.argsort,
+                .matmul = impl.matmul,
+                .reshape = impl.reshape,
             },
         };
     }

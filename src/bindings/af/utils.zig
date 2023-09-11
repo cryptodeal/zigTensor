@@ -1,11 +1,84 @@
 const std = @import("std");
 const af = @import("ArrayFire.zig");
 const zt_idx = @import("../../tensor/Index.zig");
+const zt_base = @import("../../tensor/TensorBase.zig");
+const zt_shape = @import("../../tensor/Shape.zig");
 
 const ArrayFireTensor = @import("../../tensor/backend/af/ArrayFireTensor.zig").ArrayFireTensor;
-
+const Shape = zt_shape.Shape;
+const DType = @import("../../tensor/Types.zig").DType;
+const Dim = zt_shape.Dim;
+const SortMode = zt_base.SortMode;
+const Location = zt_base.Location;
+const StorageType = zt_base.StorageType;
+const MatrixProperty = zt_base.MatrixProperty;
+const PadType = zt_base.PadType;
 const Index = zt_idx.Index;
 const Range = zt_idx.Range;
+
+pub fn ztToAfDims(shape: *const Shape) !af.Dim4 {
+    if (shape.ndim() > 4) {
+        std.log.err("ztToAfDims: ArrayFire shapes can't be more than 4 dimensions\n", .{});
+        return error.ArrayFireCannotExceed4Dimensions;
+    }
+    var af_Dim4 = af.Dim4.init(null);
+    for (0..shape.ndim()) |i| af_Dim4.dims[i] = @intCast(try shape.dim(i));
+    return af_Dim4;
+}
+
+pub fn ztToAfType(self: DType) af.Dtype {
+    return switch (self) {
+        .f16 => af.Dtype.f16,
+        .f32 => af.Dtype.f32,
+        .f64 => af.Dtype.f64,
+        .b8 => af.Dtype.b8,
+        .s16 => af.Dtype.s16,
+        .s32 => af.Dtype.s32,
+        .s64 => af.Dtype.s64,
+        .u8 => af.Dtype.u8,
+        .u16 => af.Dtype.u16,
+        .u32 => af.Dtype.u32,
+        .u64 => af.Dtype.u64,
+    };
+}
+
+pub fn ztToAfMatrixProperty(property: MatrixProperty) af.MatProp {
+    return switch (property) {
+        .None => af.MatProp.None,
+        .Transpose => af.MatProp.Trans,
+    };
+}
+
+pub fn ztToAfStorageType(storage_type: StorageType) af.Storage {
+    return switch (storage_type) {
+        .Dense => af.Storage.Dense,
+        .CSR => af.Storage.CSR,
+        .CSC => af.Storage.CSC,
+        .COO => af.Storage.COO,
+    };
+}
+
+pub fn ztToAfBorderType(self: PadType) af.BorderType {
+    return switch (self) {
+        .Constant => af.BorderType.PadZero,
+        .Edge => af.BorderType.PadClampToEdge,
+        .Symmetric => af.BorderType.PadSym,
+    };
+}
+
+pub fn ztToAfTopKSortMode(sort_mode: SortMode) af.TopkFn {
+    return switch (sort_mode) {
+        .Descending => .Max,
+        .Ascending => .Min,
+    };
+}
+
+pub fn ztToAfLocation(location: Location) af.Source {
+    return switch (location) {
+        .Host => af.Source.Host,
+        .Device => af.Source.Device,
+    };
+}
 
 pub fn ztRangeToAfSeq(range: Range) af.af_seq {
     const end = range.end() orelse -1;
@@ -435,4 +508,73 @@ pub inline fn isLAPACKAvailable() !bool {
     var res: bool = undefined;
     try af.AF_CHECK(af.af_is_lapack_available(&res), @src());
     return res;
+}
+
+test "ztToAfBorderType" {
+    try std.testing.expect(ztToAfBorderType(.Constant) == af.BorderType.PadZero);
+    try std.testing.expect(ztToAfBorderType(.Edge) == af.BorderType.PadClampToEdge);
+    try std.testing.expect(ztToAfBorderType(.Symmetric) == af.BorderType.PadSym);
+}
+
+test "ztToAfLocation" {
+    try std.testing.expect(ztToAfLocation(.Host) == af.Source.Host);
+    try std.testing.expect(ztToAfLocation(.Device) == af.Source.Device);
+}
+
+test "ztToAfStorageType" {
+    try std.testing.expect(ztToAfStorageType(.Dense) == af.Storage.Dense);
+    try std.testing.expect(ztToAfStorageType(.CSR) == af.Storage.CSR);
+    try std.testing.expect(ztToAfStorageType(.CSC) == af.Storage.CSC);
+    try std.testing.expect(ztToAfStorageType(.COO) == af.Storage.COO);
+}
+
+test "ztToAfMatrixProperty" {
+    try std.testing.expect(ztToAfMatrixProperty(.None) == af.MatProp.None);
+    try std.testing.expect(ztToAfMatrixProperty(.Transpose) == af.MatProp.Trans);
+}
+
+test "ztToAfDims" {
+    const allocator = std.testing.allocator;
+
+    var dims1 = [_]Dim{2};
+    var shape = try Shape.init(allocator, &dims1);
+    var res1 = try ztToAfDims(&shape);
+    var exp1 = [_]c_longlong{ 2, 1, 1, 1 };
+    try std.testing.expectEqualSlices(c_longlong, &exp1, &res1.dims);
+    shape.deinit();
+
+    var dims2 = [_]Dim{ 2, 3 };
+    shape = try Shape.init(allocator, &dims2);
+    var res2 = try ztToAfDims(&shape);
+    var exp2 = [_]c_longlong{ 2, 3, 1, 1 };
+    try std.testing.expectEqualSlices(c_longlong, &exp2, &res2.dims);
+    shape.deinit();
+
+    var dims3 = [_]Dim{ 2, 3, 4 };
+    shape = try Shape.init(allocator, &dims3);
+    var res3 = try ztToAfDims(&shape);
+    var exp3 = [_]c_longlong{ 2, 3, 4, 1 };
+    try std.testing.expectEqualSlices(c_longlong, &exp3, &res3.dims);
+    shape.deinit();
+
+    var Dim4 = [_]Dim{ 2, 3, 4, 5 };
+    shape = try Shape.init(allocator, &Dim4);
+    var res4 = try ztToAfDims(&shape);
+    var exp4 = [_]c_longlong{ 2, 3, 4, 5 };
+    try std.testing.expectEqualSlices(c_longlong, &exp4, &res4.dims);
+    shape.deinit();
+}
+
+test "ztToAfType" {
+    try std.testing.expect(ztToAfType(.f16) == af.Dtype.f16);
+    try std.testing.expect(ztToAfType(.f32) == af.Dtype.f32);
+    try std.testing.expect(ztToAfType(.f64) == af.Dtype.f64);
+    try std.testing.expect(ztToAfType(.b8) == af.Dtype.b8);
+    try std.testing.expect(ztToAfType(.s16) == af.Dtype.s16);
+    try std.testing.expect(ztToAfType(.s32) == af.Dtype.s32);
+    try std.testing.expect(ztToAfType(.s64) == af.Dtype.s64);
+    try std.testing.expect(ztToAfType(.u8) == af.Dtype.u8);
+    try std.testing.expect(ztToAfType(.u16) == af.Dtype.u16);
+    try std.testing.expect(ztToAfType(.u32) == af.Dtype.u32);
+    try std.testing.expect(ztToAfType(.u64) == af.Dtype.u64);
 }

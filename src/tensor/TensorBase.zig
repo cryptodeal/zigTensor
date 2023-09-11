@@ -16,77 +16,32 @@ const Dim = zt_shape.Dim;
 const TensorAdapterBase = adapter.TensorAdapterBase;
 
 /// Enum for various tensor backends.
-pub const TensorBackendType = enum { Stub, Tracer, ArrayFire, OneDnn, Jit };
+pub const TensorBackendType = enum(u8) { Stub, Tracer, ArrayFire, OneDnn, Jit };
 
 /// Location of memory or tensors.
-pub const Location = enum {
-    Host,
-    Device,
-
-    pub fn toAfSource(self: Location) af.Source {
-        return switch (self) {
-            .Host => af.Source.Host,
-            .Device => af.Source.Device,
-        };
-    }
-};
+pub const Location = enum(u8) { Host, Device };
 
 /// Alias to make it semantically clearer when referring to buffer location
 const MemoryLocation = Location;
 
 /// Tensor storage types.
-pub const StorageType = enum(u8) {
-    Dense = 0,
-    CSR = 1,
-    CSC = 2,
-    COO = 3,
-
-    pub fn toAfStorage(self: StorageType) af.Storage {
-        return switch (self) {
-            .Dense => af.Storage.Dense,
-            .CSR => af.Storage.CSR,
-            .CSC => af.Storage.CSC,
-            .COO => af.Storage.COO,
-        };
-    }
-};
+pub const StorageType = enum(u8) { Dense = 0, CSR = 1, CSC = 2, COO = 3 };
 
 /// Transformations to apply to Tensors (i.e. matrices) before applying certain
 /// operations (i.e. matmul).
-pub const MatrixProperty = enum(u8) {
-    None = 0,
-    Transpose = 1,
-
-    pub fn toAfMatProp(self: MatrixProperty) af.MatProp {
-        return switch (self) {
-            .None => af.MatProp.None,
-            .Transpose => af.MatProp.Trans,
-        };
-    }
-};
+pub const MatrixProperty = enum(u8) { None = 0, Transpose = 1 };
 
 /// Sorting mode for sorting-related functions.
-pub const SortMode = enum(u8) {
-    Descending = 0,
-    Ascending = 1,
-};
+pub const SortMode = enum(u8) { Descending = 0, Ascending = 1 };
 
 /// Padding types for the pad operator.
-pub const PadType = enum {
+pub const PadType = enum(u8) {
     /// pad with a constant zero value.
     Constant,
     /// pad with the values at the edges of the tensor.
     Edge,
     /// pad with a reflection of the tensor mirrored along each edge.
     Symmetric,
-
-    pub fn toAfBorderType(self: PadType) af.BorderType {
-        return switch (self) {
-            .Constant => af.BorderType.PadZero,
-            .Edge => af.BorderType.PadClampToEdge,
-            .Symmetric => af.BorderType.PadSym,
-        };
-    }
 };
 
 pub const Tensor = struct {
@@ -265,27 +220,4 @@ pub fn concatenate(tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
 
 pub fn nonzero(tensor: *const Tensor) Tensor {
     return (tensor.backend()).nonzero(tensor);
-}
-
-test "Location.toAfSource" {
-    try std.testing.expect(Location.Host.toAfSource() == af.Source.Host);
-    try std.testing.expect(Location.Device.toAfSource() == af.Source.Device);
-}
-
-test "MatrixProperty.toAfMatProp" {
-    try std.testing.expect(MatrixProperty.None.toAfMatProp() == af.MatProp.None);
-    try std.testing.expect(MatrixProperty.Transpose.toAfMatProp() == af.MatProp.Trans);
-}
-
-test "StorageType" {
-    try std.testing.expect(StorageType.Dense.toAfStorage() == af.Storage.Dense);
-    try std.testing.expect(StorageType.CSR.toAfStorage() == af.Storage.CSR);
-    try std.testing.expect(StorageType.CSC.toAfStorage() == af.Storage.CSC);
-    try std.testing.expect(StorageType.COO.toAfStorage() == af.Storage.COO);
-}
-
-test "PadType.toAfBorderType" {
-    try std.testing.expect(PadType.Constant.toAfBorderType() == af.BorderType.PadZero);
-    try std.testing.expect(PadType.Edge.toAfBorderType() == af.BorderType.PadClampToEdge);
-    try std.testing.expect(PadType.Symmetric.toAfBorderType() == af.BorderType.PadSym);
 }
