@@ -10,6 +10,7 @@ const assert = std.debug.assert;
 const Tensor = base.Tensor;
 const SortMode = base.SortMode;
 const MatrixProperty = base.MatrixProperty;
+const PadType = base.PadType;
 const Shape = zt_shape.Shape;
 const Dim = zt_shape.Dim;
 const TensorBackendType = base.TensorBackendType;
@@ -58,6 +59,27 @@ pub const TensorBackend = struct {
         argsort: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) anyerror!Tensor,
         matmul: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, lhs_prop: MatrixProperty, rhs_prop: MatrixProperty) anyerror!Tensor,
         reshape: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) anyerror!Tensor,
+        transpose: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, axes: *const Shape) anyerror!Tensor,
+        tile: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) anyerror!Tensor,
+        concatenate: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) anyerror!Tensor,
+        nonzero: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        pad: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) anyerror!Tensor,
+        exp: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        log: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        // TODO: negate
+        logicalNot: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        log1p: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        sin: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        cos: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        sqrt: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        tanh: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        floor: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        ceil: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        rint: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        absolute: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        sigmoid: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        erf: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        flip: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, dim: u32) anyerror!Tensor,
     };
 
     pub fn fromScalar(self: *Self, allocator: std.mem.Allocator, comptime T: type, value: T, dtype: DType) !Tensor {
@@ -160,6 +182,86 @@ pub const TensorBackend = struct {
         return self.vtable.reshape(self.ptr, allocator, tensor, shape);
     }
 
+    pub fn transpose(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, axes: *const Shape) !Tensor {
+        return self.vtable.transpose(self.ptr, allocator, tensor, axes);
+    }
+
+    pub fn tile(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
+        return self.vtable.tile(self.ptr, allocator, tensor, shape);
+    }
+
+    pub fn concatenate(self: *Self, allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
+        return self.vtable.concatenate(self.ptr, allocator, tensors, axis);
+    }
+
+    pub fn nonzero(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.nonzero(self.ptr, allocator, tensor);
+    }
+
+    pub fn pad(self: *Self, allocator: std.mem.Allocator, input: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) !Tensor {
+        return self.vtable.pad(self.ptr, allocator, input, pad_widths, pad_type);
+    }
+
+    pub fn exp(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.exp(self.ptr, allocator, tensor);
+    }
+
+    pub fn log(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.log(self.ptr, allocator, tensor);
+    }
+
+    pub fn logicalNot(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.logicalNot(self.ptr, allocator, tensor);
+    }
+
+    pub fn log1p(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.log1p(self.ptr, allocator, tensor);
+    }
+
+    pub fn sin(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.sin(self.ptr, allocator, tensor);
+    }
+
+    pub fn cos(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.cos(self.ptr, allocator, tensor);
+    }
+
+    pub fn sqrt(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.sqrt(self.ptr, allocator, tensor);
+    }
+
+    pub fn tanh(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.tanh(self.ptr, allocator, tensor);
+    }
+
+    pub fn floor(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.floor(self.ptr, allocator, tensor);
+    }
+
+    pub fn ceil(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.ceil(self.ptr, allocator, tensor);
+    }
+
+    pub fn rint(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.rint(self.ptr, allocator, tensor);
+    }
+
+    pub fn absolute(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.absolute(self.ptr, allocator, tensor);
+    }
+
+    pub fn sigmoid(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.sigmoid(self.ptr, allocator, tensor);
+    }
+
+    pub fn erf(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.erf(self.ptr, allocator, tensor);
+    }
+
+    pub fn flip(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, dim: u32) !Tensor {
+        return self.vtable.flip(self.ptr, allocator, tensor, dim);
+    }
+
     pub fn init(backend_impl: anytype) Self {
         const Ptr = @TypeOf(backend_impl);
         const PtrInfo = @typeInfo(Ptr);
@@ -256,6 +358,106 @@ pub const TensorBackend = struct {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.reshape(allocator, tensor, shape);
             }
+
+            fn transpose(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, axes: *const Shape) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.transpose(allocator, tensor, axes);
+            }
+
+            fn tile(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.tile(allocator, tensor, shape);
+            }
+
+            fn concatenate(ctx: *anyopaque, allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.concatenate(allocator, tensors, axis);
+            }
+
+            fn nonzero(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.nonzero(allocator, tensor);
+            }
+
+            fn pad(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.pad(allocator, input, pad_widths, pad_type);
+            }
+
+            fn exp(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.exp(allocator, tensor);
+            }
+
+            fn log(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.log(allocator, tensor);
+            }
+
+            fn logicalNot(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.logicalNot(allocator, tensor);
+            }
+
+            fn log1p(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.log1p(allocator, tensor);
+            }
+
+            fn sin(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.sin(allocator, tensor);
+            }
+
+            fn cos(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.cos(allocator, tensor);
+            }
+
+            fn sqrt(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.sqrt(allocator, tensor);
+            }
+
+            fn tanh(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.tanh(allocator, tensor);
+            }
+
+            fn floor(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.floor(allocator, tensor);
+            }
+
+            fn ceil(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.ceil(allocator, tensor);
+            }
+
+            fn rint(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.rint(allocator, tensor);
+            }
+
+            fn absolute(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.absolute(allocator, tensor);
+            }
+
+            fn sigmoid(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.sigmoid(allocator, tensor);
+            }
+
+            fn erf(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.erf(allocator, tensor);
+            }
+
+            fn flip(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, dim: u32) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.flip(allocator, tensor, dim);
+            }
         };
         return .{
             .ptr = backend_impl,
@@ -278,6 +480,26 @@ pub const TensorBackend = struct {
                 .argsort = impl.argsort,
                 .matmul = impl.matmul,
                 .reshape = impl.reshape,
+                .transpose = impl.transpose,
+                .tile = impl.tile,
+                .concatenate = impl.concatenate,
+                .nonzero = impl.nonzero,
+                .pad = impl.pad,
+                .exp = impl.exp,
+                .log = impl.log,
+                .logicalNot = impl.logicalNot,
+                .log1p = impl.log1p,
+                .sin = impl.sin,
+                .cos = impl.cos,
+                .sqrt = impl.sqrt,
+                .tanh = impl.tanh,
+                .floor = impl.floor,
+                .ceil = impl.ceil,
+                .rint = impl.rint,
+                .absolute = impl.absolute,
+                .sigmoid = impl.sigmoid,
+                .erf = impl.erf,
+                .flip = impl.flip,
             },
         };
     }
