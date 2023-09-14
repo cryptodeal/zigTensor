@@ -51,83 +51,83 @@ pub const Tensor = struct {
         return Tensor{ .impl_ = impl };
     }
 
-    pub fn deinit(self: *Tensor) void {
+    pub fn deinit(self: *const Tensor) void {
         self.impl_.deinit();
     }
 
-    pub fn copy(self: *Tensor, allocator: std.mem.Allocator) !Tensor {
+    pub fn copy(self: *const Tensor, allocator: std.mem.Allocator) !Tensor {
         return self.impl_.copy(allocator);
     }
 
-    pub fn shallowCopy(self: *Tensor, allocator: std.mem.Allocator) !Tensor {
+    pub fn shallowCopy(self: *const Tensor, allocator: std.mem.Allocator) !Tensor {
         return self.impl_.shallowCopy(allocator);
     }
 
-    pub fn shape(self: *Tensor, allocator: std.mem.Allocator) !Shape {
+    pub fn shape(self: *const Tensor, allocator: std.mem.Allocator) !Shape {
         return self.impl_.shape(allocator);
     }
 
-    pub fn location(self: *Tensor, allocator: std.mem.Allocator) !Location {
+    pub fn location(self: *const Tensor, allocator: std.mem.Allocator) !Location {
         return self.impl_.location(allocator);
     }
 
-    pub fn elements(self: *Tensor, allocator: std.mem.Allocator) !Dim {
+    pub fn elements(self: *const Tensor, allocator: std.mem.Allocator) !Dim {
         var shape_ = try self.shape(allocator);
         return shape_.elements();
     }
 
-    pub fn dim(self: *Tensor, allocator: std.mem.Allocator, dimension: usize) !Dim {
+    pub fn dim(self: *const Tensor, allocator: std.mem.Allocator, dimension: usize) !Dim {
         var shape_ = try self.shape(allocator);
         return shape_.dim(dimension);
     }
 
-    pub fn ndim(self: *Tensor, allocator: std.mem.Allocator) !usize {
+    pub fn ndim(self: *const Tensor, allocator: std.mem.Allocator) !usize {
         var shape_ = try self.shape(allocator);
         return shape_.ndim();
     }
 
-    pub fn isEmpty(self: *Tensor, allocator: std.mem.Allocator) !bool {
+    pub fn isEmpty(self: *const Tensor, allocator: std.mem.Allocator) !bool {
         var elements_ = try self.elements(allocator);
         return elements_ == 0;
     }
 
     // TODO: implement
-    // pub fn hasAdapter(self: *Tensor) bool {
+    // pub fn hasAdapter(self: *const Tensor) bool {
     // return self.impl_.get() != null;
     // }
 
-    pub fn bytes(self: *Tensor, allocator: std.mem.Allocator) !usize {
+    pub fn bytes(self: *const Tensor, allocator: std.mem.Allocator) !usize {
         var elements_ = try self.elements(allocator);
         var dtype_ = try self.dtype(allocator);
         return elements_ * dtype_.getSize();
     }
 
-    pub fn dtype(self: *Tensor, allocator: std.mem.Allocator) !DType {
+    pub fn dtype(self: *const Tensor, allocator: std.mem.Allocator) !DType {
         return self.impl_.dtype(allocator);
     }
 
-    pub fn isSparse(self: *Tensor, allocator: std.mem.Allocator) !bool {
+    pub fn isSparse(self: *const Tensor, allocator: std.mem.Allocator) !bool {
         return self.impl_.isSparse(allocator);
     }
 
-    pub fn astype(self: *Tensor, allocator: std.mem.Allocator, new_type: DType) !Tensor {
+    pub fn astype(self: *const Tensor, allocator: std.mem.Allocator, new_type: DType) !Tensor {
         return self.impl_.astype(allocator, new_type);
     }
 
-    pub fn index(self: *Tensor, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
+    pub fn index(self: *const Tensor, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
         return self.impl_.index(allocator, indices);
     }
 
-    pub fn flatten(self: *Tensor, allocator: std.mem.Allocator) !Tensor {
+    pub fn flatten(self: *const Tensor, allocator: std.mem.Allocator) !Tensor {
         return self.impl_.flatten(allocator);
     }
 
     // TODO: implement
-    // pub fn flat(self: *Tensor) Tensor {
+    // pub fn flat(self: *const Tensor) Tensor {
     // return self.impl_.flat();
     // }
 
-    pub fn asContiguousTensor(self: *Tensor, allocator: std.mem.Allocator) !Tensor {
+    pub fn asContiguousTensor(self: *const Tensor, allocator: std.mem.Allocator) !Tensor {
         return self.impl_.asContiguousTensor(allocator);
     }
 
@@ -139,41 +139,41 @@ pub const Tensor = struct {
         return @ptrCast(@alignCast(self.impl_.ptr));
     }
 
-    pub fn backend(self: *Tensor, allocator: std.mem.Allocator) !TensorBackend {
+    pub fn backend(self: *const Tensor, allocator: std.mem.Allocator) !TensorBackend {
         return self.impl_.backend(allocator);
     }
 
     // TODO: FL_CREATE_MEMORY_OPS macro equivalent
 
-    pub fn unlock(self: *Tensor, allocator: std.mem.Allocator) !void {
+    pub fn unlock(self: *const Tensor, allocator: std.mem.Allocator) !void {
         return self.impl_.unlock(allocator);
     }
 
-    pub fn isLocked(self: *Tensor, allocator: std.mem.Allocator) !bool {
+    pub fn isLocked(self: *const Tensor, allocator: std.mem.Allocator) !bool {
         return self.impl_.isLocked(allocator);
     }
 
-    pub fn isContiguous(self: *Tensor, allocator: std.mem.Allocator) !bool {
+    pub fn isContiguous(self: *const Tensor, allocator: std.mem.Allocator) !bool {
         return self.impl_.isContiguous(allocator);
     }
 
-    pub fn strides(self: *Tensor, allocator: std.mem.Allocator) !Shape {
+    pub fn strides(self: *const Tensor, allocator: std.mem.Allocator) !Shape {
         return self.impl_.strides(allocator);
     }
 
-    pub fn stream(self: *Tensor, allocator: std.mem.Allocator) !Stream {
+    pub fn stream(self: *const Tensor, allocator: std.mem.Allocator) !Stream {
         return self.impl_.stream(allocator);
     }
 
-    pub fn setContext(self: *Tensor, context: ?*anyopaque) !void {
+    pub fn setContext(self: *const Tensor, context: ?*anyopaque) !void {
         return self.impl_.setContext(context);
     }
 
-    pub fn getContext(self: *Tensor) !?*anyopaque {
+    pub fn getContext(self: *const Tensor) !?*anyopaque {
         return self.impl_.getContext();
     }
 
-    pub fn toString(self: *Tensor, allocator: std.mem.Allocator) ![]const u8 {
+    pub fn toString(self: *const Tensor, allocator: std.mem.Allocator) ![]const u8 {
         return self.impl_.toString(allocator);
     }
 

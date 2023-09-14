@@ -54,25 +54,25 @@ pub const TensorAdapterBase = struct {
     };
 
     /// Free all associated memory.
-    pub fn deinit(self: *Self) void {
+    pub fn deinit(self: *const Self) void {
         self.vtable.deinit(self.ptr);
     }
 
     /// Copies the tensor adapter. The copy is not required to be eager -- the
     /// implementation can use copy-on-write semantics if desirable. (TODO: verify this
     /// works as documented).
-    pub fn clone(self: *Self, allocator: std.mem.Allocator) !Self {
+    pub fn clone(self: *const Self, allocator: std.mem.Allocator) !Self {
         return self.vtable.clone(self.ptr, allocator);
     }
 
     /// Deep copy the tensor, including underlying data.
-    pub fn copy(self: *Self, allocator: std.mem.Allocator) !Tensor {
+    pub fn copy(self: *const Self, allocator: std.mem.Allocator) !Tensor {
         return self.vtable.copy(self.ptr, allocator);
     }
 
     /// Shallow copy the tensor -- returns a tensor that points
     /// to the same underlying data.
-    pub fn shallowCopy(self: *Self, allocator: std.mem.Allocator) !Tensor {
+    pub fn shallowCopy(self: *const Self, allocator: std.mem.Allocator) !Tensor {
         return self.vtable.shallowCopy(self.ptr, allocator);
     }
 
@@ -82,65 +82,65 @@ pub const TensorAdapterBase = struct {
     }
 
     /// Returns the backend for a tensor with this adapter implementation.
-    pub fn backend(self: *Self, allocator: std.mem.Allocator) !TensorBackend {
+    pub fn backend(self: *const Self, allocator: std.mem.Allocator) !TensorBackend {
         return self.vtable.backend(self.ptr, allocator);
     }
 
     /// Returns the shape of the tensor.
-    pub fn shape(self: *Self, allocator: std.mem.Allocator) !Shape {
+    pub fn shape(self: *const Self, allocator: std.mem.Allocator) !Shape {
         return self.vtable.shape(self.ptr, allocator);
     }
 
     /// Returns the data type (DType) of the tensor.
-    pub fn dtype(self: *Self, allocator: std.mem.Allocator) !DType {
+    pub fn dtype(self: *const Self, allocator: std.mem.Allocator) !DType {
         return self.vtable.dtype(self.ptr, allocator);
     }
 
     /// Returns true if the tensor is sparse, else false.
-    pub fn isSparse(self: *Self, allocator: std.mem.Allocator) !bool {
+    pub fn isSparse(self: *const Self, allocator: std.mem.Allocator) !bool {
         return self.vtable.isSparse(self.ptr, allocator);
     }
 
     /// Returns the tensor's location -- host or some device.
-    pub fn location(self: *Self, allocator: std.mem.Allocator) !Location {
+    pub fn location(self: *const Self, allocator: std.mem.Allocator) !Location {
         return self.vtable.location(self.ptr, allocator);
     }
 
     /// Populate a pointer with a scalar for the first element of the tensor.
-    pub fn scalar(self: *Self, allocator: std.mem.Allocator, out: ?*anyopaque) !void {
+    pub fn scalar(self: *const Self, allocator: std.mem.Allocator, out: ?*anyopaque) !void {
         return self.vtable.scalar(self.ptr, allocator, out);
     }
 
     /// Returns a pointer to the tensor in device memory.
-    pub fn device(self: *Self, allocator: std.mem.Allocator, out: *?*anyopaque) void {
+    pub fn device(self: *const Self, allocator: std.mem.Allocator, out: *?*anyopaque) void {
         return self.vtable.device(self.ptr, allocator, out);
     }
 
     /// Populates a pointer with a pointer value in memory pointing
     /// to a host buffer containing tensor data.
-    pub fn host(self: *Self, allocator: std.mem.Allocator, out: ?*anyopaque) void {
+    pub fn host(self: *const Self, allocator: std.mem.Allocator, out: ?*anyopaque) void {
         return self.vtable.host(self.ptr, allocator, out);
     }
 
     /// Unlocks any device memory associated with the tensor that was
     /// acquired with `Tensor.device`, making it eligible to be freed.
-    pub fn unlock(self: *Self, allocator: std.mem.Allocator) !void {
+    pub fn unlock(self: *const Self, allocator: std.mem.Allocator) !void {
         return self.vtable.unlock(self.ptr, allocator);
     }
 
     /// Returns true if the tensor has been memory-locked per a call to `Tensor.device`.
-    pub fn isLocked(self: *Self, allocator: std.mem.Allocator) !bool {
+    pub fn isLocked(self: *const Self, allocator: std.mem.Allocator) !bool {
         return self.vtable.isLocked(self.ptr, allocator);
     }
 
     /// Returns a bool based on tensor contiguousness in memory.
-    pub fn isContiguous(self: *Self, allocator: std.mem.Allocator) !bool {
+    pub fn isContiguous(self: *const Self, allocator: std.mem.Allocator) !bool {
         return self.vtable.isContiguous(self.ptr, allocator);
     }
 
     /// Returns the dimension-wise strides for this tensor -- the number of bytes
     /// to step in each direction when traversing.
-    pub fn strides(self: *Self, allocator: std.mem.Allocator) !Shape {
+    pub fn strides(self: *const Self, allocator: std.mem.Allocator) !Shape {
         return self.vtable.strides(self.ptr, allocator);
     }
 
@@ -148,50 +148,50 @@ pub const TensorAdapterBase = struct {
     /// the computation required to realize an up-to-date value for this tensor.
     /// E.g. `device()` may not yield a pointer to the up-to-date value -- to use
     /// this pointer, `Stream.sync` or `Stream.relativeSync` is required.
-    pub fn stream(self: *Self, allocator: std.mem.Allocator) !Stream {
+    pub fn stream(self: *const Self, allocator: std.mem.Allocator) !Stream {
         return self.vtable.stream(self.ptr, allocator);
     }
 
     /// Returns a tensor with elements cast as a particular type.
-    pub fn astype(self: *Self, allocator: std.mem.Allocator, dType: DType) !Tensor {
+    pub fn astype(self: *const Self, allocator: std.mem.Allocator, dType: DType) !Tensor {
         return self.vtable.astype(self.ptr, allocator, dType);
     }
 
     /// Index into a tensor with a variable number of indices.
     ///
     /// Returns an indexed Tensor.
-    pub fn index(self: *Self, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
+    pub fn index(self: *const Self, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
         return self.vtable.index(self.ptr, allocator, indices);
     }
 
     /// Returns a representation of the tensor in 1 dimension.
-    pub fn flatten(self: *Self, allocator: std.mem.Allocator) !Tensor {
+    pub fn flatten(self: *const Self, allocator: std.mem.Allocator) !Tensor {
         return self.vtable.flatten(self.ptr, allocator);
     }
 
     /// Returns a representation of the tensor in 1 dimension.
-    pub fn flat(self: *Self, allocator: std.mem.Allocator, idx: Index) !Tensor {
+    pub fn flat(self: *const Self, allocator: std.mem.Allocator, idx: Index) !Tensor {
         return self.vtable.flat(self.ptr, allocator, idx);
     }
 
     /// Returns a copy of the tensor that is contiguous in memory.
-    pub fn asContiguousTensor(self: *Self, allocator: std.mem.Allocator) !Tensor {
+    pub fn asContiguousTensor(self: *const Self, allocator: std.mem.Allocator) !Tensor {
         return self.vtable.asContiguousTensor(self.ptr, allocator);
     }
 
     /// Sets arbitrary data on a tensor. May be a no-op for some backends.
-    pub fn setContext(self: *Self, context: ?*anyopaque) !void {
+    pub fn setContext(self: *const Self, context: ?*anyopaque) !void {
         return self.vtable.setContext(self.ptr, context);
     }
 
     /// Returns arbitrary data on a tensor. May be a no-op for some backends.
-    pub fn getContext(self: *Self) !?*anyopaque {
+    pub fn getContext(self: *const Self) !?*anyopaque {
         return self.vtable.getContext(self.ptr);
     }
 
     /// Returns a string representation of a tensor. Not intended to be
     /// portable across backends.
-    pub fn toString(self: *Self, allocator: std.mem.Allocator) ![]const u8 {
+    pub fn toString(self: *const Self, allocator: std.mem.Allocator) ![]const u8 {
         return self.vtable.toString(self.ptr, allocator);
     }
 

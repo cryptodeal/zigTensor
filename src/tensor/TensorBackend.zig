@@ -19,6 +19,10 @@ pub fn areBackendsEqual(self: TensorBackend, other: TensorBackend) bool {
     return self.backendType() == other.backendType();
 }
 
+pub const TopkRes = struct { values: Tensor, indices: Tensor };
+
+pub const SortIndexRes = struct { out: Tensor, idx: Tensor };
+
 /// A Tensor backend that can be used to store global state associated with a
 /// particular tensor implementation.
 ///
@@ -52,10 +56,10 @@ pub const TensorBackend = struct {
         identity: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dim: Dim, dtype: DType) anyerror!Tensor,
         arange: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) anyerror!Tensor,
         iota: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) anyerror!Tensor,
-        where: *const fn (ctx: *anyopaque, condition: Tensor, x: Tensor, y: Tensor) anyerror!Tensor,
-        topk: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) anyerror!struct { values: Tensor, indices: Tensor },
+        where: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, condition: Tensor, x: Tensor, y: Tensor) anyerror!Tensor,
+        topk: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) anyerror!TopkRes,
         sort: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) anyerror!Tensor,
-        sortIndex: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) anyerror!struct { out: Tensor, idx: Tensor },
+        sortIndex: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) anyerror!SortIndexRes,
         argsort: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) anyerror!Tensor,
         matmul: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, lhs_prop: MatrixProperty, rhs_prop: MatrixProperty) anyerror!Tensor,
         reshape: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) anyerror!Tensor,
@@ -66,7 +70,7 @@ pub const TensorBackend = struct {
         pad: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) anyerror!Tensor,
         exp: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         log: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
-        // TODO: negate
+        // TODO: negative: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         logicalNot: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         log1p: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         sin: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
@@ -80,6 +84,15 @@ pub const TensorBackend = struct {
         sigmoid: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         erf: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         flip: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, dim: u32) anyerror!Tensor,
+        clip: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor, batch: bool) anyerror!Tensor,
+        roll: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shift: Dim, axis: usize) anyerror!Tensor,
+        isnan: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        isinf: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        // TODO: sign: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        tril: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        triu: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        amin: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
+        amax: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
     };
 
     pub fn fromScalar(self: *Self, allocator: std.mem.Allocator, comptime T: type, value: T, dtype: DType) !Tensor {
@@ -118,6 +131,14 @@ pub const TensorBackend = struct {
         return self.vtable.supportsDataType(self.ptr, data_type);
     }
 
+    // TODO: pub fn getMemMgrInfo()
+
+    // TODO: pub fn setMemMgrLogStream()
+
+    // TODO: pub fn setMemMgrLoggingEnabled()
+
+    // TODO: pub fn setMemMgrFlushInterval()
+
     pub fn setSeed(self: *Self, seed: u64) !void {
         return self.vtable.setSeed(self.ptr, seed);
     }
@@ -154,19 +175,19 @@ pub const TensorBackend = struct {
         return self.vtable.iota(self.ptr, allocator, dims, tile_dims, dtype);
     }
 
-    pub fn topk(self: *Self, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !struct { values: Tensor, indices: Tensor } {
+    pub fn topk(self: *Self, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !TopkRes {
         return self.vtable.topk(self.ptr, allocator, input, k, axis, sort_mode);
     }
 
-    pub fn where(self: *Self, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
-        return self.vtable.where(self.ptr, condition, x, y);
+    pub fn where(self: *Self, allocator: std.mem.Allocator, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
+        return self.vtable.where(self.ptr, allocator, condition, x, y);
     }
 
     pub fn sort(self: *Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
         return self.vtable.sort(self.ptr, allocator, input, axis, sort_mode);
     }
 
-    pub fn sortIndex(self: *Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !struct { out: Tensor, idx: Tensor } {
+    pub fn sortIndex(self: *Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !SortIndexRes {
         return self.vtable.sortIndex(self.ptr, allocator, input, axis, sort_mode);
     }
 
@@ -209,6 +230,8 @@ pub const TensorBackend = struct {
     pub fn log(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.log(self.ptr, allocator, tensor);
     }
+
+    // TODO: pub fn negative(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
 
     pub fn logicalNot(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.logicalNot(self.ptr, allocator, tensor);
@@ -262,6 +285,38 @@ pub const TensorBackend = struct {
         return self.vtable.flip(self.ptr, allocator, tensor, dim);
     }
 
+    pub fn clip(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor, batch: bool) !Tensor {
+        return self.vtable.clip(self.ptr, allocator, tensor, low, high, batch);
+    }
+
+    pub fn roll(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, shift: Dim, axis: usize) !Tensor {
+        return self.vtable.roll(self.ptr, allocator, tensor, shift, axis);
+    }
+
+    pub fn isnan(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.isnan(self.ptr, allocator, tensor);
+    }
+
+    pub fn isinf(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.isinf(self.ptr, allocator, tensor);
+    }
+
+    pub fn tril(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.tril(self.ptr, allocator, tensor);
+    }
+
+    pub fn triu(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.triu(self.ptr, allocator, tensor);
+    }
+
+    pub fn amin(self: *Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+        return self.vtable.amin(self.ptr, allocator, input, axes, keep_dims);
+    }
+
+    pub fn amax(self: *Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+        return self.vtable.amax(self.ptr, allocator, input, axes, keep_dims);
+    }
+
     pub fn init(backend_impl: anytype) Self {
         const Ptr = @TypeOf(backend_impl);
         const PtrInfo = @typeInfo(Ptr);
@@ -288,6 +343,14 @@ pub const TensorBackend = struct {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.supportsDataType(data_type);
             }
+
+            // TODO: fn getMemMgrInfo()
+
+            // TODO: fn setMemMgrLogStream()
+
+            // TODO: fn setMemMgrLoggingEnabled()
+
+            // TODO: fn setMemMgrFlushInterval()
 
             fn setSeed(ctx: *anyopaque, seed: u64) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
@@ -324,12 +387,12 @@ pub const TensorBackend = struct {
                 return self.iota(allocator, dims, tile_dims, dtype);
             }
 
-            fn where(ctx: *anyopaque, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
+            fn where(ctx: *anyopaque, allocator: std.mem.Allocator, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.where(condition, x, y);
+                return self.where(allocator, condition, x, y);
             }
 
-            fn topk(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !struct { values: Tensor, indices: Tensor } {
+            fn topk(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !TopkRes {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.topk(allocator, input, k, axis, sort_mode);
             }
@@ -339,7 +402,7 @@ pub const TensorBackend = struct {
                 return self.sort(allocator, input, axis, sort_mode);
             }
 
-            fn sortIndex(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !struct { out: Tensor, idx: Tensor } {
+            fn sortIndex(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !SortIndexRes {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.sortIndex(allocator, input, axis, sort_mode);
             }
@@ -393,6 +456,8 @@ pub const TensorBackend = struct {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.log(allocator, tensor);
             }
+
+            // TODO: fn negative()
 
             fn logicalNot(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
@@ -458,6 +523,48 @@ pub const TensorBackend = struct {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.flip(allocator, tensor, dim);
             }
+
+            fn clip(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor, batch: bool) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.clip(allocator, tensor, low, high, batch);
+            }
+
+            fn roll(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shift: Dim, axis: usize) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.roll(allocator, tensor, shift, axis);
+            }
+
+            fn isnan(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.isnan(allocator, tensor);
+            }
+
+            fn isinf(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.isinf(allocator, tensor);
+            }
+
+            // TODO: fn sign()
+
+            fn tril(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.tril(allocator, tensor);
+            }
+
+            fn triu(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.triu(allocator, tensor);
+            }
+
+            fn amin(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.amin(allocator, input, axes, keep_dims);
+            }
+
+            fn amax(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.amax(allocator, input, axes, keep_dims);
+            }
         };
         return .{
             .ptr = backend_impl,
@@ -466,6 +573,10 @@ pub const TensorBackend = struct {
                 .backendType = impl.backendType,
                 .eval = impl.eval,
                 .supportsDataType = impl.supportsDataType,
+                // TODO: .getMemMgrInfo = impl.getMemMgrInfo,
+                // TODO: .setMemMgrLogStream = impl.setMemMgrLogStream,
+                // TODO: .setMemMgrLoggingEnabled = impl.setMemMgrLoggingEnabled,
+                // TODO: .setMemMgrFlushInterval = impl.setMemMgrFlushInterval,
                 .setSeed = impl.setSeed,
                 .randn = impl.randn,
                 .rand = impl.rand,
@@ -487,6 +598,7 @@ pub const TensorBackend = struct {
                 .pad = impl.pad,
                 .exp = impl.exp,
                 .log = impl.log,
+                // TODO: .negative = impl.negative,
                 .logicalNot = impl.logicalNot,
                 .log1p = impl.log1p,
                 .sin = impl.sin,
@@ -500,6 +612,15 @@ pub const TensorBackend = struct {
                 .sigmoid = impl.sigmoid,
                 .erf = impl.erf,
                 .flip = impl.flip,
+                .clip = impl.clip,
+                .roll = impl.roll,
+                .isnan = impl.isnan,
+                .isinf = impl.isinf,
+                // TODO: .sign = impl.sign,
+                .tril = impl.tril,
+                .triu = impl.triu,
+                .amin = impl.amin,
+                .amax = impl.amax,
             },
         };
     }

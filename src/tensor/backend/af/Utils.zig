@@ -10,14 +10,14 @@ pub fn condenseIndices(
     keep_dims: bool,
     idx_types: ?[]IndexType,
     is_flat: bool,
-) !*af.Array {
+) !struct { arr: *af.Array, modified: bool } {
     // Fast path - return the Array as is if keepDims - don't consolidate
     if (keep_dims) {
-        return arr;
+        return .{ .arr = arr, .modified = false };
     }
     // Fast path - Array has zero elements or a dim of size zero
     if (try arr.getElements() == 0) {
-        return arr;
+        return .{ .arr = arr, .modified = false };
     }
 
     const dims = try arr.getDims();
@@ -40,8 +40,8 @@ pub fn condenseIndices(
 
     // Only change dims if condensing is possible
     if (!std.mem.eql(c_longlong, &newDims.dims, &dims.dims)) {
-        return arr.modDims(allocator, @intCast(newDims.ndims()), dims);
+        return .{ .arr = try arr.modDims(allocator, @intCast(newDims.ndims()), dims), .modified = true };
     } else {
-        return arr;
+        return .{ .arr = arr, .modified = false };
     }
 }

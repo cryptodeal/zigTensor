@@ -2,7 +2,7 @@ const std = @import("std");
 const af = @import("ArrayFire.zig");
 
 /// Load an image from disk to an `af.Array`.
-pub inline fn loadImage(
+pub fn loadImage(
     allocator: std.mem.Allocator,
     filename: []const u8,
     isColor: bool,
@@ -23,7 +23,7 @@ pub inline fn loadImage(
 ///
 /// Supported formats include JPG, PNG, PPM and other
 /// formats supported by freeimage.
-pub inline fn saveImage(filename: []const u8, in: *const af.Array) !void {
+pub fn saveImage(filename: []const u8, in: *const af.Array) !void {
     try af.AF_CHECK(af.af_save_image(filename.ptr, in.array_), @src());
 }
 
@@ -32,7 +32,7 @@ pub inline fn saveImage(filename: []const u8, in: *const af.Array) !void {
 ///
 /// Supported formats include JPG, PNG, PPM and other formats
 /// supported by freeimage.
-pub inline fn loadImageMem(allocator: std.mem.Allocator, ptr: ?*const anyopaque) !*af.Array {
+pub fn loadImageMem(allocator: std.mem.Allocator, ptr: ?*const anyopaque) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_load_image_memory(&arr, ptr), @src());
     return af.Array.init(allocator, arr);
@@ -43,7 +43,7 @@ pub inline fn loadImageMem(allocator: std.mem.Allocator, ptr: ?*const anyopaque)
 ///
 /// Supported formats include JPG, PNG, PPM and other formats
 /// supported by freeimage.
-pub inline fn saveImageMem(in: *const af.Array, format: af.ImageFormat) !?*anyopaque {
+pub fn saveImageMem(in: *const af.Array, format: af.ImageFormat) !?*anyopaque {
     var ptr: ?*anyopaque = undefined;
     try af.AF_CHECK(
         af.af_save_image_memory(
@@ -62,7 +62,7 @@ pub inline fn saveImageMem(in: *const af.Array, format: af.ImageFormat) !?*anyop
 ///
 /// Supported formats include JPG, PNG, PPM and other formats
 /// supported by freeimage.
-pub inline fn deleteImageMem(ptr: ?*anyopaque) !void {
+pub fn deleteImageMem(ptr: ?*anyopaque) !void {
     try af.AF_CHECK(af.af_delete_image_memory(ptr), @src());
 }
 
@@ -79,7 +79,7 @@ pub inline fn deleteImageMem(ptr: ?*anyopaque) !void {
 /// | 16 (16/48/64 BPP)                             | u16        | 0-65535 |
 /// | 32 (32/96/128 BPP)                            | f32        | 0-1     |
 /// ------------------------------------------------------------------------
-pub inline fn loadImageNative(allocator: std.mem.Allocator, filename: []const u8) !*af.Array {
+pub fn loadImageNative(allocator: std.mem.Allocator, filename: []const u8) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_load_image_native(&arr, filename.ptr), @src());
     return af.Array.init(allocator, arr);
@@ -101,7 +101,7 @@ pub inline fn loadImageNative(allocator: std.mem.Allocator, filename: []const u8
 /// | u8         | 8 ( 8/24/32 BPP)                              | 0-255   |
 /// | u16        | 16 (16/48/64 BPP)                             | 0-65535 |
 /// | f32        | 32 (32/96/128 BPP)                            | 0-1     |
-pub inline fn saveImageNative(filename: []const u8, in: *const af.Array) !void {
+pub fn saveImageNative(filename: []const u8, in: *const af.Array) !void {
     try af.AF_CHECK(
         af.af_save_image_native(
             filename.ptr,
@@ -112,7 +112,7 @@ pub inline fn saveImageNative(filename: []const u8, in: *const af.Array) !void {
 }
 
 /// Returns true if ArrayFire was compiled with ImageIO (FreeImage) support.
-pub inline fn isImageIoAvailable() !bool {
+pub fn isImageIoAvailable() !bool {
     var out: bool = false;
     try af.AF_CHECK(af.af_is_image_io_available(&out), @src());
     return out;
@@ -130,7 +130,7 @@ pub inline fn isImageIoAvailable() !bool {
 /// This function does not differentiate between images and data. As long as
 /// the `af.Array` is defined and the output dimensions are not 0, it will
 /// resize any type or size of `af.Array`.
-pub inline fn resize(
+pub fn resize(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     odim0: i64,
@@ -193,7 +193,7 @@ pub inline fn resize(
 ///
 /// Affine transforms can be used for various purposes. `translate`, `scale`,
 /// and `skew` are specializations of the transform function.
-pub inline fn transform(
+pub fn transform(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     trans: *const af.Array,
@@ -221,7 +221,7 @@ pub inline fn transform(
 /// `transform` function, but requires a pre-allocated array.
 ///
 /// See docs for `transform` for more information.
-pub inline fn transformV2(
+pub fn transformV2(
     out: *af.Array,
     in: *const af.Array,
     trans: *const af.Array,
@@ -245,7 +245,7 @@ pub inline fn transformV2(
 }
 
 /// Transform coordinates.
-pub inline fn transformCoordinates(
+pub fn transformCoordinates(
     allocator: std.mem.Allocator,
     tf: *const af.Array,
     d0: f32,
@@ -279,7 +279,7 @@ pub inline fn transformCoordinates(
 ///
 /// Since the output image still needs to be an upright box, crop determines how to
 /// bound the output image, given the now-rotated image.
-pub inline fn rotate(
+pub fn rotate(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     theta: f32,
@@ -317,7 +317,7 @@ pub inline fn rotate(
 /// are set to 0.
 ///
 /// Translate is a special case of the `transform` function.
-pub inline fn translate(
+pub fn translate(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     trans0: f32,
@@ -351,7 +351,7 @@ pub inline fn translate(
 /// set to 0.
 ///
 /// Scale is a special case of the `transform` function.
-pub inline fn scale(
+pub fn scale(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     scale0: f32,
@@ -393,7 +393,7 @@ pub inline fn scale(
 /// `af.Array` are set to 0.
 ///
 /// Skew is a special case of the `transform` function.
-pub inline fn skew(
+pub fn skew(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     skew0: f32,
@@ -438,7 +438,7 @@ pub inline fn skew(
 /// parameters. All values less than min in the data range are placed
 /// in the first (min) bin and all values greater than max will be
 /// placed in the last (max) bin.
-pub inline fn histogram(
+pub fn histogram(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     nbins: u32,
@@ -472,7 +472,7 @@ pub inline fn histogram(
 /// not match, then the mask is ignored and no changes are made.
 ///
 /// For further reference, see: [Dilation (morphology)](https://en.wikipedia.org/wiki/Dilation_(morphology)).
-pub inline fn dilate(
+pub fn dilate(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     mask: *const af.Array,
@@ -489,7 +489,7 @@ pub inline fn dilate(
 /// operation is performed on a volume instead of a rectangular region.
 ///
 /// For further reference, see: [Dilation (morphology)](https://en.wikipedia.org/wiki/Dilation_(morphology)).
-pub inline fn dilate3(
+pub fn dilate3(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     mask: *const af.Array,
@@ -512,7 +512,7 @@ pub inline fn dilate3(
 /// then pixels are changed to the background color (black).
 ///
 /// For further reference, see: [Erosion (morphology)](https://en.wikipedia.org/wiki/Erosion_(morphology)).
-pub inline fn erode(
+pub fn erode(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     mask: *const af.Array,
@@ -529,7 +529,7 @@ pub inline fn erode(
 /// is performed on a volume instead of a rectangular region.
 ///
 /// For further reference, see: [Erosion (morphology)](https://en.wikipedia.org/wiki/Erosion_(morphology)).
-pub inline fn erode3(
+pub fn erode3(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     mask: *const af.Array,
@@ -553,7 +553,7 @@ pub inline fn erode3(
 ///
 /// The return type of the array is f64 for f64 input, f32 for
 /// all other input types.
-pub inline fn bilateral(
+pub fn bilateral(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     spatial_sigma: f32,
@@ -581,7 +581,7 @@ pub inline fn bilateral(
 /// The meanshift filter is an iterative algorithm that continues
 /// until a maxium number of iterations is met or until the value
 /// of the means no longer changes.
-pub inline fn meanShift(
+pub fn meanShift(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     spatial_sigma: f32,
@@ -605,7 +605,7 @@ pub inline fn meanShift(
 ///
 /// `minfilt` finds the smallest value from a 2D window
 /// and assigns it to the current pixel.
-pub inline fn minfilt(
+pub fn minfilt(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     wind_length: i64,
@@ -627,7 +627,7 @@ pub inline fn minfilt(
 ///
 /// `maxfilt` finds the maximum value from a 2D window
 /// and assigns it to the current pixel.
-pub inline fn maxfilt(
+pub fn maxfilt(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     wind_length: i64,
@@ -655,7 +655,7 @@ pub inline fn maxfilt(
 /// A component is defined as one or more nonzero pixels that are connected
 /// by the specified connectivity (either 4-way(AF_CONNECTIVITY_4) or
 /// 8-way(AF_CONNECTIVITY_8)) in two dimensions.
-pub inline fn regions(
+pub fn regions(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     connectivity: af.Connectivity,
@@ -676,7 +676,7 @@ pub inline fn regions(
 /// Sobel operators perform a 2-D spatial gradient measurement
 /// on an image to emphasize the regions of high spatial frequency,
 /// namely edges. A more in depth discussion on it can be found [here](https://en.wikipedia.org/wiki/Sobel_operator).
-pub inline fn sobelOperator(
+pub fn sobelOperator(
     allocator: std.mem.Allocator,
     img: *const af.Array,
     ker_size: u32,
@@ -707,7 +707,7 @@ pub inline fn sobelOperator(
 /// value ranges from 0 to 1. Zero represents black, one
 /// represent white and any value between zero & one is a
 /// gray value.
-pub inline fn rgb2Gray(
+pub fn rgb2Gray(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     rPercent: f32,
@@ -737,7 +737,7 @@ pub inline fn rgb2Gray(
 /// red, green and blue, and hence the 3 values per pixel.
 /// A combination of these three values produces the gamut
 /// of unique colors.
-pub inline fn gray2Rgb(
+pub fn gray2Rgb(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     rFactor: f32,
@@ -761,7 +761,7 @@ pub inline fn gray2Rgb(
 /// of contrast adjustment using the image's histogram.
 ///
 /// Data normalization via histogram equalization.
-pub inline fn histEqual(
+pub fn histEqual(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     hist: *const af.Array,
@@ -789,7 +789,7 @@ pub inline fn histEqual(
 /// Changing sigma causes the weights in each direction to vary.
 /// Sigma is calculated internally as (0.25 * rows + 0.75) for rows
 /// and similarly for columns.
-pub inline fn gaussianKernel(
+pub fn gaussianKernel(
     allocator: std.mem.Allocator,
     rows: i32,
     cols: i32,
@@ -821,7 +821,7 @@ pub inline fn gaussianKernel(
 /// imaging. RGB stores individual values for red, green and blue, and
 /// hence the 3 values per pixel. A combination of these three values
 /// produces the gamut of unique colors.
-pub inline fn hsv2Rgb(allocator: std.mem.Allocator, in: *const af.Array) !*af.Array {
+pub fn hsv2Rgb(allocator: std.mem.Allocator, in: *const af.Array) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_hsv2rgb(&arr, in.array_), @src());
     return af.Array.init(allocator, arr);
@@ -841,7 +841,7 @@ pub inline fn hsv2Rgb(allocator: std.mem.Allocator, in: *const af.Array) !*af.Ar
 /// transformation of RGB colorspace; its components and colorimetry are
 /// relative to the RGB colorspace from which it was derived. Like RGB,
 /// HSV also uses 3 values per pixel.
-pub inline fn rgb2Hsv(allocator: std.mem.Allocator, in: *const af.Array) !*af.Array {
+pub fn rgb2Hsv(allocator: std.mem.Allocator, in: *const af.Array) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_rgb2hsv(&arr, in.array_), @src());
     return af.Array.init(allocator, arr);
@@ -875,7 +875,7 @@ pub inline fn rgb2Hsv(allocator: std.mem.Allocator, in: *const af.Array) !*af.Ar
 /// | .RGB  | .HSV  |
 /// | .HSV  | .RGB  |
 /// -----------------
-pub inline fn colorSpace(
+pub fn colorSpace(
     allocator: std.mem.Allocator,
     image: *const af.Array,
     to: af.CSpaceT,
@@ -907,7 +907,7 @@ pub inline fn colorSpace(
 /// maximum values of wx-1 and wy-1, respectively. The moving window then captures
 /// sections as if the padding is part of the input image, and thus the padding also
 /// becomes part of the output array's columns.
-pub inline fn unwrap(
+pub fn unwrap(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     wx: i64,
@@ -951,7 +951,7 @@ pub inline fn unwrap(
 /// exists in the input `af.Array` (gray-filled boxes), which typically happens
 /// when padding was applied on the previous unwrap, then px and py must be
 /// specified in order for the padding to be removed on the output `af.Array`.
-pub inline fn wrap(
+pub fn wrap(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     ox: i64,
@@ -984,7 +984,7 @@ pub inline fn wrap(
 /// `wrap` function, but requires a pre-allocated array.
 ///
 /// See docs for `wrap` for more information.
-pub inline fn wrapV2(
+pub fn wrapV2(
     out: *af.Array,
     in: *const af.Array,
     ox: i64,
@@ -1013,7 +1013,7 @@ pub inline fn wrapV2(
 }
 
 /// Summed Area Tables; returns ptr to the resulting `af.Array`.
-pub inline fn sat(allocator: std.mem.Allocator, in: *const af.Array) !*af.Array {
+pub fn sat(allocator: std.mem.Allocator, in: *const af.Array) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(af.af_sat(&arr, in.array_), @src());
     return af.Array.init(allocator, arr);
@@ -1036,7 +1036,7 @@ pub inline fn sat(allocator: std.mem.Allocator, in: *const af.Array) !*af.Array 
 /// - Y -> [16,219]
 /// - Cb -> [16,240]
 /// - Cr -> [16,240]
-pub inline fn ycbcr2Rgb(
+pub fn ycbcr2Rgb(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     standard: af.YCCStandard,
@@ -1066,7 +1066,7 @@ pub inline fn ycbcr2Rgb(
 /// chroma components.
 ///
 /// Input `af.Array` to this function should be of real data in the range [0,1].
-pub inline fn rgb2Ycbcr(
+pub fn rgb2Ycbcr(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     standard: af.YCCStandard,
@@ -1088,7 +1088,7 @@ pub inline fn rgb2Ycbcr(
 ///
 /// Currently, ArrayFire calculates all first order moments.
 /// The moments are defined within the `af.MomentType` enum.
-pub inline fn moments(
+pub fn moments(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     moment: af.MomentType,
@@ -1108,7 +1108,7 @@ pub inline fn moments(
 // TODO: possibly returns `[]f64`; pending triage.
 
 /// Calculating image moment(s) of a single image.
-pub inline fn momentsAll(in: *const af.Array, moment: af.MomentType) !f64 {
+pub fn momentsAll(in: *const af.Array, moment: af.MomentType) !f64 {
     var res: f64 = undefined;
     try af.AF_CHECK(
         af.af_moments_all(
@@ -1127,7 +1127,7 @@ pub inline fn momentsAll(in: *const af.Array, moment: af.MomentType) !f64 {
 /// that uses a multi-stage algorithm to detect a wide
 /// range of edges in images. A more in depth discussion
 /// on it can be found [here](https://en.wikipedia.org/wiki/Canny_edge_detector).
-pub inline fn canny(
+pub fn canny(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     threshold_type: af.CannyThreshold,
@@ -1170,7 +1170,7 @@ pub inline fn canny(
 /// a given iteration.
 ///
 /// The flux function can be either exponential or quadratic.
-pub inline fn anisotropicDiffusion(
+pub fn anisotropicDiffusion(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     timestep: f32,
@@ -1203,7 +1203,7 @@ pub inline fn anisotropicDiffusion(
 /// - s16
 /// - u16
 /// - u8
-pub inline fn iterativeDeconv(
+pub fn iterativeDeconv(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     ker: *const af.Array,
@@ -1241,7 +1241,7 @@ pub inline fn iterativeDeconv(
 /// - s16
 /// - u16
 /// - u8
-pub inline fn inverseDeconv(
+pub fn inverseDeconv(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     psf: *const af.Array,
@@ -1288,7 +1288,7 @@ pub inline fn inverseDeconv(
 /// all the seed points. For subsequent segmentations, all pixels in the previous
 /// segmentation are used to re-calculate the mean and variance (as opposed to using
 /// the pixels in the neighborhood of the seed point).
-pub inline fn confidenceCC(
+pub fn confidenceCC(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     seedx: *const af.Array,

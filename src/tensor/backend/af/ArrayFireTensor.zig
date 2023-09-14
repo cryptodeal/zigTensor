@@ -227,19 +227,25 @@ pub const ArrayFireTensor = struct {
     pub fn getHandle(self: *ArrayFireTensor, allocator: std.mem.Allocator) GetHandleErrors!*af.Array {
         if (@as(ComponentTypeTag, self.handle_) != .array) {
             const idxComp: IndexedArrayComponent = self.handle_.indexedArray;
-            var oldHandle = self.arrayHandle_;
-            defer oldHandle.releaseWithFn(af.Array.deinit);
             var idxTypes: ?[]IndexType = if (self.indexTypes_ != null) self.indexTypes_.?.items else null;
-            self.arrayHandle_ = try Arc(*af.Array).init(
+            var condensed = try condenseIndices(
                 allocator,
-                try condenseIndices(
-                    allocator,
-                    try idxComp.get(allocator, self),
-                    false,
-                    idxTypes,
-                    idxComp.isFlat_,
-                ),
+                try idxComp.get(allocator, self),
+                false,
+                idxTypes,
+                idxComp.isFlat_,
             );
+
+            // only create new handle/release old handle if the array was modified
+            if (condensed.modified) {
+                var oldHandle = self.arrayHandle_;
+                defer oldHandle.releaseWithFn(af.Array.deinit);
+                self.arrayHandle_ = try Arc(*af.Array).init(
+                    allocator,
+                    condensed.arr,
+                );
+            }
+
             // Clear state
             self.handle_ = .{ .array = ArrayComponent{} }; // set to passthrough
             // remove indices
@@ -604,3 +610,41 @@ pub const ArrayFireTensor = struct {
         }
     }
 };
+
+fn getRefCount(arr: *af.Array, sync: bool) !i32 {
+    if (sync) {
+        try arr.eval();
+        try af.ops.sync(-1);
+    }
+    return arr.getDataRefCount();
+}
+
+test "AfRefCountBasic" {
+    const allocator = std.testing.allocator;
+    // Sanity check that af.af_array moved into zt.Tensors don't have their
+    // refcount inrcremented/show proper usage of refs in tensor ops
+    var qDims = af.Dim4{};
+    qDims.dims[0] = 2;
+    qDims.dims[1] = 2;
+    var q = try af.ops.constant(allocator, 1, 2, qDims, af.Dtype.f32);
+    defer q.deinit();
+    // without eval/sync, no refcount
+    try std.testing.expect(try getRefCount(q, false) == 0);
+
+    var a = try af.ops.constant(allocator, 1, 2, qDims, af.Dtype.f32);
+    try std.testing.expect(try getRefCount(q, true) == 1);
+
+    var tensor = Tensor.init(
+        TensorAdapterBase.init(
+            try ArrayFireTensor.initFromArray(allocator, a, 2),
+        ),
+    );
+    defer tensor.deinit();
+
+    var aRef = try toArray(allocator, tensor);
+    try std.testing.expect(try getRefCount(aRef, true) == 1);
+
+    // TODO: verify copy works and increments ref count
+}
+
+// TODO: test "AfRefCountModify" {}
