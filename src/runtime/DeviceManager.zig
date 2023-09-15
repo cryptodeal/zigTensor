@@ -12,9 +12,9 @@ const DeviceType = rt_device_type.DeviceType;
 const getDeviceTypes = rt_device_type.getDeviceTypes;
 
 /// Device id for the single CPU device.
-pub const kX64DeviceId: c_int = 0;
+pub const kX64DeviceId: i32 = 0;
 
-fn getActiveDeviceId(device_type: DeviceType) !c_int {
+fn getActiveDeviceId(device_type: DeviceType) !i32 {
     return switch (device_type) {
         .x64 => kX64DeviceId,
         .CUDA => {
@@ -30,8 +30,14 @@ fn getActiveDeviceId(device_type: DeviceType) !c_int {
 
 var deviceManagerSingleton: ?*DeviceManager = null;
 
+pub fn deinitDeviceManager() void {
+    if (deviceManagerSingleton != null) {
+        deviceManagerSingleton.?.deinit();
+    }
+}
+
 pub const DeviceManager = struct {
-    pub const DeviceTypeInfo = std.AutoHashMap(c_int, Device);
+    pub const DeviceTypeInfo = std.AutoHashMap(i32, Device);
 
     deviceTypeToInfo_: std.EnumMap(DeviceType, DeviceTypeInfo),
     allocator: std.mem.Allocator,
@@ -101,7 +107,7 @@ pub const DeviceManager = struct {
         return device_list.toOwnedSlice();
     }
 
-    pub fn getDevice(self: *DeviceManager, device_type: DeviceType, id: c_int) !Device {
+    pub fn getDevice(self: *DeviceManager, device_type: DeviceType, id: i32) !Device {
         try self.enforceDeviceTypeAvailable("[DeviceManager.getDevice]", device_type);
         var idToDevice = self.deviceTypeToInfo_.get(device_type).?;
         if (!idToDevice.contains(id)) {

@@ -1,19 +1,16 @@
 const std = @import("std");
-const TensorBackend = @import("TensorBackend.zig").TensorBackend;
 const build_options = @import("build_options");
-const ArrayFireBackend = @import("backend/af/ArrayFireBackend.zig").ArrayFireBackend;
+const TensorBackend = @import("TensorBackend.zig").TensorBackend;
 
 const ZT_USE_ARRAYFIRE = build_options.ZT_USE_ARRAYFIRE;
-const ZT_USE_ONEDNN = build_options.ZT_USE_ONEDNN;
-const ZT_USE_TENSOR_STUB = build_options.ZT_USE_TENSOR_STUB;
+// TODO: const ZT_USE_ONEDNN = build_options.ZT_USE_ONEDNN;
 
-pub var DefaultTensorType: ?TensorBackend = null;
+pub const DefaultTensorType_t = if (ZT_USE_ARRAYFIRE) @import("backend/af/ArrayFireTensor.zig").ArrayFireTensor else @compileError("Must specify backend as compile flag");
+
+pub const DefaultTensorBackend_t = if (ZT_USE_ARRAYFIRE) @import("backend/af/ArrayFireBackend.zig").ArrayFireBackend else @compileError("Must specify backend as compile flag");
 
 pub fn defaultTensorBackend(allocator: std.mem.Allocator) !TensorBackend {
-    if (DefaultTensorType != null) {
-        return DefaultTensorType.?;
-    }
-    var af_backend = try ArrayFireBackend.init(allocator);
-    DefaultTensorType = TensorBackend.init(af_backend);
-    return DefaultTensorType.?;
+    var tensor = try DefaultTensorType_t.initRaw(allocator);
+    defer allocator.destroy(tensor);
+    return tensor.backend(allocator);
 }

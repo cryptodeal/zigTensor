@@ -22,7 +22,7 @@ fn deviceImplCheck(comptime expect: type, comptime actual: type) !void {
 }
 
 const CallbackCtx = struct {
-    func: *const fn (data: ?*anyopaque, id: c_int) anyerror!void,
+    func: *const fn (data: ?*anyopaque, id: i32) anyerror!void,
     data: ?*anyopaque,
 };
 
@@ -40,10 +40,10 @@ pub const Device = struct {
         getStreams: *const fn (ctx: *anyopaque) std.AutoHashMap(Arc(Stream), void),
         addStream: *const fn (ctx: *anyopaque, stream: Arc(Stream)) DeviceErrors!void,
         sync: *const fn (ctx: *anyopaque) anyerror!void,
-        nativeId: *const fn (ctx: *anyopaque) c_int,
+        nativeId: *const fn (ctx: *anyopaque) i32,
         deviceType: *const fn (ctx: *anyopaque) DeviceType,
         setActive: *const fn (ctx: *anyopaque) anyerror!void,
-        addSetActiveCallback: *const fn (ctx: *anyopaque, callback: *const fn (data: ?*anyopaque, id: c_int) anyerror!void, data: ?*anyopaque) DeviceErrors!void,
+        addSetActiveCallback: *const fn (ctx: *anyopaque, callback: *const fn (data: ?*anyopaque, id: i32) anyerror!void, data: ?*anyopaque) DeviceErrors!void,
         deinit: *const fn (ctx: *anyopaque) void,
     };
 
@@ -68,7 +68,7 @@ pub const Device = struct {
     }
 
     /// Returns the native ID of this device (semantics are implementation-dependent).
-    pub fn nativeId(ctx: *Self) c_int {
+    pub fn nativeId(ctx: *Self) i32 {
         return ctx.vtable.nativeId(ctx.ptr);
     }
 
@@ -85,7 +85,7 @@ pub const Device = struct {
     /// Lets this device keep track of the given callback (along with previously
     /// added ones), which will be invoked with the device's native ID after
     /// setting the device active.
-    pub fn addSetActiveCallback(ctx: *Self, callback: *const fn (data: ?*anyopaque, id: c_int) anyerror!void, data: ?*anyopaque) DeviceErrors!void {
+    pub fn addSetActiveCallback(ctx: *Self, callback: *const fn (data: ?*anyopaque, id: i32) anyerror!void, data: ?*anyopaque) DeviceErrors!void {
         return ctx.vtable.addSetActiveCallback(ctx.ptr, callback, data);
     }
 
@@ -134,7 +134,7 @@ pub const Device = struct {
                 try self.sync();
             }
 
-            fn nativeId(ctx: *anyopaque) c_int {
+            fn nativeId(ctx: *anyopaque) i32 {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.nativeId();
             }
@@ -149,7 +149,7 @@ pub const Device = struct {
                 try self.setActive();
             }
 
-            fn addSetActiveCallback(ctx: *anyopaque, callback: *const fn (data: ?*anyopaque, id: c_int) anyerror!void, data: ?*anyopaque) DeviceErrors!void {
+            fn addSetActiveCallback(ctx: *anyopaque, callback: *const fn (data: ?*anyopaque, id: i32) anyerror!void, data: ?*anyopaque) DeviceErrors!void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 try self.addSetActiveCallback(callback, data);
             }
@@ -226,7 +226,7 @@ pub const X64Device = struct {
         }
     }
 
-    pub fn nativeId(_: *X64Device) c_int {
+    pub fn nativeId(_: *X64Device) i32 {
         return kX64DeviceId;
     }
 
@@ -241,7 +241,7 @@ pub const X64Device = struct {
         }
     }
 
-    pub fn addSetActiveCallback(self: *X64Device, callback: *const fn (data: ?*anyopaque, id: c_int) anyerror!void, data: ?*anyopaque) DeviceErrors!void {
+    pub fn addSetActiveCallback(self: *X64Device, callback: *const fn (data: ?*anyopaque, id: i32) anyerror!void, data: ?*anyopaque) DeviceErrors!void {
         try self.setActiveCallbacks_.append(.{ .func = callback, .data = data });
     }
 };
@@ -295,10 +295,10 @@ test "Device setActive" {
 }
 
 const CbCtxTest = struct {
-    count: c_int = 0,
+    count: i32 = 0,
 };
 
-fn device_cb_test(data: ?*anyopaque, _: c_int) !void {
+fn device_cb_test(data: ?*anyopaque, _: i32) !void {
     var ctx: *CbCtxTest = @ptrCast(@alignCast(data));
     ctx.count += 1;
 }

@@ -11,6 +11,7 @@ const rt_device_type = @import("../../../runtime/DeviceType.zig");
 const reductions = @import("reductions.zig");
 const zt_backend = @import("../../TensorBackend.zig");
 
+const deinit = @import("../../Init.zig").deinit;
 const TopkRes = zt_backend.TopkRes;
 const SortIndexRes = zt_backend.SortIndexRes;
 const condenseIndices = @import("Utils.zig").condenseIndices;
@@ -92,6 +93,12 @@ fn setActiveCallback(data: ?*anyopaque, id: c_int) !void {
 }
 
 var ArrayFireBackendSingleton: ?*ArrayFireBackend = null;
+
+pub fn deinitBackend() void {
+    if (ArrayFireBackendSingleton != null) {
+        ArrayFireBackendSingleton.?.deinit();
+    }
+}
 
 // TODO: add ArrayFire CUDA support
 
@@ -1115,11 +1122,12 @@ pub fn canBroadcast(lhs: *const Shape, rhs: *const Shape) bool {
 test "ArrayFireBackend supportsDataType" {
     var allocator = std.testing.allocator;
     var backend = try ArrayFireBackend.getInstance(allocator);
-    defer backend.deinit();
 
     // access and release DeviceManager singleton here so test doesn't leak
     var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
+
+    // frees both backend and mgr
+    defer deinit();
 
     var device_types = getDeviceTypes();
     var iterator = device_types.iterator();
@@ -1139,11 +1147,9 @@ test "ArrayFireBackend supportsDataType" {
 test "ArrayFireBackend getInstance (singleton)" {
     const allocator = std.testing.allocator;
     var b1 = try ArrayFireBackend.getInstance(allocator);
-    defer b1.deinit();
 
-    // access and release DeviceManager singleton here so test doesn't leak
-    var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
+    // frees both backend and mgr
+    defer deinit();
 
     // b2 doesn't need `deinit` called as it's a singleton
     var b2 = try ArrayFireBackend.getInstance(allocator);

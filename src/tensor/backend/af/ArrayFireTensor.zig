@@ -7,8 +7,10 @@ const zt_shape = @import("../../Shape.zig");
 const zigrc = @import("zigrc");
 const build_options = @import("build_options");
 const runtime = @import("../../../runtime/runtime.zig");
+const rand = @import("../../Random.zig");
 
 const assert = std.debug.assert;
+const deinit = @import("../../Init.zig").deinit;
 const TensorAdapterBase = @import("../../TensorAdapter.zig").TensorAdapterBase;
 const ArrayFireBackend = @import("ArrayFireBackend.zig").ArrayFireBackend;
 const TensorBackend = @import("../../TensorBackend.zig").TensorBackend;
@@ -648,3 +650,20 @@ test "AfRefCountBasic" {
 }
 
 // TODO: test "AfRefCountModify" {}
+
+test "astypeRefcount" {
+    const allocator = std.testing.allocator;
+    var tDims = [_]Dim{ 5, 5 };
+    var tShape = try Shape.init(allocator, &tDims);
+    defer tShape.deinit();
+    var t = try rand.rand(allocator, &tShape, .f32);
+    defer t.deinit();
+    defer deinit();
+
+    try std.testing.expect(try getRefCount(try toArray(allocator, t), true) == 1);
+
+    var t64 = try t.astype(allocator, .f64);
+    defer t64.deinit();
+    try std.testing.expect(try getRefCount(try toArray(allocator, t64), true) == 1);
+    try std.testing.expect(try t64.dtype(allocator) == .f64);
+}
