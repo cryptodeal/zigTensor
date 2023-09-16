@@ -1102,6 +1102,8 @@ pub const ArrayFireBackend = struct {
             );
         }
     }
+
+    // TODO: Binary ops
 };
 
 pub fn canBroadcast(lhs: *const Shape, rhs: *const Shape) bool {

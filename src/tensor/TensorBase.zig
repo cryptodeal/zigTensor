@@ -7,6 +7,9 @@ const rt_stream = @import("../runtime/Stream.zig");
 const af = @import("../bindings/af/ArrayFire.zig");
 const zt_idx = @import("Index.zig");
 
+const defaultTensorBackend = @import("DefaultTensorType.zig").defaultTensorBackend;
+const TopkRes = zt_tensor_backend.TopkRes;
+const SortIndexRes = zt_tensor_backend.SortIndexRes;
 const Index = zt_idx.Index;
 const Stream = rt_stream.Stream;
 const TensorBackend = zt_tensor_backend.TensorBackend;
@@ -181,25 +184,37 @@ pub const Tensor = struct {
 
 };
 
-// TODO: pub fn arange()
+pub fn fromScalar(allocator: std.mem.Allocator, comptime T: type, value: T, dtype: DType) !Tensor {
+    return (try defaultTensorBackend(allocator)).fromScalar(allocator, T, value, dtype);
+}
 
-// TODO: pub fn iota()
+pub fn full(allocator: std.mem.Allocator, shape: *const Shape, comptime T: type, value: T, dtype: DType) !Tensor {
+    return (try defaultTensorBackend(allocator)).full(allocator, shape, T, value, dtype);
+}
+
+pub fn arange(allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) !Tensor {
+    return (try defaultTensorBackend(allocator)).arange(allocator, shape, seq_dim, dtype);
+}
+
+pub fn iota(allocator: std.mem.Allocator, shape: *const Shape, tile_dims: *const Shape, dtype: DType) !Tensor {
+    return (try defaultTensorBackend(allocator)).iota(allocator, shape, tile_dims, dtype);
+}
 
 //************************ Shaping and Indexing *************************//
 
-pub fn reshape(tensor: *const Tensor, shape: *const Shape) Tensor {
-    return (tensor.backend()).reshape(tensor, shape);
+pub fn reshape(allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) Tensor {
+    return (try tensor.backend(allocator)).reshape(tensor, shape);
 }
 
-pub fn transpose(tensor: *const Tensor, axes: *const Shape) Tensor {
-    return (tensor.backend()).transpose(tensor, axes);
+pub fn transpose(allocator: std.mem.Allocator, tensor: Tensor, axes: *const Shape) Tensor {
+    return (try tensor.backend(allocator)).transpose(tensor, axes);
 }
 
-pub fn tile(tensor: *const Tensor, shape: *const Shape) Tensor {
-    return (tensor.backend()).tile(tensor, shape);
+pub fn tile(allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) Tensor {
+    return (try tensor.backend(allocator)).tile(tensor, shape);
 }
 
-pub fn concatenate(tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
+pub fn concatenate(allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
     if (tensors.items.len == 0) {
         std.log.err("concatenate: called on empty set of tensors\n", .{});
         return error.ConcatFailedZeroTensors;
@@ -215,9 +230,125 @@ pub fn concatenate(tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
         std.log.err("concatenate: tried to concatenate tensors of different backends\n", .{});
         return error.ConcatFailedBackendMismatch;
     }
-    return (tensors.items[0].backend()).concatenate(tensors, axis);
+    return (try tensors.items[0].backend(allocator)).concatenate(tensors, axis);
 }
 
-pub fn nonzero(tensor: *const Tensor) Tensor {
-    return (tensor.backend()).nonzero(tensor);
+pub fn nonzero(allocator: std.mem.Allocator, tensor: Tensor) Tensor {
+    return (try tensor.backend(allocator)).nonzero(tensor);
+}
+
+pub fn pad(allocator: std.mem.Allocator, tensor: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) !Tensor {
+    return (try tensor.backend(allocator)).pad(allocator, tensor, pad_widths, pad_type);
+}
+
+//************************** Unary Operators ***************************//
+
+pub fn exp(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).exp(allocator, tensor);
+}
+
+pub fn log(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).log(allocator, tensor);
+}
+
+// TODO: pub fn negative()
+
+pub fn logicalNot(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).logicalNot(allocator, tensor);
+}
+
+pub fn log1p(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).log1p(allocator, tensor);
+}
+
+pub fn sin(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).sin(allocator, tensor);
+}
+
+pub fn cos(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).cos(allocator, tensor);
+}
+
+pub fn sqrt(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).sqrt(allocator, tensor);
+}
+
+pub fn tanh(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).tanh(allocator, tensor);
+}
+
+pub fn floor(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).floor(allocator, tensor);
+}
+
+pub fn ceil(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).ceil(allocator, tensor);
+}
+
+pub fn rint(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).rint(allocator, tensor);
+}
+
+pub fn absolute(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).absolute(allocator, tensor);
+}
+
+pub fn sigmoid(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).sigmoid(allocator, tensor);
+}
+
+pub fn erf(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).erf(allocator, tensor);
+}
+
+pub fn flip(allocator: std.mem.Allocator, tensor: Tensor, dim: u32) !Tensor {
+    return (try tensor.backend(allocator)).flip(allocator, tensor, dim);
+}
+
+// TODO: low/high should also accept f64 type
+pub fn clip(allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor, batch: bool) !Tensor {
+    return (try tensor.backend(allocator)).clip(allocator, tensor, low, high, batch);
+}
+
+pub fn roll(allocator: std.mem.Allocator, tensor: Tensor, shift: Dim, axis: usize) !Tensor {
+    return (try tensor.backend(allocator)).roll(allocator, tensor, shift, axis);
+}
+
+pub fn isnan(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).isnan(allocator, tensor);
+}
+
+pub fn isinf(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).isinf(allocator, tensor);
+}
+
+// TODO: pub fn sign()
+
+pub fn tril(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).tril(allocator, tensor);
+}
+
+pub fn triu(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).triu(allocator, tensor);
+}
+
+// TODO: x/y should also accept f64 type
+pub fn where(allocator: std.mem.Allocator, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
+    return (try condition.backend(allocator)).where(allocator, condition, x, y);
+}
+
+pub fn topk(allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !TopkRes {
+    return (try input.backend(allocator)).topk(allocator, input, k, axis, sort_mode);
+}
+
+pub fn sort(allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
+    return (try input.backend(allocator)).sort(allocator, input, axis, sort_mode);
+}
+
+pub fn sortIndex(allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !SortIndexRes {
+    return (try input.backend(allocator)).sortIndex(allocator, input, axis, sort_mode);
+}
+
+pub fn argsort(allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
+    return (try input.backend(allocator)).argsort(allocator, input, axis, sort_mode);
 }
