@@ -32,8 +32,10 @@ pub fn batchFunc(lhs: af.af_array, rhs: af.af_array, func: *const batchFunc_t) !
 }
 
 test "gforToggle" {
+    var lastStatus = false;
     for (0..10) |_| {
         var status = gforToggle();
-        std.debug.print("status: {any}\n", .{status});
+        try std.testing.expect(status != lastStatus);
+        lastStatus = status;
     }
 }

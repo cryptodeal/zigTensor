@@ -100,7 +100,7 @@ pub const Tensor = struct {
     // }
 
     pub fn bytes(self: *const Tensor, allocator: std.mem.Allocator) !usize {
-        var elements_ = try self.elements(allocator);
+        var elements_: usize = @intCast(try self.elements(allocator));
         var dtype_ = try self.dtype(allocator);
         return elements_ * dtype_.getSize();
     }
@@ -144,6 +144,15 @@ pub const Tensor = struct {
 
     pub fn backend(self: *const Tensor, allocator: std.mem.Allocator) !TensorBackend {
         return self.impl_.backend(allocator);
+    }
+
+    pub fn allocHost(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type) !?[]T {
+        if (try self.isEmpty(allocator)) {
+            return null;
+        }
+        var res: []T = try allocator.alloc(T, try self.bytes(allocator) / @sizeOf(T));
+        try self.impl_.host(allocator, res.ptr);
+        return res;
     }
 
     // TODO: FL_CREATE_MEMORY_OPS macro equivalent
@@ -351,4 +360,14 @@ pub fn sortIndex(allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mo
 
 pub fn argsort(allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
     return (try input.backend(allocator)).argsort(allocator, input, axis, sort_mode);
+}
+
+pub fn add(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T == Tensor) {
+        return (try lhs.backend(allocator)).add(allocator, lhs_T, lhs, rhs_T, rhs);
+    } else if (rhs_T == Tensor) {
+        return (try rhs.backend(allocator)).add(allocator, lhs_T, lhs, rhs_T, rhs);
+    } else {
+        @compileError("add: either lhs or rhs must be a Tensor");
+    }
 }

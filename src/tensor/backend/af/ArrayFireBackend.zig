@@ -11,6 +11,7 @@ const rt_device_type = @import("../../../runtime/DeviceType.zig");
 const reductions = @import("reductions.zig");
 const zt_backend = @import("../../TensorBackend.zig");
 
+const gForGet = @import("gFor.zig").gforGet;
 const deinit = @import("../../Init.zig").deinit;
 const TopkRes = zt_backend.TopkRes;
 const SortIndexRes = zt_backend.SortIndexRes;
@@ -1104,6 +1105,240 @@ pub const ArrayFireBackend = struct {
     }
 
     // TODO: Binary ops
+
+    pub fn add(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.add(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn sub(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.sub(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn mul(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.mul(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn div(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.div(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn eq(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.eq(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn neq(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.neq(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn lessThan(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.lt(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn lessThanEqual(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.le(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn greaterThan(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.gt(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn greaterThanEqual(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.ge(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn logicalOr(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.or_(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn logicalAnd(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.and_(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn mod(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.mod(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn bitwiseAnd(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.bitAnd(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn bitwiseOr(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.bitOr(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn bitwiseXor(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.bitXor(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn lShift(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.bitShiftL(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
+
+    pub fn rShift(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        var arr = try af.ops.bitShiftR(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    @max(try lhs.ndim(allocator), try rhs.ndim(allocator)),
+                ),
+            ),
+        );
+    }
 };
 
 pub fn canBroadcast(lhs: *const Shape, rhs: *const Shape) bool {

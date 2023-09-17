@@ -32,7 +32,7 @@ pub const DType = enum(u8) {
     u32 = 9, // 32-bit unsigned integer
     u64 = 10, // 64-bit unsigned integer
 
-    pub fn toString(self: *DType) []const u8 {
+    pub fn toString(self: DType) []const u8 {
         return switch (self) {
             .f16 => "f16",
             .f32 => "f32",
@@ -48,7 +48,7 @@ pub const DType = enum(u8) {
         };
     }
 
-    pub fn getSize(self: *DType) usize {
+    pub fn getSize(self: DType) usize {
         return switch (self) {
             .f16 => @sizeOf(f16),
             .f32 => @sizeOf(f32),

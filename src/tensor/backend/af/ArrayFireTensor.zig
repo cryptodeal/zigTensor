@@ -649,7 +649,31 @@ test "AfRefCountBasic" {
     // TODO: verify copy works and increments ref count
 }
 
-// TODO: test "AfRefCountModify" {}
+test "AfRefCountModify" {
+    const full = @import("../../TensorBase.zig").full;
+    const add = @import("../../TensorBase.zig").add;
+
+    const allocator = std.testing.allocator;
+    defer deinit();
+    var dims = [_]Dim{ 2, 2 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+
+    // Compositional operations don't increment refcount
+    var a = try full(allocator, &shape, f64, 1, .f32);
+    defer a.deinit();
+    var b = try full(allocator, &shape, f64, 1, .f32);
+    defer b.deinit();
+
+    var res1 = try add(allocator, Tensor, a, Tensor, b);
+    defer res1.deinit();
+    try std.testing.expect(try getRefCount(try toArray(allocator, a), true) == 1);
+    try std.testing.expect(try getRefCount(try toArray(allocator, b), true) == 1);
+
+    var res1Data = try res1.allocHost(allocator, f32);
+    defer allocator.free(res1Data.?);
+    for (res1Data.?) |v| try std.testing.expect(v == 2);
+}
 
 test "astypeRefcount" {
     const allocator = std.testing.allocator;

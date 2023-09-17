@@ -118,7 +118,7 @@ pub const TensorAdapterBase = struct {
 
     /// Populates a pointer with a pointer value in memory pointing
     /// to a host buffer containing tensor data.
-    pub fn host(self: *const Self, allocator: std.mem.Allocator, out: ?*anyopaque) void {
+    pub fn host(self: *const Self, allocator: std.mem.Allocator, out: ?*anyopaque) !void {
         return self.vtable.host(self.ptr, allocator, out);
     }
 
