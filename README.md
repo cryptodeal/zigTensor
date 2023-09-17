@@ -79,7 +79,7 @@ is solely focused on OSx and leveraging ArrayFire for the backend.
   - [x] Index
   - [ ] Init (WIP)
   - [ ] Profile
-  - [ ] Random
+  - [x] Random
   - [x] Shape
   - [ ] TensorAdapter (WIP)
   - [ ] TensorBackend (WIP)

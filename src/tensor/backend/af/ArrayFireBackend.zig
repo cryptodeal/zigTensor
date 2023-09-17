@@ -11,7 +11,7 @@ const rt_device_type = @import("../../../runtime/DeviceType.zig");
 const reductions = @import("reductions.zig");
 const zt_backend = @import("../../TensorBackend.zig");
 
-const gForGet = af.gforGet;
+const gforGet = af.gforGet;
 const batchFunc = af.batchFunc;
 const batchFunc_t = af.batchFunc_t;
 
@@ -952,14 +952,13 @@ pub const ArrayFireBackend = struct {
         tensor: Tensor,
         low: Tensor,
         high: Tensor,
-        batch: bool,
     ) !Tensor {
         var arr = try af.ops.clamp(
             allocator,
             try toArray(allocator, tensor),
             try toArray(allocator, low),
             try toArray(allocator, high),
-            batch,
+            gforGet(),
         );
         return Tensor.init(
             TensorAdapterBase.init(
@@ -1236,7 +1235,7 @@ pub fn doBinaryOpOrBroadcast(allocator: std.mem.Allocator, lhs: Tensor, rhs: Ten
 
     // Dims are the same or scalar <> 1-el tensor - no broadcasting
     if (lhsShape.eql(&rhsShape) or (lhsShape.elements() <= 1 and rhsShape.elements() <= 1)) {
-        var arr = try func(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gForGet());
+        var arr = try func(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gforGet());
         return Tensor.init(
             TensorAdapterBase.init(
                 try ArrayFireTensor.initFromArray(

@@ -7,7 +7,6 @@ const zt_shape = @import("../../Shape.zig");
 const zigrc = @import("zigrc");
 const build_options = @import("build_options");
 const runtime = @import("../../../runtime/runtime.zig");
-const rand = @import("../../Random.zig");
 
 const assert = std.debug.assert;
 const deinit = @import("../../Init.zig").deinit;
@@ -628,6 +627,7 @@ test "AfRefCountBasic" {
     var qDims = af.Dim4{};
     qDims.dims[0] = 2;
     qDims.dims[1] = 2;
+    defer deinit(); // deinit global singletons
     var q = try af.ops.constant(allocator, 1, 2, qDims, af.Dtype.f32);
     defer q.deinit();
     // without eval/sync, no refcount
@@ -652,9 +652,10 @@ test "AfRefCountBasic" {
 test "AfRefCountModify" {
     const full = @import("../../TensorBase.zig").full;
     const add = @import("../../TensorBase.zig").add;
+    const mul = @import("../../TensorBase.zig").mul;
 
     const allocator = std.testing.allocator;
-    defer deinit();
+    defer deinit(); // deinit global singletons
     var dims = [_]Dim{ 2, 2 };
     var shape = try Shape.init(allocator, &dims);
     defer shape.deinit();
@@ -673,16 +674,31 @@ test "AfRefCountModify" {
     var res1Data = try res1.allocHost(allocator, f32);
     defer allocator.free(res1Data.?);
     for (res1Data.?) |v| try std.testing.expect(v == 2);
+
+    var c = try full(allocator, &shape, f64, 1, .f32);
+    defer c.deinit();
+    var d = try full(allocator, &shape, f64, 1, .f32);
+    defer d.deinit();
+
+    var res2_a = try mul(allocator, Tensor, c, Tensor, c);
+    defer res2_a.deinit();
+    var res2_b = try mul(allocator, Tensor, d, Tensor, d);
+    defer res2_b.deinit();
+    var res2 = try add(allocator, Tensor, res2_a, Tensor, res2_b);
+    defer res2.deinit();
+    try std.testing.expect(try getRefCount(try toArray(allocator, c), true) == 1);
+    try std.testing.expect(try getRefCount(try toArray(allocator, d), true) == 1);
 }
 
 test "astypeRefcount" {
     const allocator = std.testing.allocator;
     var tDims = [_]Dim{ 5, 5 };
+    const rand = @import("../../Random.zig").rand;
     var tShape = try Shape.init(allocator, &tDims);
     defer tShape.deinit();
-    var t = try rand.rand(allocator, &tShape, .f32);
+    var t = try rand(allocator, &tShape, .f32);
     defer t.deinit();
-    defer deinit();
+    defer deinit(); // deinit global singletons
 
     try std.testing.expect(try getRefCount(try toArray(allocator, t), true) == 1);
 
@@ -690,4 +706,18 @@ test "astypeRefcount" {
     defer t64.deinit();
     try std.testing.expect(try getRefCount(try toArray(allocator, t64), true) == 1);
     try std.testing.expect(try t64.dtype(allocator) == .f64);
+}
+
+// TODO: test "astypeInPlaceRefcount" {}
+
+test "BackendInterop" {
+    const allocator = std.testing.allocator;
+    const rand = @import("../../Random.zig").rand;
+    defer deinit(); // deinit global singletons
+    var dims = [_]Dim{ 10, 12 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+    var a = try rand(allocator, &shape, .f32);
+    defer a.deinit();
+    try std.testing.expect(a.backendType() == .ArrayFire);
 }

@@ -85,7 +85,7 @@ pub const TensorBackend = struct {
         sigmoid: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         erf: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         flip: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, dim: u32) anyerror!Tensor,
-        clip: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor, batch: bool) anyerror!Tensor,
+        clip: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor) anyerror!Tensor,
         roll: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shift: Dim, axis: usize) anyerror!Tensor,
         isnan: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         isinf: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
@@ -298,7 +298,7 @@ pub const TensorBackend = struct {
     }
 
     pub fn clip(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor) !Tensor {
-        return self.vtable.clip(self.ptr, allocator, tensor, low, high, false);
+        return self.vtable.clip(self.ptr, allocator, tensor, low, high);
     }
 
     pub fn roll(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, shift: Dim, axis: usize) !Tensor {
@@ -628,9 +628,9 @@ pub const TensorBackend = struct {
                 return self.flip(allocator, tensor, dim);
             }
 
-            fn clip(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor, batch: bool) !Tensor {
+            fn clip(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.clip(allocator, tensor, low, high, batch);
+                return self.clip(allocator, tensor, low, high);
             }
 
             fn roll(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shift: Dim, axis: usize) !Tensor {

@@ -5,9 +5,9 @@ const defaultTensorBackend = @import("DefaultTensorType.zig").defaultTensorBacke
 const Shape = @import("Shape.zig").Shape;
 const DType = @import("Types.zig").DType;
 
-pub fn setSeed(allocator: std.mem.Allocator, seed: u64) void {
+pub fn setSeed(allocator: std.mem.Allocator, seed: u64) !void {
     var backend = try defaultTensorBackend(allocator);
-    backend.setSeed(allocator, seed);
+    try backend.setSeed(allocator, seed);
 }
 
 pub fn randn(allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
