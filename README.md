@@ -61,14 +61,14 @@ is solely focused on OSx and leveraging ArrayFire for the backend.
         - [ ] MemoryManagerAdapterDeviceInterface
         - [ ] MemoryManagerInstaller
       - [ ] AdvancedIndex
-      - [ ] ArrayFireBLAS
+      - [x] ArrayFireBLAS
       - [ ] ArrayFireBackend (WIP)
-      - [ ] ArrayFireBinaryOps
+      - [x] ArrayFireBinaryOps
       - [ ] ArrayFireCPUStream (WIP)
       - [ ] ArrayFireReductions
       - [ ] ArrayFireShapeAndIndex
       - [ ] ArrayFireTensor (WIP)
-      - [ ] ArrayFireUnaryOps
+      - [ ] ArrayFireUnaryOps (WIP)
       - [ ] Utils (WIP)
     - [ ] JIT
     - [ ] oneDNN

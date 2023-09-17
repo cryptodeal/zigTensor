@@ -52,7 +52,8 @@ pub const TensorBackend = struct {
         setSeed: *const fn (ctx: *anyopaque, seed: u64) anyerror!void,
         randn: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) anyerror!Tensor,
         rand: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) anyerror!Tensor,
-        constant: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: ?*const Shape, value: f64, dtype: DType) anyerror!Tensor,
+        fromScalar: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, value: f64, dtype: DType) anyerror!Tensor,
+        full: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, value: f64, dtype: DType) anyerror!Tensor,
         identity: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dim: Dim, dtype: DType) anyerror!Tensor,
         arange: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) anyerror!Tensor,
         iota: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) anyerror!Tensor,
@@ -70,7 +71,7 @@ pub const TensorBackend = struct {
         pad: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) anyerror!Tensor,
         exp: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         log: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
-        // TODO: negative: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        negative: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         logicalNot: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         log1p: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         sin: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
@@ -111,531 +112,10 @@ pub const TensorBackend = struct {
         bitwiseXor: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         lShift: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         rShift: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
+        minimum: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
+        maximum: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
+        power: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
     };
-
-    pub fn fromScalar(self: *const Self, allocator: std.mem.Allocator, comptime T: type, value: T, dtype: DType) !Tensor {
-        var f: f64 = undefined;
-        switch (@typeInfo(T)) {
-            .Float => f = @floatCast(value),
-            .Int => f = @floatFromInt(value),
-            else => return error.InvalidTypePassedToFromScalar,
-        }
-        return self.vtable.constant(self.ptr, allocator, null, f, dtype);
-    }
-
-    pub fn full(self: *const Self, allocator: std.mem.Allocator, shape: *const Shape, comptime T: type, value: T, dtype: DType) !Tensor {
-        var f: f64 = undefined;
-        switch (@typeInfo(T)) {
-            .Float => f = @floatCast(value),
-            .Int => f = @floatFromInt(value),
-            else => return error.InvalidTypePassedToFromScalar,
-        }
-        return self.vtable.constant(self.ptr, allocator, shape, f, dtype);
-    }
-
-    pub fn add(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.add(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn sub(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.sub(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn mul(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.mul(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn div(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.div(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn eq(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.eq(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn neq(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.neq(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn lessThan(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.lessThan(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn lessThanEqual(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.lessThanEqual(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn greaterThan(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.greaterThan(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn greaterThanEqual(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.greaterThanEqual(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn logicalOr(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.logicalOr(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn logicalAnd(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.logicalAnd(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn mod(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.mod(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn bitwiseAnd(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.bitwiseAnd(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn bitwiseOr(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.bitwiseOr(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn bitwiseXor(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.bitwiseXor(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn lShift(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.lShift(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
-
-    pub fn rShift(self: *const Self, allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-        if (lhs_T != Tensor and rhs_T != Tensor) {
-            return error.InvalidTypePassedToAdd;
-        }
-        var lhsTensor: Tensor = undefined;
-        var lhsTensorInit = false;
-        defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
-        var rhsTensor: Tensor = undefined;
-        var rhsTensorInit = false;
-        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
-        if (lhs_T == Tensor) {
-            lhsTensor = lhs;
-        } else {
-            var rhsShape = try rhs.shape(allocator);
-            lhsTensor = try self.full(allocator, rhsShape, lhs_T, lhs, try rhs.dtype(allocator));
-            lhsTensorInit = true;
-        }
-
-        if (rhs_T == Tensor) {
-            rhsTensor = rhs;
-        } else {
-            var lhsShape = try lhs.shape(allocator);
-            rhsTensor = try self.full(allocator, &lhsShape, rhs_T, rhs, try lhs.dtype(allocator));
-            rhsTensorInit = true;
-        }
-        return self.vtable.rShift(self.ptr, allocator, lhsTensor, rhsTensor);
-    }
 
     pub fn deinit(self: *Self) void {
         return self.vtable.deinit(self.ptr);
@@ -673,16 +153,24 @@ pub const TensorBackend = struct {
         return self.vtable.rand(self.ptr, allocator, shape, dtype);
     }
 
-    pub fn constant(self: *Self, allocator: std.mem.Allocator, shape: ?*const Shape, value: f64, dtype: DType) !Tensor {
-        return self.vtable.constant(self.ptr, allocator, shape, value, dtype);
+    pub fn fromScalar(self: *const Self, allocator: std.mem.Allocator, comptime T: type, value: T, dtype: DType) !Tensor {
+        var f: f64 = undefined;
+        switch (@typeInfo(T)) {
+            .Float => f = @floatCast(value),
+            .Int => f = @floatFromInt(value),
+            else => return error.InvalidTypePassedToFromScalar,
+        }
+        return self.vtable.fromScalar(self.ptr, allocator, f, dtype);
     }
 
-    pub fn constantI64(self: *Self, allocator: std.mem.Allocator, shape: ?*const Shape, value: i64, dtype: DType) !Tensor {
-        return self.vtable.constantI64(self.ptr, allocator, shape, value, dtype);
-    }
-
-    pub fn constantU64(self: *Self, allocator: std.mem.Allocator, shape: ?*const Shape, value: u64, dtype: DType) !Tensor {
-        return self.vtable.constantU64(self.ptr, allocator, shape, value, dtype);
+    pub fn full(self: *const Self, allocator: std.mem.Allocator, shape: *const Shape, comptime T: type, value: T, dtype: DType) !Tensor {
+        var f: f64 = undefined;
+        switch (@typeInfo(T)) {
+            .Float => f = @floatCast(value),
+            .Int => f = @floatFromInt(value),
+            else => return error.InvalidTypePassedToFromScalar,
+        }
+        return self.vtable.full(self.ptr, allocator, shape, f, dtype);
     }
 
     pub fn identity(self: *Self, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
@@ -753,7 +241,9 @@ pub const TensorBackend = struct {
         return self.vtable.log(self.ptr, allocator, tensor);
     }
 
-    // TODO: pub fn negative(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+    pub fn negative(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.negative(self.ptr, allocator, tensor);
+    }
 
     pub fn logicalNot(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.logicalNot(self.ptr, allocator, tensor);
@@ -807,8 +297,8 @@ pub const TensorBackend = struct {
         return self.vtable.flip(self.ptr, allocator, tensor, dim);
     }
 
-    pub fn clip(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor, batch: bool) !Tensor {
-        return self.vtable.clip(self.ptr, allocator, tensor, low, high, batch);
+    pub fn clip(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor) !Tensor {
+        return self.vtable.clip(self.ptr, allocator, tensor, low, high, false);
     }
 
     pub fn roll(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, shift: Dim, axis: usize) !Tensor {
@@ -837,6 +327,90 @@ pub const TensorBackend = struct {
 
     pub fn amax(self: *Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
         return self.vtable.amax(self.ptr, allocator, input, axes, keep_dims);
+    }
+
+    pub fn add(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.add(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn sub(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.sub(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn mul(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.mul(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn div(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.div(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn eq(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.eq(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn neq(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.neq(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn lessThan(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.lessThan(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn lessThanEqual(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.lessThanEqual(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn greaterThan(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.greaterThan(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn greaterThanEqual(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.greaterThanEqual(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn logicalOr(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.logicalOr(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn logicalAnd(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.logicalAnd(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn mod(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.mod(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn bitwiseAnd(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.bitwiseAnd(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn bitwiseOr(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.bitwiseOr(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn bitwiseXor(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.bitwiseXor(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn lShift(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.lShift(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn rShift(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.rShift(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn minimum(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.minimum(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn maximum(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.maximum(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn power(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+        return self.vtable.power(self.ptr, allocator, lhs, rhs);
     }
 
     pub fn init(backend_impl: anytype) Self {
@@ -889,9 +463,14 @@ pub const TensorBackend = struct {
                 return self.rand(allocator, shape, dtype);
             }
 
-            fn constant(ctx: *anyopaque, allocator: std.mem.Allocator, shape: ?*const Shape, value: f64, dtype: DType) !Tensor {
+            fn fromScalar(ctx: *anyopaque, allocator: std.mem.Allocator, value: f64, dtype: DType) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.constant(allocator, shape, value, dtype);
+                return self.fromScalar(allocator, value, dtype);
+            }
+
+            fn full(ctx: *anyopaque, allocator: std.mem.Allocator, shape: *const Shape, value: f64, dtype: DType) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.full(allocator, shape, value, dtype);
             }
 
             fn identity(ctx: *anyopaque, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
@@ -979,7 +558,10 @@ pub const TensorBackend = struct {
                 return self.log(allocator, tensor);
             }
 
-            // TODO: fn negative()
+            fn negative(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.negative(allocator, tensor);
+            }
 
             fn logicalNot(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
@@ -1177,6 +759,21 @@ pub const TensorBackend = struct {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.rShift(allocator, lhs, rhs);
             }
+
+            fn minimum(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.minimum(allocator, lhs, rhs);
+            }
+
+            fn maximum(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.maximum(allocator, lhs, rhs);
+            }
+
+            fn power(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.power(allocator, lhs, rhs);
+            }
         };
         return .{
             .ptr = backend_impl,
@@ -1192,7 +789,8 @@ pub const TensorBackend = struct {
                 .setSeed = impl.setSeed,
                 .randn = impl.randn,
                 .rand = impl.rand,
-                .constant = impl.constant,
+                .fromScalar = impl.fromScalar,
+                .full = impl.full,
                 .identity = impl.identity,
                 .arange = impl.arange,
                 .iota = impl.iota,
@@ -1210,7 +808,7 @@ pub const TensorBackend = struct {
                 .pad = impl.pad,
                 .exp = impl.exp,
                 .log = impl.log,
-                // TODO: .negative = impl.negative,
+                .negative = impl.negative,
                 .logicalNot = impl.logicalNot,
                 .log1p = impl.log1p,
                 .sin = impl.sin,
@@ -1251,6 +849,9 @@ pub const TensorBackend = struct {
                 .bitwiseXor = impl.bitwiseXor,
                 .lShift = impl.lShift,
                 .rShift = impl.rShift,
+                .minimum = impl.minimum,
+                .maximum = impl.maximum,
+                .power = impl.power,
             },
         };
     }

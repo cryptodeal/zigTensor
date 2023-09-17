@@ -1,5 +1,5 @@
 const std = @import("std");
-const af = @import("../../../bindings/af/ArrayFire.zig");
+const af = @import("ArrayFire.zig");
 
 threadlocal var gforStatus: bool = undefined;
 
@@ -19,15 +19,17 @@ pub fn gforToggle() bool {
     return res;
 }
 
-pub const batchFunc_t = fn (lhs: af.af_array, rhs: af.af_array) af.af_array;
-pub fn batchFunc(lhs: af.af_array, rhs: af.af_array, func: *const batchFunc_t) !af.af_array {
+pub const batchFunc_t = *const fn (allocator: std.mem.Allocator, lhs: *const af.Array, rhs: *const af.Array, batch: bool) anyerror!*af.Array;
+
+pub fn batchFunc(allocator: std.mem.Allocator, lhs: *const af.Array, rhs: *const af.Array, func: batchFunc_t) !*af.Array {
     if (gforGet()) {
         std.log.err("batchFunc can not be used inside GFOR\n", .{});
         return error.BatchFuncFailed;
     }
     gforSet(true);
-    var res: af.af_array = func(lhs, rhs);
-    gforSet(false);
+    var res: *af.Array = try func(allocator, lhs, rhs, gforGet());
+    errdefer gforSet(false); // if errors, still need to set false
+    gforSet(false); // if no error, set false
     return res;
 }
 

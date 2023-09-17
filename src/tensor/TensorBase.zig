@@ -260,7 +260,9 @@ pub fn log(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
     return (try tensor.backend(allocator)).log(allocator, tensor);
 }
 
-// TODO: pub fn negative()
+pub fn negative(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).negative(allocator, tensor);
+}
 
 pub fn logicalNot(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
     return (try tensor.backend(allocator)).logicalNot(allocator, tensor);
@@ -314,9 +316,41 @@ pub fn flip(allocator: std.mem.Allocator, tensor: Tensor, dim: u32) !Tensor {
     return (try tensor.backend(allocator)).flip(allocator, tensor, dim);
 }
 
-// TODO: low/high should also accept f64 type
-pub fn clip(allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor, batch: bool) !Tensor {
-    return (try tensor.backend(allocator)).clip(allocator, tensor, low, high, batch);
+pub fn clip(
+    allocator: std.mem.Allocator,
+    tensor: Tensor,
+    comptime low_T: type,
+    low: low_T,
+    comptime high_T: type,
+    high: high_T,
+    batch: bool,
+) !Tensor {
+    if ((low_T != Tensor or low_T != f64) or (high_T != Tensor or high_T != f64)) {
+        return error.InvalidTypePassedToClip;
+    }
+
+    var lowTensor: Tensor = undefined;
+    var lowTensorInit = false;
+    defer if (lowTensorInit) lowTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var highTensor: Tensor = undefined;
+    var highTensorInit = false;
+    defer if (highTensorInit) highTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (low_T == Tensor) {
+        lowTensor = low;
+    } else {
+        var shape = try tensor.shape(allocator);
+        lowTensor = try (try tensor.backend(allocator)).full(allocator, shape, f64, low, .f32);
+        lowTensorInit = true;
+    }
+
+    if (high_T == Tensor) {
+        highTensor = high;
+    } else {
+        var shape = try tensor.shape(allocator);
+        highTensor = try (try tensor.backend(allocator)).full(allocator, &shape, f64, high, .f32);
+        highTensor = true;
+    }
+    return (try tensor.backend(allocator)).clip(allocator, tensor, low_T, low, high_T, high, batch);
 }
 
 pub fn roll(allocator: std.mem.Allocator, tensor: Tensor, shift: Dim, axis: usize) !Tensor {
@@ -363,11 +397,583 @@ pub fn argsort(allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode
 }
 
 pub fn add(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
-    if (lhs_T == Tensor) {
-        return (try lhs.backend(allocator)).add(allocator, lhs_T, lhs, rhs_T, rhs);
-    } else if (rhs_T == Tensor) {
-        return (try rhs.backend(allocator)).add(allocator, lhs_T, lhs, rhs_T, rhs);
-    } else {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
         @compileError("add: either lhs or rhs must be a Tensor");
     }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.add(allocator, lhs, rhs);
 }
+
+pub fn sub(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("sub: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.sub(allocator, lhs, rhs);
+}
+
+pub fn mul(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("mul: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.mul(allocator, lhs, rhs);
+}
+
+pub fn div(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("div: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.div(allocator, lhs, rhs);
+}
+
+pub fn eq(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("eq: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.eq(allocator, lhs, rhs);
+}
+
+pub fn neq(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("neq: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.neq(allocator, lhs, rhs);
+}
+
+pub fn lessThan(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("lessThan: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.lessThan(allocator, lhs, rhs);
+}
+
+pub fn lessThanEqual(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("lessThanEqual: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.lessThanEqual(allocator, lhs, rhs);
+}
+
+pub fn greaterThan(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("greaterThan: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.greaterThan(allocator, lhs, rhs);
+}
+
+pub fn greaterThanEqual(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("greaterThanEqual: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.greaterThanEqual(allocator, lhs, rhs);
+}
+
+pub fn logicalOr(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("logicalOr: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.logicalOr(allocator, lhs, rhs);
+}
+
+pub fn logicalAnd(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("logicalAnd: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.logicalAnd(allocator, lhs, rhs);
+}
+
+pub fn mod(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("mod: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.mod(allocator, lhs, rhs);
+}
+
+pub fn bitwiseAnd(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("bitwiseAnd: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.bitwiseAnd(allocator, lhs, rhs);
+}
+
+pub fn bitwiseOr(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("bitwiseOr: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.bitwiseOr(allocator, lhs, rhs);
+}
+
+pub fn bitwiseXor(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("bitwiseXor: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.bitwiseXor(allocator, lhs, rhs);
+}
+
+pub fn lShift(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("lShift: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.lShift(allocator, lhs, rhs);
+}
+
+pub fn rShift(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, comptime rhs_T: type, rhs: rhs_T) !Tensor {
+    if (lhs_T != Tensor and rhs_T != Tensor) {
+        @compileError("rShift: either lhs or rhs must be a Tensor");
+    }
+
+    var backend: TensorBackend = undefined;
+    var lhsTensor: Tensor = undefined;
+    var lhsTensorInit = false;
+    defer if (lhsTensorInit) lhsTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    var rhsTensor: Tensor = undefined;
+    var rhsTensorInit = false;
+    defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    if (lhs_T == Tensor) {
+        lhsTensor = lhs;
+        backend = try lhs.backend(allocator);
+    } else {
+        var shape = try rhs.shape(allocator);
+        backend = try rhs.backend(allocator);
+        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensorInit = true;
+    }
+
+    if (rhs_T == Tensor) {
+        rhsTensor = rhs;
+    } else {
+        var shape = try lhs.shape(allocator);
+        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensorInit = true;
+    }
+    return backend.rShift(allocator, lhs, rhs);
+}
+
+// TODO: pub fn minimum()
+
+// TODO: pub fn maximum()
+
+// TODO: pub fn power()

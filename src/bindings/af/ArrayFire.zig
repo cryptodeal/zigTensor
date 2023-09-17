@@ -24,6 +24,7 @@ pub usingnamespace @import("MemoryManager.zig");
 pub usingnamespace @import("RandomEngine.zig");
 pub usingnamespace @import("types.zig");
 pub usingnamespace @import("Window.zig");
+pub usingnamespace @import("gFor.zig");
 
 pub const Errors = error{ArrayFireError};
 
