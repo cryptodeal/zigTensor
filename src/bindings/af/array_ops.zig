@@ -2622,7 +2622,7 @@ pub fn createArray(
             @src(),
         ),
         else => {
-            std.log.err(
+            std.log.debug(
                 "createArray: can't construct ArrayFire array from given type.\n",
                 .{},
             );

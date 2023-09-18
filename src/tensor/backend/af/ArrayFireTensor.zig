@@ -32,7 +32,7 @@ const GetHandleErrors = std.mem.Allocator.Error || af.Errors;
 
 pub fn toArray(allocator: std.mem.Allocator, tensor: Tensor) !*af.Array {
     if (tensor.backendType() != .ArrayFire) {
-        std.log.err("toArray: tensor is not ArrayFire-backed\n", .{});
+        std.log.debug("toArray: tensor is not ArrayFire-backed\n", .{});
         return error.TensorNotArrayFireBacked;
     }
     return tensor.getAdapter(ArrayFireTensor).getHandle(allocator);
@@ -376,7 +376,7 @@ pub const ArrayFireTensor = struct {
 
     pub fn index(self: *ArrayFireTensor, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
         if (indices.items.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
-            std.log.err("ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n", .{});
+            std.log.debug("ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n", .{});
             return error.IndicesExceedMaxDims;
         }
 
@@ -392,7 +392,7 @@ pub const ArrayFireTensor = struct {
         }
 
         if (indices.items.len > afIndices.len) {
-            std.log.err("ArrayFireTensor.index internal error - passed indices is larger than the number of af indices.\n", .{});
+            std.log.debug("ArrayFireTensor.index internal error - passed indices is larger than the number of af indices.\n", .{});
             return error.PassedIndicesLargerThanAfIndices;
         }
 
@@ -533,7 +533,7 @@ pub const ArrayFireTensor = struct {
             // This case is only reachable via tensor-based indexing or indexing on a
             // tensor via Tensor.flat()
             if (self.numDims_ != 1) {
-                std.log.err("ArrayFireTensor.adjustInPlaceOperandDims index size was 1 but tensor has greater than 1 dimension.\n", .{});
+                std.log.debug("ArrayFireTensor.adjustInPlaceOperandDims index size was 1 but tensor has greater than 1 dimension.\n", .{});
                 return error.IndexSizeTensorDimsMismatch;
             }
         } else if (self.indices_ != null and self.indices_.?.len > 0) {
@@ -541,7 +541,7 @@ pub const ArrayFireTensor = struct {
             const indices: []af.af_index_t = self.indices_.?;
             const indexTypes: []IndexType = self.indexTypes_.?.items;
             if (indices.len != indexTypes.len) {
-                std.log.err("ArrayFireTensor.adjustInPlaceOperandDims - passed indices and indexTypes are of different sizes.\n", .{});
+                std.log.debug("ArrayFireTensor.adjustInPlaceOperandDims - passed indices and indexTypes are of different sizes.\n", .{});
                 return error.IndicesAndIndexTypesSizeMismatch;
             }
 
@@ -594,7 +594,7 @@ pub const ArrayFireTensor = struct {
             if (std.meta.eql(af.dim_t, &condensedDims.dims, &operandDims.dims)) {
                 newDims = postIdxDims;
             } else {
-                std.log.err("ArrayFireTensor.adjustInPlaceOperandDims: can't apply operation in-place to indexed ArrayFireTensor - dimensions don't match.", .{});
+                std.log.debug("ArrayFireTensor.adjustInPlaceOperandDims: can't apply operation in-place to indexed ArrayFireTensor - dimensions don't match.", .{});
                 return error.CannotApplyOperationDimsMismatch;
             }
         } else {

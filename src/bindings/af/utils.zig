@@ -18,7 +18,7 @@ const Range = zt_idx.Range;
 
 pub fn ztToAfDims(shape: *const Shape) !af.Dim4 {
     if (shape.ndim() > 4) {
-        std.log.err("ztToAfDims: ArrayFire shapes can't be more than 4 dimensions\n", .{});
+        std.log.debug("ztToAfDims: ArrayFire shapes can't be more than 4 dimensions\n", .{});
         return error.ArrayFireCannotExceed4Dimensions;
     }
     var af_Dim4 = af.Dim4.init(null);

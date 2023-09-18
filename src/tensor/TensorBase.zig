@@ -225,7 +225,7 @@ pub fn tile(allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) T
 
 pub fn concatenate(allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
     if (tensors.items.len == 0) {
-        std.log.err("concatenate: called on empty set of tensors\n", .{});
+        std.log.debug("concatenate: called on empty set of tensors\n", .{});
         return error.ConcatFailedZeroTensors;
     }
 
@@ -236,7 +236,7 @@ pub fn concatenate(allocator: std.mem.Allocator, tensors: *const std.ArrayList(T
         if (t.backendType() != b) matches = false;
     }
     if (!matches) {
-        std.log.err("concatenate: tried to concatenate tensors of different backends\n", .{});
+        std.log.debug("concatenate: tried to concatenate tensors of different backends\n", .{});
         return error.ConcatFailedBackendMismatch;
     }
     return (try tensors.items[0].backend(allocator)).concatenate(tensors, axis);

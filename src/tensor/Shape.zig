@@ -59,7 +59,7 @@ pub const Shape = struct {
     /// current size of the shape. If not valid, throws an error.
     pub fn checkDimsOrThrow(self: *const Shape, dimension: usize) !void {
         if (dimension > self.ndim() - 1) {
-            std.log.err("Shape index {d} out of bounds for shape with {d} dimensions.\n", .{ dimension, self.dims_.items.len });
+            std.log.debug("Shape index {d} out of bounds for shape with {d} dimensions.\n", .{ dimension, self.dims_.items.len });
             return ShapeErrors.InvalidDimension;
         }
     }

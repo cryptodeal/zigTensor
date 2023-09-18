@@ -48,7 +48,7 @@ pub fn getEnvAsBytesFromFloatMb(name: []const u8, default_val: usize) !usize {
     const env = std.os.getenv(name);
     if (env != null) {
         const mb: f64 = std.fmt.parseFloat(f64, env.?) catch {
-            std.log.err("getEnvAsBytesFromFloatMb: Invalid environment variable value: name={s} value={s}\n", .{ name, env });
+            std.log.debug("getEnvAsBytesFromFloatMb: Invalid environment variable value: name={s} value={s}\n", .{ name, env });
             return error.FailedGetEnvAsBytesFromFloatMb;
         };
         return @round(mb * kMB);

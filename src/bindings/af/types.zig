@@ -674,7 +674,7 @@ pub const Dim4 = struct {
 
     pub fn toZtShapeRaw(self: *const Dim4, num_dims: usize, s: *Shape) !void {
         if (num_dims > @as(usize, @intCast(af.AF_MAX_DIMS))) {
-            std.log.err("afToZtDims: num_dims ({d}) > af.AF_MAX_DIMS ({d} )", .{ num_dims, af.AF_MAX_DIMS });
+            std.log.debug("afToZtDims: num_dims ({d}) > af.AF_MAX_DIMS ({d} )", .{ num_dims, af.AF_MAX_DIMS });
         }
         var storage = s.get();
 

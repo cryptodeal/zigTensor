@@ -96,7 +96,7 @@ pub const Device = struct {
     pub fn getImpl(ctx: *Self, comptime T: type) !*T {
         var actual_type = ctx.deviceType();
         if (T.type_ != actual_type) {
-            std.log.err("[zt.Device.getImpl] specified device type: [{s}] doesn't match actual device type: [{s}]\n", .{ @tagName(T.type_), @tagName(actual_type) });
+            std.log.debug("[zt.Device.getImpl] specified device type: [{s}] doesn't match actual device type: [{s}]\n", .{ @tagName(T.type_), @tagName(actual_type) });
             return error.FailedDeviceGetImpl;
         }
         return @ptrCast(@alignCast(ctx.ptr));
@@ -212,7 +212,7 @@ pub const X64Device = struct {
     // TODO: finish implementing Stream
     pub fn addStream(self: *X64Device, stream: Arc(Stream)) DeviceErrors!void {
         if (@intFromPtr(self) != @intFromPtr((stream.value.device()).ptr)) {
-            std.log.err("[Device.addStream] Must add stream to owner device\n", .{});
+            std.log.debug("[Device.addStream] Must add stream to owner device\n", .{});
             return DeviceErrors.DeviceMustOwnStream;
         }
         try self.streams_.put(stream, {});

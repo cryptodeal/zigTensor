@@ -22,7 +22,7 @@ fn getActiveDeviceId(device_type: DeviceType) !i32 {
             // if (ZT_BACKEND_CUDA) {
             // return cuda.getActiveDeviceId();
             // }
-            std.log.err("CUDA is not supported\n", .{});
+            std.log.debug("CUDA is not supported\n", .{});
             return error.CUDABackendUnsupported;
         },
     };
@@ -75,7 +75,7 @@ pub const DeviceManager = struct {
 
     pub fn enforceDeviceTypeAvailable(self: *DeviceManager, error_prefix: []const u8, device_type: DeviceType) !void {
         if (!self.isDeviceTypeAvailable(device_type)) {
-            std.log.err("{s} device type `{s}` unavailable\n", .{ error_prefix, @tagName(device_type) });
+            std.log.debug("{s} device type `{s}` unavailable\n", .{ error_prefix, @tagName(device_type) });
             return error.DeviceTypeUnavailable;
         }
     }
@@ -111,7 +111,7 @@ pub const DeviceManager = struct {
         try self.enforceDeviceTypeAvailable("[DeviceManager.getDevice]", device_type);
         var idToDevice = self.deviceTypeToInfo_.get(device_type).?;
         if (!idToDevice.contains(id)) {
-            std.log.err("[DeviceManager::getDevice] unknown device id: [{d}]\n", .{id});
+            std.log.debug("[DeviceManager::getDevice] unknown device id: [{d}]\n", .{id});
             return error.DeviceNotFound;
         }
         return idToDevice.get(id).?;

@@ -54,7 +54,7 @@ pub const SynchronousStream = struct {
                 try stream.sync();
             },
             else => {
-                std.log.err("[zt.Stream.relativeSync] Unsupported for different types of streams\n", .{});
+                std.log.debug("[zt.Stream.relativeSync] Unsupported for different types of streams\n", .{});
                 return StreamErrors.StreamTypeMismatch;
             },
         }

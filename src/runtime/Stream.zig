@@ -41,7 +41,7 @@ pub const Stream = struct {
     pub fn getImpl(ctx: *Self, comptime T: type) StreamErrors!*T {
         var actual_type = ctx.streamType();
         if (T.type_ != actual_type) {
-            std.log.err("[zt.Stream.getImpl] specified stream type: [{s}] doesn't match actual stream type: [{s}]\n", .{ @tagName(T.type_), @tagName(actual_type) });
+            std.log.debug("[zt.Stream.getImpl] specified stream type: [{s}] doesn't match actual stream type: [{s}]\n", .{ @tagName(T.type_), @tagName(actual_type) });
             return error.FailedDeviceGetImpl;
         }
         return @ptrCast(@alignCast(ctx.ptr));

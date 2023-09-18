@@ -82,7 +82,7 @@ fn getOrWrapAfDeviceStream(
     //      TODO: add CUDA support
     //  }
     else {
-        std.log.err("ArrayFireBackend was not compiled with support for CPU or GPU\n", .{});
+        std.log.debug("ArrayFireBackend was not compiled with support for CPU or GPU\n", .{});
         return error.ArrayFireBackendNoDeviceType;
     }
 }
@@ -412,7 +412,7 @@ pub const ArrayFireBackend = struct {
 
     pub fn sort(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
         if (sort_mode != .Descending and sort_mode != .Ascending) {
-            std.log.err(
+            std.log.debug(
                 "Cannot sort ArrayFire tensor with given SortMode: only Descending and Ascending supported.\n",
                 .{},
             );
@@ -438,7 +438,7 @@ pub const ArrayFireBackend = struct {
         sort_mode: SortMode,
     ) !SortIndexRes {
         if (sort_mode != .Descending and sort_mode != .Ascending) {
-            std.log.err(
+            std.log.debug(
                 "Cannot sort ArrayFire tensor with given SortMode: only Descending and Ascending supported.\n",
                 .{},
             );
@@ -475,7 +475,7 @@ pub const ArrayFireBackend = struct {
         sort_mode: SortMode,
     ) !Tensor {
         if (sort_mode != .Descending and sort_mode != .Ascending) {
-            std.log.err(
+            std.log.debug(
                 "Cannot sort ArrayFire tensor with given SortMode: only Descending and Ascending supported.\n",
                 .{},
             );
@@ -613,18 +613,18 @@ pub const ArrayFireBackend = struct {
             );
         } else {
             if (axes.ndim() > @as(usize, @intCast(af.AF_MAX_DIMS))) {
-                std.log.err("ArrayFire tensor transpose was given permutation dims with > 4 axes\n", .{});
+                std.log.debug("ArrayFire tensor transpose was given permutation dims with > 4 axes\n", .{});
                 return error.ArrayFireTransposeFailed;
             }
             if (axes.ndim() != currentDims) {
-                std.log.err("ArrayFire tensor transpose axes don't match tensor's for permutation - axes must have the same number of dimensions as the tensor\n", .{});
+                std.log.debug("ArrayFire tensor transpose axes don't match tensor's for permutation - axes must have the same number of dimensions as the tensor\n", .{});
                 return error.ArrayFireTransposeFailed;
             }
             // reorder based on specified dimensions
             var d = std.simd.iota(u32, @intCast(af.AF_MAX_DIMS));
             for (0..axes.ndim()) |i| {
                 if (axes.dims_.items[i] > currentDims - 1) {
-                    std.log.err("ArrayFireBackend.transpose - given dimension is larger than the number of dimensions in the tensor\n", .{});
+                    std.log.debug("ArrayFireBackend.transpose - given dimension is larger than the number of dimensions in the tensor\n", .{});
                     return error.ArrayFireTransposeFailed;
                 }
                 d[i] = @intCast(axes.dims_.items[i]);
@@ -711,7 +711,7 @@ pub const ArrayFireBackend = struct {
         pad_type: PadType,
     ) !Tensor {
         if (pad_widths.items.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
-            std.log.err("ArrayFireBackend::pad - given padWidths for more than 4 dimensions\n", .{});
+            std.log.debug("ArrayFireBackend::pad - given padWidths for more than 4 dimensions\n", .{});
             return error.ArrayFirePadFailed;
         }
 
@@ -1259,7 +1259,7 @@ pub fn doBinaryOpOrBroadcast(allocator: std.mem.Allocator, lhs: Tensor, rhs: Ten
             ),
         );
     } else {
-        std.log.err(
+        std.log.debug(
             "doBinaryOpOrBroadcast: cannot perform operation or broadcasting with tensors of shapes {any} and {any}  - dimension mismatch.\n",
             .{ lhsShape, rhsShape },
         );

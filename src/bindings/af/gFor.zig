@@ -23,7 +23,7 @@ pub const batchFunc_t = *const fn (allocator: std.mem.Allocator, lhs: *const af.
 
 pub fn batchFunc(allocator: std.mem.Allocator, lhs: *const af.Array, rhs: *const af.Array, func: batchFunc_t) !*af.Array {
     if (gforGet()) {
-        std.log.err("batchFunc can not be used inside GFOR\n", .{});
+        std.log.debug("batchFunc can not be used inside GFOR\n", .{});
         return error.BatchFuncFailed;
     }
     gforSet(true);

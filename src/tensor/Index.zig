@@ -77,7 +77,7 @@ pub const Range = struct {
         if (self.end_ != null) {
             return self.end_.?;
         }
-        std.log.err("[Range.endVal] end is `end_t`\n", .{});
+        std.log.debug("[Range.endVal] end is `end_t`\n", .{});
         return RangeError.FailedToGetEndVal;
     }
 
@@ -174,7 +174,7 @@ pub const Index = struct {
                 }
             },
         }
-        std.log.err("[Index.get] type `{s}` doesn't match IndexTypeTag `{s}`\n", .{ @typeName(T), @tagName(self.type_) });
+        std.log.debug("[Index.get] type `{s}` doesn't match IndexTypeTag `{s}`\n", .{ @typeName(T), @tagName(self.type_) });
         return IndexErrors.IndexGetTypeMismatch;
     }
 
