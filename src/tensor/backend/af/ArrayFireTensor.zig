@@ -612,12 +612,32 @@ pub const ArrayFireTensor = struct {
     }
 };
 
+// unit tests/test utility functions
+
 fn getRefCount(arr: *af.Array, sync: bool) !i32 {
     if (sync) {
         try arr.eval();
         try af.ops.sync(-1);
     }
     return arr.getDataRefCount();
+}
+
+fn allClose(allocator: std.mem.Allocator, a: *const af.Array, b: *const af.Array, abs_tolerance: f64) !bool {
+    if (try a.getType() != try b.getType()) {
+        return false;
+    }
+    if (!std.mem.eql(af.dim_t, &(try a.getDims()).dims, &(try b.getDims()).dims)) {
+        return false;
+    }
+    if (try a.isEmpty() and try b.isEmpty()) {
+        return true;
+    }
+    var sub = try af.ops.sub(allocator, a, b, false);
+    defer sub.deinit();
+    var abs = try af.ops.abs(allocator, sub);
+    defer abs.deinit();
+    var max = try af.ops.maxAll(abs);
+    return max.real < abs_tolerance;
 }
 
 test "AfRefCountBasic" {
@@ -723,3 +743,101 @@ test "BackendInterop" {
 }
 
 // TODO: test "withTensorType" {}
+
+// TODO: test "ArrayFireAssignmentOperators" {}
+
+test "BinaryOperators" {
+    const full = @import("../../TensorBase.zig").full;
+    const eq = @import("../../TensorBase.zig").eq;
+    const add = @import("../../TensorBase.zig").add;
+
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+    var dims = [_]Dim{ 2, 2 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+    var a = try full(allocator, &shape, f64, 1, .f32);
+    defer a.deinit();
+    var b = try full(allocator, &shape, f64, 2, .f32);
+    defer b.deinit();
+    var c = try full(allocator, &shape, f64, 3, .f32);
+    defer c.deinit();
+
+    // test equality of tensors vs equality of underlying ArrayFire arrays
+    var tensorEq = try eq(allocator, Tensor, a, Tensor, b);
+    defer tensorEq.deinit();
+    var arrEq = try af.ops.eq(allocator, try toArray(allocator, a), try toArray(allocator, b), false);
+    defer arrEq.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, tensorEq), arrEq, 1e-5));
+
+    // test addition of tensors vs addition of underlying ArrayFire arrays
+    var tensorAdd = try add(allocator, Tensor, a, Tensor, b);
+    defer tensorAdd.deinit();
+    var arrAdd = try af.ops.add(allocator, try toArray(allocator, a), try toArray(allocator, b), false);
+    defer arrAdd.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, tensorAdd), arrAdd, 1e-5));
+}
+
+test "full" {
+    const full = @import("../../TensorBase.zig").full;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    // TODO: expand with fixtures for each type
+
+    var aDims = [_]Dim{ 3, 4 };
+    var aShape = try Shape.init(allocator, &aDims);
+    defer aShape.deinit();
+    var a = try full(allocator, &aShape, f64, 3, .f32);
+    defer a.deinit();
+
+    var tmpShape = try a.shape(allocator);
+    try std.testing.expect(aShape.eql(&tmpShape));
+    try std.testing.expect(try a.dtype(allocator) == .f32);
+    var aAfDim = af.Dim4{};
+    aAfDim.dims[0] = 3;
+    aAfDim.dims[1] = 4;
+    var aArray = try af.ops.constant(allocator, 3, 2, aAfDim, .f32);
+    defer aArray.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, a), aArray, 1e-5));
+
+    var bDims = [_]Dim{ 1, 1, 5, 4 };
+    var bShape = try Shape.init(allocator, &bDims);
+    defer bShape.deinit();
+    var b = try full(allocator, &bShape, f64, 4.5, .f32);
+    defer b.deinit();
+
+    tmpShape = try b.shape(allocator);
+    try std.testing.expect(bShape.eql(&tmpShape));
+    try std.testing.expect(try b.dtype(allocator) == .f32);
+    var bAfDim = af.Dim4.init([4]af.dim_t{ 1, 1, 5, 4 });
+    var bArray = try af.ops.constant(allocator, 4.5, 4, bAfDim, .f32);
+    defer bArray.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, b), bArray, 1e-5));
+}
+
+test "identity" {
+    const identity = @import("../../TensorBase.zig").identity;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a = try identity(allocator, 6, .f32);
+    defer a.deinit();
+    var expDims = [2]Dim{ 6, 6 };
+    var expShape = try Shape.init(allocator, &expDims);
+    defer expShape.deinit();
+
+    var aShape = try a.shape(allocator);
+    try std.testing.expect(expShape.eql(&aShape));
+    try std.testing.expect(try a.dtype(allocator) == .f32);
+    var afDim = af.Dim4{};
+    afDim.dims[0] = 6;
+    afDim.dims[1] = 6;
+    var arrIdentity = try af.ops.identity(allocator, 2, afDim, .f32);
+    defer arrIdentity.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, a), arrIdentity, 1e-5));
+
+    var f64Tensor = try identity(allocator, 6, .f64);
+    defer f64Tensor.deinit();
+    try std.testing.expect(try f64Tensor.dtype(allocator) == .f64);
+}

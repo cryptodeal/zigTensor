@@ -201,6 +201,10 @@ pub fn full(allocator: std.mem.Allocator, shape: *const Shape, comptime T: type,
     return (try defaultTensorBackend(allocator)).full(allocator, shape, T, value, dtype);
 }
 
+pub fn identity(allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
+    return (try defaultTensorBackend(allocator)).identity(allocator, dim, dtype);
+}
+
 pub fn arange(allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) !Tensor {
     return (try defaultTensorBackend(allocator)).arange(allocator, shape, seq_dim, dtype);
 }
