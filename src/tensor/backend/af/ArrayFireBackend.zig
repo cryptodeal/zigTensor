@@ -531,13 +531,13 @@ pub const ArrayFireBackend = struct {
             if (rhsNumDims == 1) {
                 var dims = af.Dim4{};
                 dims.dims[0] = @intCast(try rhs.dim(allocator, 0));
-                rhsArray = try af.ops.modDims(allocator, rhsArray, 2, dims);
+                rhsArray = try af.ops.moddims(allocator, rhsArray, 2, dims);
                 modRhsArray = true;
             }
             if (lhsNumDims == 1) {
                 var dims = af.Dim4{};
                 dims.dims[0] = @intCast(try lhs.dim(allocator, 0));
-                lhsArray = try af.ops.modDims(allocator, lhsArray, 2, dims);
+                lhsArray = try af.ops.moddims(allocator, lhsArray, 2, dims);
                 modLhsArray = true;
             }
         }
@@ -562,7 +562,7 @@ pub const ArrayFireBackend = struct {
     }
 
     pub fn reshape(_: *const ArrayFireBackend, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
-        var arr = try af.ops.modDims(
+        var arr = try af.ops.moddims(
             allocator,
             try toArray(allocator, tensor),
             @intCast(shape.ndim()),
@@ -1126,6 +1126,34 @@ pub const ArrayFireBackend = struct {
             );
         }
     }
+
+    // TODO: pub fn min()
+
+    // TODO: pub fn max()
+
+    // TODO: pub fn sum()
+
+    // TODO: pub fn cumsum()
+
+    // TODO: pub fn argmax()
+
+    // TODO: pub fn argmin()
+
+    // TODO: pub fn mean()
+
+    // TODO: pub fn median()
+
+    // TODO: pub fn var_()
+
+    // TODO: pub fn std()
+
+    // TODO: pub fn norm()
+
+    // TODO: pub fn countNonzero()
+
+    // TODO: pub fn any()
+
+    // TODO: pub fn all()
 
     // TODO: Binary ops
 

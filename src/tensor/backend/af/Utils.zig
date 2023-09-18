@@ -40,7 +40,7 @@ pub fn condenseIndices(
 
     // Only change dims if condensing is possible
     if (!std.mem.eql(c_longlong, &newDims.dims, &dims.dims)) {
-        return .{ .arr = try arr.modDims(allocator, @intCast(newDims.ndims()), dims), .modified = true };
+        return .{ .arr = try arr.moddims(allocator, @intCast(newDims.ndims()), dims), .modified = true };
     } else {
         return .{ .arr = arr, .modified = false };
     }

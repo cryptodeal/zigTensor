@@ -16,6 +16,19 @@ const PadType = zt_base.PadType;
 const Index = zt_idx.Index;
 const Range = zt_idx.Range;
 
+pub inline fn getFNSD(dim: i64, dims: af.Dim4) af.dim_t {
+    if (dim >= 0) return dim;
+
+    var fNSD: af.dim_t = 0;
+    for (0..4) |i| {
+        if (dims.dims[i] > 1) {
+            fNSD = @intCast(i);
+            break;
+        }
+    }
+    return fNSD;
+}
+
 pub fn ztToAfDims(shape: *const Shape) !af.Dim4 {
     if (shape.ndim() > 4) {
         std.log.debug("ztToAfDims: ArrayFire shapes can't be more than 4 dimensions\n", .{});

@@ -1826,13 +1826,13 @@ pub const Array = struct {
 
     /// Modifies the dimensions of this `af.Array` to the shape specified
     /// by an array of ndims dimensions.
-    pub fn modDims(
+    pub fn moddims(
         self: *const Self,
         allocator: std.mem.Allocator,
         ndims: u32,
         dims: af.Dim4,
     ) !*Self {
-        return af.ops.modDims(allocator, self, ndims, dims);
+        return af.ops.moddims(allocator, self, ndims, dims);
     }
 
     /// Flatten this `af.Array` to a single dimension.

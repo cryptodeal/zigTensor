@@ -605,7 +605,7 @@ pub const ArrayFireTensor = struct {
         // moddims involves an eval. This will be fixed in AF 3.8.1/3.8.2
         const doModdims = !std.meta.eql(af.dim_t, &(try operandArr.getDims()).dims, &newDims.dims);
         if (doModdims) {
-            return operandArr.modDims(allocator, newDims.ndims(), newDims);
+            return operandArr.moddims(allocator, newDims.ndims(), newDims);
         } else {
             return operandArr;
         }
@@ -841,3 +841,72 @@ test "identity" {
     defer f64Tensor.deinit();
     try std.testing.expect(try f64Tensor.dtype(allocator) == .f64);
 }
+
+test "randn" {
+    const randn = @import("../../Random.zig").randn;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    const s: Dim = 30;
+    var dims = [_]Dim{ s, s };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+    var a = try randn(allocator, &shape, .f32);
+    defer a.deinit();
+
+    var aShape = try a.shape(allocator);
+    try std.testing.expect(shape.eql(&aShape));
+    try std.testing.expect(try a.dtype(allocator) == .f32);
+    var afDim = af.Dim4{};
+    afDim.dims[0] = @intCast(s * s);
+    var moddimsArr = try af.ops.moddims(allocator, try toArray(allocator, a), 1, afDim);
+    defer moddimsArr.deinit();
+    var meanArr = try af.ops.mean(allocator, moddimsArr, -1);
+    defer meanArr.deinit();
+    var absArr = try af.ops.abs(allocator, meanArr);
+    defer absArr.deinit();
+    var tmpConst = try af.ops.constant(allocator, 2, 1, af.Dim4{}, .f32);
+    defer tmpConst.deinit();
+    var ltArr = try af.ops.lt(allocator, absArr, tmpConst, false);
+    defer ltArr.deinit();
+    try std.testing.expect(@as(u1, @intFromFloat((try af.ops.allTrueAll(ltArr)).real)) != 0);
+}
+
+test "rand" {
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    const s: Dim = 30;
+    var dims = [_]Dim{ s, s };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+    var a = try rand(allocator, &shape, .f32);
+    defer a.deinit();
+
+    var aShape = try a.shape(allocator);
+    try std.testing.expect(shape.eql(&aShape));
+    try std.testing.expect(try a.dtype(allocator) == .f32);
+
+    var afDims = af.Dim4{};
+    afDims.dims[0] = @intCast(s);
+    afDims.dims[1] = @intCast(s);
+    var tmpConst1 = try af.ops.constant(allocator, 1, 2, afDims, .f32);
+    defer tmpConst1.deinit();
+    var lteArr = try af.ops.le(allocator, try toArray(allocator, a), tmpConst1, false);
+    defer lteArr.deinit();
+    try std.testing.expect(@as(u1, @intFromFloat((try af.ops.allTrueAll(lteArr)).real)) != 0);
+    var tmpConst2 = try af.ops.constant(allocator, 0, 2, afDims, .f32);
+    defer tmpConst2.deinit();
+    var gteArr = try af.ops.ge(allocator, try toArray(allocator, a), tmpConst2, false);
+    defer gteArr.deinit();
+    try std.testing.expect(@as(u1, @intFromFloat((try af.ops.allTrueAll(gteArr)).real)) != 0);
+    var bDims = [_]Dim{1};
+    var bShape = try Shape.init(allocator, &bDims);
+    defer bShape.deinit();
+    var b = try rand(allocator, &bShape, .f64);
+    defer b.deinit();
+    try std.testing.expect(try b.dtype(allocator) == .f64);
+}
+
+// TODO: test "amin" {}

@@ -71,3 +71,23 @@ pub const DType = enum(u8) {
         return DTypeError.InvalidStringInput;
     }
 };
+
+pub fn dtypeTraits(comptime T: type) struct { zt_type: DType, ctype: DType } {
+    return switch (T) {
+        // TODO: handle `f16`?
+        .f32 => .{ .zt_type = .f32, .ctype = .f32 },
+        .f64 => .{ .zt_type = .f64, .ctype = .f32 },
+        .i32 => .{ .zt_type = .s32, .ctype = .s32 },
+        .u32 => .{ .zt_type = .u32, .ctype = .u32 },
+        // TODO: handle `char`?
+        // TODO: handle `unsigned char`?
+        // TODO: handle `long`?
+        // TODO: handle `unsigned long`?
+        .i64 => .{ .zt_type = .s64, .ctype = .s64 },
+        .u64 => .{ .zt_type = .u64, .ctype = .u64 },
+        .bool => .{ .zt_type = .b8, .ctype = .b8 },
+        .i16 => .{ .zt_type = .s16, .ctype = .s16 },
+        .u16 => .{ .zt_type = .u16, .ctype = .u16 },
+        else => @compileError("Unsupported type"),
+    };
+}

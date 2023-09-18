@@ -701,6 +701,17 @@ pub const Dim4 = struct {
         try self.toZtShapeRaw(num_dims, &shape);
         return shape;
     }
+
+    /// Formats Shape for printing to writer.
+    pub fn format(value: Dim4, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        try writer.print("(", .{});
+        for (value.dims, 0..) |v, i| {
+            try writer.print("{d}", .{v});
+            if (i < value.ndims() - 1) try writer.print(", ", .{});
+            if (i == value.ndims() - 1) break;
+        }
+        return writer.print(")", .{});
+    }
 };
 
 test "AfDtype.toZtType" {

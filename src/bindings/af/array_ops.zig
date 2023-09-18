@@ -3366,7 +3366,7 @@ pub fn shift(
 
 /// Modifies the dimensions of an input `af.Array` to the shape specified
 /// by an array of ndims dimensions.
-pub fn modDims(
+pub fn moddims(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     ndims: u32,
@@ -5070,7 +5070,7 @@ pub fn mean(
         af.af_mean(
             &arr,
             in.array_,
-            @intCast(dim),
+            af.ops.getFNSD(dim, try in.getDims()),
         ),
         @src(),
     );
@@ -5090,7 +5090,7 @@ pub fn meanWeighted(
             &arr,
             in.array_,
             weights.array_,
-            @intCast(dim),
+            af.ops.getFNSD(dim, try in.getDims()),
         ),
         @src(),
     );
