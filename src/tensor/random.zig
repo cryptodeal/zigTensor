@@ -7,7 +7,7 @@ const DType = @import("Types.zig").DType;
 
 pub fn setSeed(allocator: std.mem.Allocator, seed: u64) !void {
     var backend = try defaultTensorBackend(allocator);
-    try backend.setSeed(allocator, seed);
+    try backend.setSeed(seed);
 }
 
 pub fn randn(allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {

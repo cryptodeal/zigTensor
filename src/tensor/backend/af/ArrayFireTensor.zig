@@ -721,3 +721,5 @@ test "BackendInterop" {
     defer a.deinit();
     try std.testing.expect(a.backendType() == .ArrayFire);
 }
+
+// TODO: test "withTensorType" {}

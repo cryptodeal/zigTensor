@@ -211,16 +211,16 @@ pub fn iota(allocator: std.mem.Allocator, shape: *const Shape, tile_dims: *const
 
 //************************ Shaping and Indexing *************************//
 
-pub fn reshape(allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) Tensor {
-    return (try tensor.backend(allocator)).reshape(tensor, shape);
+pub fn reshape(allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
+    return (try tensor.backend(allocator)).reshape(allocator, tensor, shape);
 }
 
-pub fn transpose(allocator: std.mem.Allocator, tensor: Tensor, axes: *const Shape) Tensor {
-    return (try tensor.backend(allocator)).transpose(tensor, axes);
+pub fn transpose(allocator: std.mem.Allocator, tensor: Tensor, axes: *const Shape) !Tensor {
+    return (try tensor.backend(allocator)).transpose(allocator, tensor, axes);
 }
 
-pub fn tile(allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) Tensor {
-    return (try tensor.backend(allocator)).tile(tensor, shape);
+pub fn tile(allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
+    return (try tensor.backend(allocator)).tile(allocator, tensor, shape);
 }
 
 pub fn concatenate(allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
@@ -239,11 +239,11 @@ pub fn concatenate(allocator: std.mem.Allocator, tensors: *const std.ArrayList(T
         std.log.debug("concatenate: tried to concatenate tensors of different backends\n", .{});
         return error.ConcatFailedBackendMismatch;
     }
-    return (try tensors.items[0].backend(allocator)).concatenate(tensors, axis);
+    return (try tensors.items[0].backend(allocator)).concatenate(allocator, tensors, axis);
 }
 
-pub fn nonzero(allocator: std.mem.Allocator, tensor: Tensor) Tensor {
-    return (try tensor.backend(allocator)).nonzero(tensor);
+pub fn nonzero(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).nonzero(allocator, tensor);
 }
 
 pub fn pad(allocator: std.mem.Allocator, tensor: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) !Tensor {

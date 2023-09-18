@@ -117,19 +117,19 @@ pub const TensorBackend = struct {
         power: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
     };
 
-    pub fn deinit(self: *Self) void {
+    pub fn deinit(self: *const Self) void {
         return self.vtable.deinit(self.ptr);
     }
 
-    pub fn backendType(self: *Self) TensorBackendType {
+    pub fn backendType(self: *const Self) TensorBackendType {
         return self.vtable.backendType(self.ptr);
     }
 
-    pub fn eval(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !void {
+    pub fn eval(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !void {
         return self.vtable.eval(self.ptr, allocator, tensor);
     }
 
-    pub fn supportsDataType(self: *Self, data_type: DType) !bool {
+    pub fn supportsDataType(self: *const Self, data_type: DType) !bool {
         return self.vtable.supportsDataType(self.ptr, data_type);
     }
 
@@ -141,15 +141,15 @@ pub const TensorBackend = struct {
 
     // TODO: pub fn setMemMgrFlushInterval()
 
-    pub fn setSeed(self: *Self, seed: u64) !void {
+    pub fn setSeed(self: *const Self, seed: u64) !void {
         return self.vtable.setSeed(self.ptr, seed);
     }
 
-    pub fn randn(self: *Self, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
+    pub fn randn(self: *const Self, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
         return self.vtable.randn(self.ptr, allocator, shape, dtype);
     }
 
-    pub fn rand(self: *Self, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
+    pub fn rand(self: *const Self, allocator: std.mem.Allocator, shape: *const Shape, dtype: DType) !Tensor {
         return self.vtable.rand(self.ptr, allocator, shape, dtype);
     }
 
@@ -173,159 +173,159 @@ pub const TensorBackend = struct {
         return self.vtable.full(self.ptr, allocator, shape, f, dtype);
     }
 
-    pub fn identity(self: *Self, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
+    pub fn identity(self: *const Self, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
         return self.vtable.identity(self.ptr, allocator, dim, dtype);
     }
 
-    pub fn arange(self: *Self, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) !Tensor {
+    pub fn arange(self: *const Self, allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) !Tensor {
         return self.vtable.arange(self.ptr, allocator, shape, seq_dim, dtype);
     }
 
-    pub fn iota(self: *Self, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) !Tensor {
+    pub fn iota(self: *const Self, allocator: std.mem.Allocator, dims: *const Shape, tile_dims: *const Shape, dtype: DType) !Tensor {
         return self.vtable.iota(self.ptr, allocator, dims, tile_dims, dtype);
     }
 
-    pub fn topk(self: *Self, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !TopkRes {
+    pub fn topk(self: *const Self, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !TopkRes {
         return self.vtable.topk(self.ptr, allocator, input, k, axis, sort_mode);
     }
 
-    pub fn where(self: *Self, allocator: std.mem.Allocator, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
+    pub fn where(self: *const Self, allocator: std.mem.Allocator, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
         return self.vtable.where(self.ptr, allocator, condition, x, y);
     }
 
-    pub fn sort(self: *Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
+    pub fn sort(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
         return self.vtable.sort(self.ptr, allocator, input, axis, sort_mode);
     }
 
-    pub fn sortIndex(self: *Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !SortIndexRes {
+    pub fn sortIndex(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !SortIndexRes {
         return self.vtable.sortIndex(self.ptr, allocator, input, axis, sort_mode);
     }
 
-    pub fn argsort(self: *Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
+    pub fn argsort(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
         return self.vtable.argsort(self.ptr, allocator, input, axis, sort_mode);
     }
 
-    pub fn matmul(self: *Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, lhs_prop: MatrixProperty, rhs_prop: MatrixProperty) !Tensor {
+    pub fn matmul(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, lhs_prop: MatrixProperty, rhs_prop: MatrixProperty) !Tensor {
         return self.vtable.matmul(self.ptr, allocator, lhs, rhs, lhs_prop, rhs_prop);
     }
 
-    pub fn reshape(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
+    pub fn reshape(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
         return self.vtable.reshape(self.ptr, allocator, tensor, shape);
     }
 
-    pub fn transpose(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, axes: *const Shape) !Tensor {
+    pub fn transpose(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor, axes: *const Shape) !Tensor {
         return self.vtable.transpose(self.ptr, allocator, tensor, axes);
     }
 
-    pub fn tile(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
+    pub fn tile(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
         return self.vtable.tile(self.ptr, allocator, tensor, shape);
     }
 
-    pub fn concatenate(self: *Self, allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
+    pub fn concatenate(self: *const Self, allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
         return self.vtable.concatenate(self.ptr, allocator, tensors, axis);
     }
 
-    pub fn nonzero(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn nonzero(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.nonzero(self.ptr, allocator, tensor);
     }
 
-    pub fn pad(self: *Self, allocator: std.mem.Allocator, input: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) !Tensor {
+    pub fn pad(self: *const Self, allocator: std.mem.Allocator, input: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) !Tensor {
         return self.vtable.pad(self.ptr, allocator, input, pad_widths, pad_type);
     }
 
-    pub fn exp(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn exp(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.exp(self.ptr, allocator, tensor);
     }
 
-    pub fn log(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn log(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.log(self.ptr, allocator, tensor);
     }
 
-    pub fn negative(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn negative(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.negative(self.ptr, allocator, tensor);
     }
 
-    pub fn logicalNot(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn logicalNot(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.logicalNot(self.ptr, allocator, tensor);
     }
 
-    pub fn log1p(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn log1p(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.log1p(self.ptr, allocator, tensor);
     }
 
-    pub fn sin(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn sin(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.sin(self.ptr, allocator, tensor);
     }
 
-    pub fn cos(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn cos(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.cos(self.ptr, allocator, tensor);
     }
 
-    pub fn sqrt(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn sqrt(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.sqrt(self.ptr, allocator, tensor);
     }
 
-    pub fn tanh(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn tanh(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.tanh(self.ptr, allocator, tensor);
     }
 
-    pub fn floor(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn floor(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.floor(self.ptr, allocator, tensor);
     }
 
-    pub fn ceil(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn ceil(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.ceil(self.ptr, allocator, tensor);
     }
 
-    pub fn rint(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn rint(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.rint(self.ptr, allocator, tensor);
     }
 
-    pub fn absolute(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn absolute(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.absolute(self.ptr, allocator, tensor);
     }
 
-    pub fn sigmoid(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn sigmoid(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.sigmoid(self.ptr, allocator, tensor);
     }
 
-    pub fn erf(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn erf(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.erf(self.ptr, allocator, tensor);
     }
 
-    pub fn flip(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, dim: u32) !Tensor {
+    pub fn flip(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor, dim: u32) !Tensor {
         return self.vtable.flip(self.ptr, allocator, tensor, dim);
     }
 
-    pub fn clip(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor) !Tensor {
+    pub fn clip(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor, low: Tensor, high: Tensor) !Tensor {
         return self.vtable.clip(self.ptr, allocator, tensor, low, high);
     }
 
-    pub fn roll(self: *Self, allocator: std.mem.Allocator, tensor: Tensor, shift: Dim, axis: usize) !Tensor {
+    pub fn roll(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor, shift: Dim, axis: usize) !Tensor {
         return self.vtable.roll(self.ptr, allocator, tensor, shift, axis);
     }
 
-    pub fn isnan(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn isnan(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.isnan(self.ptr, allocator, tensor);
     }
 
-    pub fn isinf(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn isinf(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.isinf(self.ptr, allocator, tensor);
     }
 
-    pub fn tril(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn tril(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.tril(self.ptr, allocator, tensor);
     }
 
-    pub fn triu(self: *Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    pub fn triu(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.triu(self.ptr, allocator, tensor);
     }
 
-    pub fn amin(self: *Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn amin(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
         return self.vtable.amin(self.ptr, allocator, input, axes, keep_dims);
     }
 
-    pub fn amax(self: *Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn amax(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
         return self.vtable.amax(self.ptr, allocator, input, axes, keep_dims);
     }
 

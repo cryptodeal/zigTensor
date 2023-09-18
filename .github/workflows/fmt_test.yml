@@ -9,8 +9,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.12.0-dev.167+dd6a9caea
       - name: "Install ArrayFire CPU backend with OpenBLAS runtime"
         run: brew install arrayfire
       - run: zig build test -DZT_ARRAYFIRE_USE_CPU
@@ -19,8 +17,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.12.0-dev.167+dd6a9caea
       - run: zig fmt --check src/*.zig
   deploy:
     permissions:
@@ -36,8 +32,6 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v3
       - uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.12.0-dev.167+dd6a9caea
       - name: "Install ArrayFire CPU backend with OpenBLAS runtime"
         run: brew install arrayfire
       - run: zig build docs -DZT_ARRAYFIRE_USE_CPU
