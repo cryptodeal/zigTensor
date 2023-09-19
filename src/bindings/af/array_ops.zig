@@ -41,6 +41,12 @@ pub fn sum(
     return af.Array.init(allocator, arr);
 }
 
+pub fn sumAllArray(allocator: std.mem.Allocator, in: *const af.Array) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(af.af_sum_all_array(&arr, in.array_), @src());
+    return af.Array.init(allocator, arr);
+}
+
 /// Returns the sum of the elements of the input `af.Array` along
 /// the given dimension, replacing NaN values with `nanval`.
 pub fn sumNan(
@@ -5942,9 +5948,9 @@ test "constant" {
     const allocator = std.testing.allocator;
     var d = [4]af.dim_t{ 100, 1, 1, 1 };
     var dims = af.Dim4.init(d);
-    var arr = try constant(allocator, 5, 4, dims, .f64);
+    var arr = try constant(allocator, 5, 4, dims, .s32);
     defer arr.deinit();
 
-    try std.testing.expect(try getScalar(f64, arr) == 5);
+    try std.testing.expect(try getScalar(i32, arr) == 5);
     try std.testing.expect(try getElements(arr) == 100);
 }

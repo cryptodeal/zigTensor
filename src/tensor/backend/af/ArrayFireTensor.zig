@@ -909,4 +909,98 @@ test "rand" {
     try std.testing.expect(try b.dtype(allocator) == .f64);
 }
 
-// TODO: test "amin" {}
+test "amin" {
+    const rand = @import("../../Random.zig").rand;
+    const amin = @import("../../TensorBase.zig").amin;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var dims = [_]Dim{ 3, 3 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+
+    var a = try rand(allocator, &shape, .f32);
+    defer a.deinit();
+
+    var axes = std.ArrayList(i32).init(allocator);
+    defer axes.deinit();
+    var tensorRes1 = try amin(allocator, a, axes, false);
+    defer tensorRes1.deinit();
+
+    var tensorScalar1 = try tensorRes1.scalar(allocator, f32);
+    var afRes1 = try af.ops.minAll(try toArray(allocator, a));
+    try std.testing.expect(tensorScalar1 == @as(f32, @floatCast(afRes1.real)));
+
+    try axes.append(0);
+    var tensorRes2 = try amin(allocator, a, axes, false);
+    defer tensorRes2.deinit();
+    var afRes2 = try af.ops.min(allocator, try toArray(allocator, a), 0);
+    defer afRes2.deinit();
+    var afRes3 = try condenseIndices(allocator, afRes2, false, null, false);
+    defer if (afRes3.modified) afRes3.arr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, tensorRes2), afRes3.arr, 1e-5));
+}
+
+test "amax" {
+    const rand = @import("../../Random.zig").rand;
+    const amax = @import("../../TensorBase.zig").amax;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var dims = [_]Dim{ 3, 3 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+
+    var a = try rand(allocator, &shape, .f32);
+    defer a.deinit();
+
+    var axes = std.ArrayList(i32).init(allocator);
+    defer axes.deinit();
+    var tensorRes1 = try amax(allocator, a, axes, false);
+    defer tensorRes1.deinit();
+
+    var tensorScalar1 = try tensorRes1.scalar(allocator, f32);
+    var afRes1 = try af.ops.maxAll(try toArray(allocator, a));
+    try std.testing.expect(tensorScalar1 == @as(f32, @floatCast(afRes1.real)));
+
+    try axes.append(0);
+    var tensorRes2 = try amax(allocator, a, axes, false);
+    defer tensorRes2.deinit();
+    var afRes2 = try af.ops.max(allocator, try toArray(allocator, a), 0);
+    defer afRes2.deinit();
+    var afRes3 = try condenseIndices(allocator, afRes2, false, null, false);
+    defer if (afRes3.modified) afRes3.arr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, tensorRes2), afRes3.arr, 1e-5));
+}
+
+test "sum" {
+    const rand = @import("../../Random.zig").rand;
+    const sum = @import("../../TensorBase.zig").sum;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var dims = [_]Dim{ 3, 3 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+
+    var a = try rand(allocator, &shape, .f32);
+    defer a.deinit();
+
+    var axes = std.ArrayList(i32).init(allocator);
+    defer axes.deinit();
+    var aSum = try sum(allocator, a, axes, false);
+    defer aSum.deinit();
+
+    var aSumScalar = try aSum.scalar(allocator, f32);
+    var aAfSum = try af.ops.sumAll(try toArray(allocator, a));
+    try std.testing.expect(aSumScalar == @as(f32, @floatCast(aAfSum.real)));
+
+    try axes.append(0);
+    var tensorSum = try sum(allocator, a, axes, false);
+    defer tensorSum.deinit();
+    var afRes2 = try af.ops.sum(allocator, try toArray(allocator, a), 0);
+    defer afRes2.deinit();
+    var afRes3 = try condenseIndices(allocator, afRes2, false, null, false);
+    defer if (afRes3.modified) afRes3.arr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, tensorSum), afRes3.arr, 1e-5));
+}

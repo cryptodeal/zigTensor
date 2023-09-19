@@ -107,8 +107,10 @@ pub const TensorAdapterBase = struct {
     }
 
     /// Populate a pointer with a scalar for the first element of the tensor.
-    pub fn scalar(self: *const Self, allocator: std.mem.Allocator, out: ?*anyopaque) !void {
-        return self.vtable.scalar(self.ptr, allocator, out);
+    pub fn scalar(self: *const Self, allocator: std.mem.Allocator, comptime T: type) !T {
+        var res: T = undefined;
+        try self.vtable.scalar(self.ptr, allocator, &res);
+        return res;
     }
 
     /// Returns a pointer to the tensor in device memory.

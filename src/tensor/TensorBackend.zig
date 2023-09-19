@@ -94,6 +94,7 @@ pub const TensorBackend = struct {
         triu: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         amin: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
         amax: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
+        sum: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
         add: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         sub: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         mul: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
@@ -327,6 +328,10 @@ pub const TensorBackend = struct {
 
     pub fn amax(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
         return self.vtable.amax(self.ptr, allocator, input, axes, keep_dims);
+    }
+
+    pub fn sum(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+        return self.vtable.sum(self.ptr, allocator, input, axes, keep_dims);
     }
 
     pub fn add(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
@@ -670,6 +675,11 @@ pub const TensorBackend = struct {
                 return self.amax(allocator, input, axes, keep_dims);
             }
 
+            fn sum(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.sum(allocator, input, axes, keep_dims);
+            }
+
             fn add(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.add(allocator, lhs, rhs);
@@ -831,6 +841,7 @@ pub const TensorBackend = struct {
                 .triu = impl.triu,
                 .amin = impl.amin,
                 .amax = impl.amax,
+                .sum = impl.sum,
                 .add = impl.add,
                 .sub = impl.sub,
                 .mul = impl.mul,

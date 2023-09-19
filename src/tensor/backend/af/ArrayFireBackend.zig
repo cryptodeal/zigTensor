@@ -1131,7 +1131,41 @@ pub const ArrayFireBackend = struct {
 
     // TODO: pub fn max()
 
-    // TODO: pub fn sum()
+    pub fn sum(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+        if (try isAllAxisReduction(allocator, input, axes)) {
+            var arr = try af.ops.sumAllArray(allocator, try toArray(allocator, input));
+            var res = try condenseIndices(allocator, arr, false, null, false);
+            defer if (res.modified) arr.deinit();
+            return Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        res.arr,
+                        0,
+                    ),
+                ),
+            );
+        } else {
+            var arr = try afReduceAxes(
+                allocator,
+                try toArray(allocator, input),
+                axes,
+                reduceFunc_t,
+                af.ops.sum,
+                keep_dims,
+            );
+            var numDims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            return Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        arr,
+                        numDims,
+                    ),
+                ),
+            );
+        }
+    }
 
     // TODO: pub fn cumsum()
 

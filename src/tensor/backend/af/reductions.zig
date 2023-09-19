@@ -46,7 +46,7 @@ fn lessThan(_: void, a: i32, b: i32) bool {
 
 pub fn isAllAxisReduction(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32)) !bool {
     const inputNumDims = try input.ndim(allocator);
-    if (inputNumDims == 0 and axes.items.len == 0) {
+    if (inputNumDims == 0 or axes.items.len == 0) {
         return true;
     }
     if (inputNumDims != axes.items.len) {

@@ -1677,7 +1677,7 @@ pub const Array = struct {
 
     /// Returns the first element from this `af.Array`.
     pub fn getScalar(self: *const Self, comptime T: type) !T {
-        return af.ops.getScalar(self, T);
+        return af.ops.getScalar(T, self);
     }
 
     /// Get's the backend enum for this `af.Array`.

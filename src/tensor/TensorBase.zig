@@ -15,6 +15,7 @@ const Index = zt_idx.Index;
 const Stream = rt_stream.Stream;
 const TensorBackend = zt_tensor_backend.TensorBackend;
 const Shape = zt_shape.Shape;
+const dtypeTraits = zt_types.dtypeTraits;
 const DType = zt_types.DType;
 const Dim = zt_shape.Dim;
 const TensorAdapterBase = adapter.TensorAdapterBase;
@@ -161,7 +162,21 @@ pub const Tensor = struct {
 
     // TODO: FL_CREATE_MEMORY_OPS macro equivalent
 
-    // TODO: pub fn scalar(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type) !T {}
+    pub fn scalar(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type) !T {
+        if (try self.isEmpty(allocator)) {
+            std.log.debug("Tensor.scalar called on empty tensor\n", .{});
+            return error.ScalarFailedEmptyTensor;
+        }
+        var type_trait = comptime dtypeTraits(T);
+        var self_dtype = try self.dtype(allocator);
+        if (self_dtype != type_trait.zt_type) {
+            std.log.debug(
+                "Tensor.scalar: requested type of {s} doesn't match tensor type, which is {s}\n",
+                .{ type_trait.string, self_dtype.toString() },
+            );
+        }
+        return self.impl_.scalar(allocator, T);
+    }
 
     pub fn allocHost(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type) !?[]T {
         if (try self.isEmpty(allocator)) {
@@ -1192,7 +1207,9 @@ pub fn amax(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32
 
 // TODO: pub fn max()
 
-// TODO: pub fn sum()
+pub fn sum(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    return (try input.backend(allocator)).sum(allocator, input, axes, keep_dims);
+}
 
 // TODO: pub fn cumsum()
 
