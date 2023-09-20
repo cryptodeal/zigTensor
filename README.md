@@ -30,6 +30,33 @@ The project is in the incredibly early stages of development and not enough of t
 functionality has been implemented for the library to be usable. Currently, development
 is solely focused on OSx and leveraging ArrayFire for the backend.
 
+### Basic Tensor Usage
+
+```zig
+const zt = @import("zigTensor");
+const allocator = std.heap.c_allocator; // or your preferred allocator
+
+const Dim = zt.tensor.Dim;
+const Shape = zt.tensor.Shape;
+const DType = zt.tensor.DType;
+const deinit = zt.tensor.deinit;
+
+defer deinit(); // deinit global singletons (e.g. ArrayFire Backend/DeviceManager)
+
+var dims = [_]Dim{5, 5};
+var shape = try Shape.init(allocator, &dims);
+defer shape.deinit();
+
+var a = zt.tensor.rand(allocator, &shape, DType.f32);
+defer a.deinit();
+
+var b = zt.tensor.rand(allocator, &shape, DType.f32);
+defer b.deinit();
+
+var c = try zt.tensor.add(allocator, Tensor, a, Tensor, b); // operator overloading pending (likely utilize comath library)
+defer c.deinit();
+```
+
 ### Roadmap
 
 - [ ] bindings
