@@ -40,6 +40,7 @@ const Dim = zt.tensor.Dim;
 const Shape = zt.tensor.Shape;
 const DType = zt.tensor.DType;
 const deinit = zt.tensor.deinit;
+const Tensor = zt.tensor.Tensor;
 
 defer deinit(); // deinit global singletons (e.g. ArrayFire Backend/DeviceManager)
 
