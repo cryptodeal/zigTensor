@@ -34,7 +34,7 @@ pub fn sum(
         af.af_sum(
             &arr,
             in.array_,
-            @intCast(dim),
+            af.ops.getFNSD(c_int, i32, dim, try in.getDims()),
         ),
         @src(),
     );
@@ -5076,7 +5076,7 @@ pub fn mean(
         af.af_mean(
             &arr,
             in.array_,
-            af.ops.getFNSD(dim, try in.getDims()),
+            af.ops.getFNSD(af.dim_t, i64, dim, try in.getDims()),
         ),
         @src(),
     );
@@ -5096,7 +5096,7 @@ pub fn meanWeighted(
             &arr,
             in.array_,
             weights.array_,
-            af.ops.getFNSD(dim, try in.getDims()),
+            af.ops.getFNSD(af.dim_t, i64, dim, try in.getDims()),
         ),
         @src(),
     );

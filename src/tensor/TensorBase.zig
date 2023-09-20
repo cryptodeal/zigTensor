@@ -9,7 +9,7 @@ const zt_idx = @import("Index.zig");
 
 const defaultTensorBackend = @import("DefaultTensorType.zig").defaultTensorBackend;
 const areBackendsEqual = zt_tensor_backend.areBackendsEqual;
-const TopkRes = zt_tensor_backend.TopkRes;
+const ValIdxRes = zt_tensor_backend.ValIdxRes;
 const SortIndexRes = zt_tensor_backend.SortIndexRes;
 const Index = zt_idx.Index;
 const Stream = rt_stream.Stream;
@@ -443,7 +443,7 @@ pub fn where(
     return backend.where(allocator, condition, xTensor, yTensor);
 }
 
-pub fn topk(allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !TopkRes {
+pub fn topk(allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !ValIdxRes {
     return (try input.backend(allocator)).topk(allocator, input, k, axis, sort_mode);
 }
 
@@ -1203,23 +1203,37 @@ pub fn amax(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32
     return (try input.backend(allocator)).amax(allocator, input, axes, keep_dims);
 }
 
-// TODO: pub fn min()
+pub fn min(allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) !ValIdxRes {
+    return (try input.backend(allocator)).min(allocator, input, axis, keep_dims);
+}
 
-// TODO: pub fn max()
+pub fn max(allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) !ValIdxRes {
+    return (try input.backend(allocator)).max(allocator, input, axis, keep_dims);
+}
 
 pub fn sum(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
     return (try input.backend(allocator)).sum(allocator, input, axes, keep_dims);
 }
 
-// TODO: pub fn cumsum()
+pub fn cumsum(allocator: std.mem.Allocator, input: Tensor, axis: u32) !Tensor {
+    return (try input.backend(allocator)).cumsum(allocator, input, axis);
+}
 
-// TODO: pub fn argmax()
+pub fn argmax(allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) !Tensor {
+    return (try input.backend(allocator)).argmax(allocator, input, axis, keep_dims);
+}
 
-// TODO: pub fn argmin()
+pub fn argmin(allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) !Tensor {
+    return (try input.backend(allocator)).argmin(allocator, input, axis, keep_dims);
+}
 
-// TODO: pub fn mean()
+pub fn mean(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    return (try input.backend(allocator)).mean(allocator, input, axes, keep_dims);
+}
 
-// TODO: pub fn median()
+pub fn median(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    return (try input.backend(allocator)).median(allocator, input, axes, keep_dims);
+}
 
 // TODO: pub fn var_()
 

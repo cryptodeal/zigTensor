@@ -993,7 +993,7 @@ test "sum" {
 
     var aSumScalar = try aSum.scalar(allocator, f32);
     var aAfSum = try af.ops.sumAll(try toArray(allocator, a));
-    try std.testing.expect(aSumScalar == @as(f32, @floatCast(aAfSum.real)));
+    try std.testing.expectApproxEqAbs(aSumScalar, @as(f32, @floatCast(aAfSum.real)), 1e-5);
 
     try axes.append(0);
     var tensorSum = try sum(allocator, a, axes, false);
@@ -1003,4 +1003,275 @@ test "sum" {
     var afRes3 = try condenseIndices(allocator, afRes2, false, null, false);
     defer if (afRes3.modified) afRes3.arr.deinit();
     try std.testing.expect(try allClose(allocator, try toArray(allocator, tensorSum), afRes3.arr, 1e-5));
+
+    var bDims = [_]Dim{ 5, 6, 7, 8 };
+    var bShape = try Shape.init(allocator, &bDims);
+    defer bShape.deinit();
+    var b = try rand(allocator, &bShape, .f32);
+    defer b.deinit();
+
+    var bAxes = std.ArrayList(i32).init(allocator);
+    defer bAxes.deinit();
+    var bSum = try sum(allocator, b, bAxes, false);
+    defer bSum.deinit();
+
+    var bSumScalar = try bSum.scalar(allocator, f32);
+    var bAfSum = try af.ops.sumAll(try toArray(allocator, b));
+    try std.testing.expectApproxEqAbs(bSumScalar, @as(f32, @floatCast(bAfSum.real)), 1e-5);
+
+    try bAxes.append(1);
+    try bAxes.append(2);
+    var bTensorSum = try sum(allocator, b, bAxes, false);
+    defer bTensorSum.deinit();
+    var afRes4 = try af.ops.sum(allocator, try toArray(allocator, b), 1);
+    defer afRes4.deinit();
+    var afRes5 = try af.ops.sum(allocator, afRes4, 2);
+    defer afRes5.deinit();
+    var afRes6 = try condenseIndices(allocator, afRes5, false, null, false);
+    defer if (afRes6.modified) afRes6.arr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, bTensorSum), afRes6.arr, 1e-5));
+}
+
+test "exp" {
+    const exp = @import("../../TensorBase.zig").exp;
+    const full = @import("../../TensorBase.zig").full;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var inDims = [_]Dim{ 3, 3 };
+    var inShape = try Shape.init(allocator, &inDims);
+    defer inShape.deinit();
+    var in = try full(allocator, &inShape, f64, 4, .f32);
+    defer in.deinit();
+
+    var expTensor = try exp(allocator, in);
+    defer expTensor.deinit();
+    var expArr = try af.ops.exp(allocator, try toArray(allocator, in));
+    defer expArr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, expTensor), expArr, 1e-5));
+}
+
+test "log" {
+    const log = @import("../../TensorBase.zig").log;
+    const full = @import("../../TensorBase.zig").full;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var inDims = [_]Dim{ 3, 3 };
+    var inShape = try Shape.init(allocator, &inDims);
+    defer inShape.deinit();
+    var in = try full(allocator, &inShape, f64, 2, .f32);
+    defer in.deinit();
+
+    var logTensor = try log(allocator, in);
+    defer logTensor.deinit();
+    var logArr = try af.ops.log(allocator, try toArray(allocator, in));
+    defer logArr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, logTensor), logArr, 1e-5));
+}
+
+test "log1p" {
+    const log = @import("../../TensorBase.zig").log;
+    const log1p = @import("../../TensorBase.zig").log1p;
+    const add = @import("../../TensorBase.zig").add;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var inDims = [_]Dim{ 3, 3 };
+    var inShape = try Shape.init(allocator, &inDims);
+    defer inShape.deinit();
+    var in = try rand(allocator, &inShape, .f32);
+    defer in.deinit();
+
+    var log1pTensor = try log1p(allocator, in);
+    defer log1pTensor.deinit();
+    var add1Tensor = try add(allocator, Tensor, in, f32, 1);
+    defer add1Tensor.deinit();
+    var add1LogTensor = try log(allocator, add1Tensor);
+    defer add1LogTensor.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, log1pTensor), try toArray(allocator, add1LogTensor), 1e-5));
+}
+
+test "sin" {
+    const sin = @import("../../TensorBase.zig").sin;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var inDims = [_]Dim{ 3, 3 };
+    var inShape = try Shape.init(allocator, &inDims);
+    defer inShape.deinit();
+    var in = try rand(allocator, &inShape, .f32);
+    defer in.deinit();
+
+    var sinTensor = try sin(allocator, in);
+    defer sinTensor.deinit();
+    var sinArr = try af.ops.sin(allocator, try toArray(allocator, in));
+    defer sinArr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, sinTensor), sinArr, 1e-5));
+}
+
+test "cos" {
+    const cos = @import("../../TensorBase.zig").cos;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var inDims = [_]Dim{ 3, 3 };
+    var inShape = try Shape.init(allocator, &inDims);
+    defer inShape.deinit();
+    var in = try rand(allocator, &inShape, .f32);
+    defer in.deinit();
+
+    var cosTensor = try cos(allocator, in);
+    defer cosTensor.deinit();
+    var cosArr = try af.ops.cos(allocator, try toArray(allocator, in));
+    defer cosArr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, cosTensor), cosArr, 1e-5));
+}
+
+test "sqrt" {
+    const sqrt = @import("../../TensorBase.zig").sqrt;
+    const full = @import("../../TensorBase.zig").full;
+    const div = @import("../../TensorBase.zig").div;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var inDims = [_]Dim{ 3, 3 };
+    var inShape = try Shape.init(allocator, &inDims);
+    defer inShape.deinit();
+    var in = try full(allocator, &inShape, f64, 4, .f32);
+    defer in.deinit();
+
+    var sqrtTensor = try sqrt(allocator, in);
+    defer sqrtTensor.deinit();
+    var expected = try div(allocator, Tensor, in, f32, 2);
+    defer expected.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, sqrtTensor), try toArray(allocator, expected), 1e-5));
+}
+
+test "tanh" {
+    const tanh = @import("../../TensorBase.zig").tanh;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var inDims = [_]Dim{ 3, 3 };
+    var inShape = try Shape.init(allocator, &inDims);
+    defer inShape.deinit();
+    var in = try rand(allocator, &inShape, .f32);
+    defer in.deinit();
+
+    var tanhTensor = try tanh(allocator, in);
+    defer tanhTensor.deinit();
+    var tanhArr = try af.ops.tanh(allocator, try toArray(allocator, in));
+    defer tanhArr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, tanhTensor), tanhArr, 1e-5));
+}
+
+test "absolute" {
+    const absolute = @import("../../TensorBase.zig").absolute;
+    const full = @import("../../TensorBase.zig").full;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    const val: f64 = -3.1;
+    var dims = [_]Dim{ 3, 3 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+
+    var a = try full(allocator, &shape, f64, val, .f32);
+    defer a.deinit();
+    var absA = try absolute(allocator, a);
+    defer absA.deinit();
+
+    var comp = try full(allocator, &shape, f64, -val, .f32);
+    defer comp.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, absA), try toArray(allocator, comp), 1e-5));
+}
+
+test "erf" {
+    const erf = @import("../../TensorBase.zig").erf;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var inDims = [_]Dim{ 3, 3 };
+    var inShape = try Shape.init(allocator, &inDims);
+    defer inShape.deinit();
+    var in = try rand(allocator, &inShape, .f32);
+    defer in.deinit();
+
+    var erfTensor = try erf(allocator, in);
+    defer erfTensor.deinit();
+    var erfArr = try af.ops.erf(allocator, try toArray(allocator, in));
+    defer erfArr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, erfTensor), erfArr, 1e-5));
+}
+
+test "mean" {
+    const mean = @import("../../TensorBase.zig").mean;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var inDims = [_]Dim{ 3, 50 };
+    var inShape = try Shape.init(allocator, &inDims);
+    defer inShape.deinit();
+    var a = try rand(allocator, &inShape, .f32);
+    defer a.deinit();
+
+    var axes = std.ArrayList(i32).init(allocator);
+    defer axes.deinit();
+    var meanTensor = try mean(allocator, a, axes, false);
+    defer meanTensor.deinit();
+
+    try std.testing.expectApproxEqAbs(
+        try meanTensor.scalar(allocator, f32),
+        @floatCast((try af.ops.meanAll(try toArray(allocator, a))).real),
+        1e-4,
+    );
+
+    try axes.append(0);
+    var meanTensor2 = try mean(allocator, a, axes, false);
+    defer meanTensor2.deinit();
+    var meanArr = try af.ops.mean(allocator, try toArray(allocator, a), 0);
+    defer meanArr.deinit();
+    var condensedMean = try condenseIndices(allocator, meanArr, false, null, false);
+    defer if (condensedMean.modified) condensedMean.arr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, meanTensor2), condensedMean.arr, 1e-5));
+}
+
+test "median" {
+    const median = @import("../../TensorBase.zig").median;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var inDims = [_]Dim{ 3, 50 };
+    var inShape = try Shape.init(allocator, &inDims);
+    defer inShape.deinit();
+    var a = try rand(allocator, &inShape, .f32);
+    defer a.deinit();
+
+    var axes = std.ArrayList(i32).init(allocator);
+    defer axes.deinit();
+    var medianTensor = try median(allocator, a, axes, false);
+    defer medianTensor.deinit();
+
+    try std.testing.expectApproxEqAbs(
+        try medianTensor.scalar(allocator, f64),
+        (try af.ops.medianAll(try toArray(allocator, a))).real,
+        1e-4,
+    );
+
+    try axes.append(0);
+    var medianTensor2 = try median(allocator, a, axes, false);
+    defer medianTensor2.deinit();
+    var medianArr = try af.ops.median(allocator, try toArray(allocator, a), 0);
+    defer medianArr.deinit();
+    var condensedMedian = try condenseIndices(allocator, medianArr, false, null, false);
+    defer if (condensedMedian.modified) condensedMedian.arr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, medianTensor2), condensedMedian.arr, 1e-5));
 }

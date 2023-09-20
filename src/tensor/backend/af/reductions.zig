@@ -20,8 +20,8 @@ pub fn afReduceAxes(
     var arr = input;
     for (axes.items, 0..) |dim, i| {
         var og_arr: *af.Array = arr;
-        defer if (i != 0 and i != axes.items.len - 1) og_arr.deinit();
-        arr = try func(allocator, arr, dim);
+        defer if (i != 0) og_arr.deinit();
+        arr = try func(allocator, arr, @intCast(dim));
     }
     const res = try condenseIndices(allocator, arr, keep_dims, null, false);
     defer if (res.modified) arr.deinit();

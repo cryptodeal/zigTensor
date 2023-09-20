@@ -16,10 +16,10 @@ const PadType = zt_base.PadType;
 const Index = zt_idx.Index;
 const Range = zt_idx.Range;
 
-pub inline fn getFNSD(dim: i64, dims: af.Dim4) af.dim_t {
+pub inline fn getFNSD(comptime T: type, comptime dimT: type, dim: dimT, dims: af.Dim4) T {
     if (dim >= 0) return dim;
 
-    var fNSD: af.dim_t = 0;
+    var fNSD: T = 0;
     for (0..4) |i| {
         if (dims.dims[i] > 1) {
             fNSD = @intCast(i);
