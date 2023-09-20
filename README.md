@@ -47,10 +47,10 @@ var dims = [_]Dim{5, 5};
 var shape = try Shape.init(allocator, &dims);
 defer shape.deinit();
 
-var a = zt.tensor.rand(allocator, &shape, DType.f32);
+var a = try zt.tensor.rand(allocator, &shape, DType.f32);
 defer a.deinit();
 
-var b = zt.tensor.rand(allocator, &shape, DType.f32);
+var b = try zt.tensor.rand(allocator, &shape, DType.f32);
 defer b.deinit();
 
 var c = try zt.tensor.add(allocator, Tensor, a, Tensor, b); // operator overloading pending (likely utilize comath library)
