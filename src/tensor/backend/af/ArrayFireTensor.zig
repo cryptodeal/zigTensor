@@ -1261,9 +1261,9 @@ test "median" {
     defer medianTensor.deinit();
 
     try std.testing.expectApproxEqAbs(
-        try medianTensor.scalar(allocator, f64),
-        (try af.ops.medianAll(try toArray(allocator, a))).real,
-        1e-4,
+        @as(f32, @floatCast((try af.ops.medianAll(try toArray(allocator, a))).real)),
+        try medianTensor.scalar(allocator, f32),
+        1e-3,
     );
 
     try axes.append(0);
@@ -1273,5 +1273,60 @@ test "median" {
     defer medianArr.deinit();
     var condensedMedian = try condenseIndices(allocator, medianArr, false, null, false);
     defer if (condensedMedian.modified) condensedMedian.arr.deinit();
-    try std.testing.expect(try allClose(allocator, try toArray(allocator, medianTensor2), condensedMedian.arr, 1e-5));
+    try std.testing.expect(try allClose(
+        allocator,
+        try toArray(allocator, medianTensor2),
+        condensedMedian.arr,
+        1e-5,
+    ));
+}
+
+test "variance" {
+    const variance = @import("../../TensorBase.zig").variance;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    const bias = false;
+    const bias_mode: af.VarBias = if (bias) .Sample else .Population;
+    var dims = [_]Dim{ 3, 3 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+
+    var a = try rand(allocator, &shape, .f32);
+    defer a.deinit();
+    var axes = std.ArrayList(i32).init(allocator);
+    defer axes.deinit();
+
+    var aVarTensor = try variance(allocator, a, axes, false, false);
+    defer aVarTensor.deinit();
+    var aVarScalar = try aVarTensor.scalar(allocator, f32);
+    try std.testing.expect(
+        @as(f32, @floatCast(
+            (try af.ops.varAllV2(
+                try toArray(allocator, a),
+                bias_mode,
+            )).real,
+        )) == aVarScalar,
+    );
+
+    try axes.append(0);
+    var aVarTensor2 = try variance(allocator, a, axes, false, false);
+    defer aVarTensor2.deinit();
+    var aVarArr = try af.ops.varV2(allocator, try toArray(allocator, a), bias_mode, 0);
+    defer aVarArr.deinit();
+    var condensedVar = try condenseIndices(allocator, aVarArr, false, null, false);
+    defer if (condensedVar.modified) condensedVar.arr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, aVarTensor2), condensedVar.arr, 1e-5));
+
+    axes.items[0] = 1;
+    var aVarTensor3 = try variance(allocator, a, axes, false, false);
+    defer aVarTensor3.deinit();
+    var aVarArr2 = try af.ops.varV2(allocator, try toArray(allocator, a), bias_mode, 1);
+    defer aVarArr2.deinit();
+    var condensedVar2 = try condenseIndices(allocator, aVarArr2, false, null, false);
+    defer if (condensedVar2.modified) condensedVar2.arr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, aVarTensor3), condensedVar2.arr, 1e-5));
+
+    // TODO: Make sure multidimension matches computing for all
 }

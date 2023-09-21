@@ -1311,7 +1311,7 @@ pub const ArrayFireBackend = struct {
             // TODO: modify this to `medianAllArray` to take advantage of the
             // ArrayFire reduce_all kernels once available
             var res = try af.ops.medianAll(try toArray(allocator, input));
-            return self.fromScalar(allocator, res.real, .f64);
+            return self.fromScalar(allocator, res.real, .f32);
         } else {
             var arr = try afReduceAxes(
                 allocator,
@@ -1334,7 +1334,69 @@ pub const ArrayFireBackend = struct {
         }
     }
 
-    // TODO: pub fn var_()
+    pub fn variance(self: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), bias: bool, keep_dims: bool) !Tensor {
+        var bias_mode: af.VarBias = if (bias) .Sample else .Population;
+        // Use ArrayFire default for one dimension which may be optimized
+        var arr = try toArray(allocator, input);
+        // Reduce along all axes returning a singleton tensor
+        // TODO: modify this to af_var_all_array_v2 to take advantage of the
+        // ArrayFire reduce_all kernels once available
+        if (try isAllAxisReduction(allocator, input, axes)) {
+            var out = try af.ops.varAllV2(arr, bias_mode);
+            return self.fromScalar(allocator, out.real, .f32);
+        } else if (axes.items.len == 1) {
+            var var_arr = try af.ops.varV2(allocator, arr, bias_mode, @intCast(axes.items[0]));
+            var res = try condenseIndices(allocator, var_arr, keep_dims, null, false);
+            defer if (res.modified) var_arr.deinit();
+            var num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            return Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        res.arr,
+                        num_dims,
+                    ),
+                ),
+            );
+        } else {
+            var mean_arr = try self.mean(allocator, input, axes, true);
+            defer mean_arr.deinit();
+            var x = try batchFunc(allocator, arr, try toArray(allocator, mean_arr), af.ops.sub);
+            defer x.deinit();
+            var x_squared = try af.ops.pow2(allocator, x);
+            defer x_squared.deinit();
+            var x_reduced = try afReduceAxes(allocator, x_squared, axes, reduceFunc_t, af.ops.sum, true);
+            defer x_reduced.deinit();
+
+            var denominator: i64 = 1;
+            var dims = try arr.getDims();
+            for (axes.items) |dim| {
+                denominator *= @intCast(dims.dims[@intCast(dim)]);
+            }
+            if (bias) denominator -= 1;
+            var rhs_arr = try af.ops.constant(
+                allocator,
+                @floatFromInt(denominator),
+                try x_reduced.getNumDims(),
+                try x_reduced.getDims(),
+                try x_reduced.getType(),
+            );
+            defer rhs_arr.deinit();
+            var div_arr = try af.ops.div(allocator, x_reduced, rhs_arr, false);
+            var res = try condenseIndices(allocator, div_arr, keep_dims, null, false);
+            defer if (res.modified) div_arr.deinit();
+            var num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            return Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        res.arr,
+                        num_dims,
+                    ),
+                ),
+            );
+        }
+    }
 
     // TODO: pub fn std()
 

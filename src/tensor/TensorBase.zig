@@ -61,7 +61,19 @@ pub inline fn ztTensorBackendsMatch(fn_name: []const u8, tensors: []Tensor) !voi
     }
 }
 
+/// A Tensor that can be used for computations.
+///
+/// The underlying implementations of tensor operations are contained in
+/// types implementing the `TensorAdapterBase` interface; these implementations
+/// also contain the state associated with the tensor. Tensor stores the vTable
+/// struct, which holds a pointer to the underlying implementation, which can be
+/// swapped out if the implementation of the backend changes.
+///
+/// `TensorAdapterBase` implementations may differ across tensor libraries,
+/// hardware-specific libraries or compilers and DSLs.
 pub const Tensor = struct {
+    /// The vTable interface, which contains the pointer to the underlying
+    /// tensor implementation.
     impl_: TensorAdapterBase,
 
     pub fn init(impl: TensorAdapterBase) Tensor {
@@ -1235,7 +1247,13 @@ pub fn median(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i
     return (try input.backend(allocator)).median(allocator, input, axes, keep_dims);
 }
 
-// TODO: pub fn var_()
+/// Variance of an tensor over given axes. If axes is left empty, computes the
+/// variance along all axes.
+///
+/// Returns a Tensor containing the variance(s).
+pub fn variance(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), bias: bool, keep_dims: bool) !Tensor {
+    return (try input.backend(allocator)).variance(allocator, input, axes, bias, keep_dims);
+}
 
 // TODO: pub fn std()
 

@@ -102,6 +102,7 @@ pub const TensorBackend = struct {
         argmin: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) anyerror!Tensor,
         mean: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
         median: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
+        variance: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), bias: bool, keep_dims: bool) anyerror!Tensor,
         add: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         sub: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         mul: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
@@ -367,6 +368,10 @@ pub const TensorBackend = struct {
 
     pub fn median(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
         return self.vtable.median(self.ptr, allocator, input, axes, keep_dims);
+    }
+
+    pub fn variance(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), bias: bool, keep_dims: bool) !Tensor {
+        return self.vtable.variance(self.ptr, allocator, input, axes, bias, keep_dims);
     }
 
     pub fn add(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
@@ -750,6 +755,11 @@ pub const TensorBackend = struct {
                 return self.median(allocator, input, axes, keep_dims);
             }
 
+            fn variance(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), bias: bool, keep_dims: bool) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.variance(allocator, input, axes, bias, keep_dims);
+            }
+
             fn add(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.add(allocator, lhs, rhs);
@@ -919,6 +929,7 @@ pub const TensorBackend = struct {
                 .argmin = impl.argmin,
                 .mean = impl.mean,
                 .median = impl.median,
+                .variance = impl.variance,
                 .add = impl.add,
                 .sub = impl.sub,
                 .mul = impl.mul,
