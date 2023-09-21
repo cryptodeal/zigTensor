@@ -1255,7 +1255,9 @@ pub fn variance(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList
     return (try input.backend(allocator)).variance(allocator, input, axes, bias, keep_dims);
 }
 
-// TODO: pub fn std()
+pub fn stdev(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    return (try input.backend(allocator)).stdev(allocator, input, axes, keep_dims);
+}
 
 // TODO: pub fn norm()
 

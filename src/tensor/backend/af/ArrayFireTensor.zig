@@ -640,7 +640,7 @@ fn allClose(allocator: std.mem.Allocator, a: *const af.Array, b: *const af.Array
     return max.real < abs_tolerance;
 }
 
-test "AfRefCountBasic" {
+test "ArrayFireTensorBaseTest -> AfRefCountBasic" {
     const allocator = std.testing.allocator;
     // Sanity check that af.af_array moved into zt.Tensors don't have their
     // refcount inrcremented/show proper usage of refs in tensor ops
@@ -669,7 +669,7 @@ test "AfRefCountBasic" {
     // TODO: verify copy works and increments ref count
 }
 
-test "AfRefCountModify" {
+test "ArrayFireTensorBaseTest -> AfRefCountModify" {
     const full = @import("../../TensorBase.zig").full;
     const add = @import("../../TensorBase.zig").add;
     const mul = @import("../../TensorBase.zig").mul;
@@ -710,7 +710,7 @@ test "AfRefCountModify" {
     try std.testing.expect(try getRefCount(try toArray(allocator, d), true) == 1);
 }
 
-test "astypeRefcount" {
+test "ArrayFireTensorBaseTest -> astypeRefcount" {
     const allocator = std.testing.allocator;
     var tDims = [_]Dim{ 5, 5 };
     const rand = @import("../../Random.zig").rand;
@@ -730,7 +730,7 @@ test "astypeRefcount" {
 
 // TODO: test "astypeInPlaceRefcount" {}
 
-test "BackendInterop" {
+test "ArrayFireTensorBaseTest -> BackendInterop" {
     const allocator = std.testing.allocator;
     const rand = @import("../../Random.zig").rand;
     defer deinit(); // deinit global singletons
@@ -746,7 +746,7 @@ test "BackendInterop" {
 
 // TODO: test "ArrayFireAssignmentOperators" {}
 
-test "BinaryOperators" {
+test "ArrayFireTensorBaseTest -> BinaryOperators" {
     const full = @import("../../TensorBase.zig").full;
     const eq = @import("../../TensorBase.zig").eq;
     const add = @import("../../TensorBase.zig").add;
@@ -778,7 +778,7 @@ test "BinaryOperators" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, tensorAdd), arrAdd, 1e-5));
 }
 
-test "full" {
+test "ArrayFireTensorBaseTest -> full" {
     const full = @import("../../TensorBase.zig").full;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
@@ -816,7 +816,7 @@ test "full" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, b), bArray, 1e-5));
 }
 
-test "identity" {
+test "ArrayFireTensorBaseTest -> identity" {
     const identity = @import("../../TensorBase.zig").identity;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
@@ -842,7 +842,7 @@ test "identity" {
     try std.testing.expect(try f64Tensor.dtype(allocator) == .f64);
 }
 
-test "randn" {
+test "ArrayFireTensorBaseTest -> randn" {
     const randn = @import("../../Random.zig").randn;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
@@ -872,7 +872,7 @@ test "randn" {
     try std.testing.expect(@as(u1, @intFromFloat((try af.ops.allTrueAll(ltArr)).real)) != 0);
 }
 
-test "rand" {
+test "ArrayFireTensorBaseTest -> rand" {
     const rand = @import("../../Random.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
@@ -909,7 +909,7 @@ test "rand" {
     try std.testing.expect(try b.dtype(allocator) == .f64);
 }
 
-test "amin" {
+test "ArrayFireTensorBaseTest -> amin" {
     const rand = @import("../../Random.zig").rand;
     const amin = @import("../../TensorBase.zig").amin;
     const allocator = std.testing.allocator;
@@ -941,7 +941,7 @@ test "amin" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, tensorRes2), afRes3.arr, 1e-5));
 }
 
-test "amax" {
+test "ArrayFireTensorBaseTest -> amax" {
     const rand = @import("../../Random.zig").rand;
     const amax = @import("../../TensorBase.zig").amax;
     const allocator = std.testing.allocator;
@@ -973,7 +973,7 @@ test "amax" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, tensorRes2), afRes3.arr, 1e-5));
 }
 
-test "sum" {
+test "ArrayFireTensorBaseTest -> sum" {
     const rand = @import("../../Random.zig").rand;
     const sum = @import("../../TensorBase.zig").sum;
     const allocator = std.testing.allocator;
@@ -1032,7 +1032,7 @@ test "sum" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, bTensorSum), afRes6.arr, 1e-5));
 }
 
-test "exp" {
+test "ArrayFireTensorBaseTest -> exp" {
     const exp = @import("../../TensorBase.zig").exp;
     const full = @import("../../TensorBase.zig").full;
     const allocator = std.testing.allocator;
@@ -1051,7 +1051,7 @@ test "exp" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, expTensor), expArr, 1e-5));
 }
 
-test "log" {
+test "ArrayFireTensorBaseTest -> log" {
     const log = @import("../../TensorBase.zig").log;
     const full = @import("../../TensorBase.zig").full;
     const allocator = std.testing.allocator;
@@ -1070,7 +1070,7 @@ test "log" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, logTensor), logArr, 1e-5));
 }
 
-test "log1p" {
+test "ArrayFireTensorBaseTest -> log1p" {
     const log = @import("../../TensorBase.zig").log;
     const log1p = @import("../../TensorBase.zig").log1p;
     const add = @import("../../TensorBase.zig").add;
@@ -1093,7 +1093,7 @@ test "log1p" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, log1pTensor), try toArray(allocator, add1LogTensor), 1e-5));
 }
 
-test "sin" {
+test "ArrayFireTensorBaseTest -> sin" {
     const sin = @import("../../TensorBase.zig").sin;
     const rand = @import("../../Random.zig").rand;
     const allocator = std.testing.allocator;
@@ -1112,7 +1112,7 @@ test "sin" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, sinTensor), sinArr, 1e-5));
 }
 
-test "cos" {
+test "ArrayFireTensorBaseTest -> cos" {
     const cos = @import("../../TensorBase.zig").cos;
     const rand = @import("../../Random.zig").rand;
     const allocator = std.testing.allocator;
@@ -1131,7 +1131,7 @@ test "cos" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, cosTensor), cosArr, 1e-5));
 }
 
-test "sqrt" {
+test "ArrayFireTensorBaseTest -> sqrt" {
     const sqrt = @import("../../TensorBase.zig").sqrt;
     const full = @import("../../TensorBase.zig").full;
     const div = @import("../../TensorBase.zig").div;
@@ -1151,7 +1151,7 @@ test "sqrt" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, sqrtTensor), try toArray(allocator, expected), 1e-5));
 }
 
-test "tanh" {
+test "ArrayFireTensorBaseTest -> tanh" {
     const tanh = @import("../../TensorBase.zig").tanh;
     const rand = @import("../../Random.zig").rand;
     const allocator = std.testing.allocator;
@@ -1170,7 +1170,7 @@ test "tanh" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, tanhTensor), tanhArr, 1e-5));
 }
 
-test "absolute" {
+test "ArrayFireTensorBaseTest -> absolute" {
     const absolute = @import("../../TensorBase.zig").absolute;
     const full = @import("../../TensorBase.zig").full;
     const allocator = std.testing.allocator;
@@ -1191,7 +1191,7 @@ test "absolute" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, absA), try toArray(allocator, comp), 1e-5));
 }
 
-test "erf" {
+test "ArrayFireTensorBaseTest -> erf" {
     const erf = @import("../../TensorBase.zig").erf;
     const rand = @import("../../Random.zig").rand;
     const allocator = std.testing.allocator;
@@ -1210,7 +1210,7 @@ test "erf" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, erfTensor), erfArr, 1e-5));
 }
 
-test "mean" {
+test "ArrayFireTensorBaseTest -> mean" {
     const mean = @import("../../TensorBase.zig").mean;
     const rand = @import("../../Random.zig").rand;
     const allocator = std.testing.allocator;
@@ -1243,7 +1243,7 @@ test "mean" {
     try std.testing.expect(try allClose(allocator, try toArray(allocator, meanTensor2), condensedMean.arr, 1e-5));
 }
 
-test "median" {
+test "ArrayFireTensorBaseTest -> median" {
     const median = @import("../../TensorBase.zig").median;
     const rand = @import("../../Random.zig").rand;
     const allocator = std.testing.allocator;
@@ -1281,7 +1281,7 @@ test "median" {
     ));
 }
 
-test "variance" {
+test "ArrayFireTensorBaseTest -> variance" {
     const variance = @import("../../TensorBase.zig").variance;
     const rand = @import("../../Random.zig").rand;
     const allocator = std.testing.allocator;
@@ -1315,18 +1315,120 @@ test "variance" {
     defer aVarTensor2.deinit();
     var aVarArr = try af.ops.varV2(allocator, try toArray(allocator, a), bias_mode, 0);
     defer aVarArr.deinit();
-    var condensedVar = try condenseIndices(allocator, aVarArr, false, null, false);
+    var condensedVar = try condenseIndices(
+        allocator,
+        aVarArr,
+        false,
+        null,
+        false,
+    );
     defer if (condensedVar.modified) condensedVar.arr.deinit();
-    try std.testing.expect(try allClose(allocator, try toArray(allocator, aVarTensor2), condensedVar.arr, 1e-5));
+    try std.testing.expect(try allClose(
+        allocator,
+        try toArray(allocator, aVarTensor2),
+        condensedVar.arr,
+        1e-5,
+    ));
 
     axes.items[0] = 1;
     var aVarTensor3 = try variance(allocator, a, axes, false, false);
     defer aVarTensor3.deinit();
-    var aVarArr2 = try af.ops.varV2(allocator, try toArray(allocator, a), bias_mode, 1);
+    var aVarArr2 = try af.ops.varV2(
+        allocator,
+        try toArray(allocator, a),
+        bias_mode,
+        1,
+    );
     defer aVarArr2.deinit();
-    var condensedVar2 = try condenseIndices(allocator, aVarArr2, false, null, false);
+    var condensedVar2 = try condenseIndices(
+        allocator,
+        aVarArr2,
+        false,
+        null,
+        false,
+    );
     defer if (condensedVar2.modified) condensedVar2.arr.deinit();
-    try std.testing.expect(try allClose(allocator, try toArray(allocator, aVarTensor3), condensedVar2.arr, 1e-5));
+    try std.testing.expect(try allClose(
+        allocator,
+        try toArray(allocator, aVarTensor3),
+        condensedVar2.arr,
+        1e-5,
+    ));
 
-    // TODO: Make sure multidimension matches computing for all
+    // Make sure multidimension matches computing for all
+    try std.testing.expectEqual(
+        (try toArray(allocator, aVarTensor)).getScalar(f32),
+        @floatCast(
+            (try af.ops.varAllV2(try toArray(allocator, a), bias_mode)).real,
+        ),
+    );
+    try axes.insert(0, 0);
+    var biasedTensor = try variance(allocator, a, axes, true, false);
+    defer biasedTensor.deinit();
+    var biasedScalar = try biasedTensor.scalar(allocator, f32);
+    try std.testing.expectEqual(
+        @as(
+            f32,
+            @floatCast(
+                (try af.ops.varAllV2(try toArray(allocator, a), .Sample)).real,
+            ),
+        ),
+        biasedScalar,
+    );
+}
+
+test "ArrayFireTensorBaseTest -> stdev" {
+    const stdev = @import("../../TensorBase.zig").stdev;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var dims = [_]Dim{ 3, 3 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+    var a = try rand(allocator, &shape, .f32);
+    defer a.deinit();
+
+    var axes = std.ArrayList(i32).init(allocator);
+    defer axes.deinit();
+    try axes.append(0);
+    var tensor_res_1 = try stdev(allocator, a, axes, true);
+    defer tensor_res_1.deinit();
+    var arr_res_1 = try af.ops.stdevV2(
+        allocator,
+        try toArray(allocator, a),
+        .Population,
+        0,
+    );
+    defer arr_res_1.deinit();
+    try std.testing.expect(try allClose(
+        allocator,
+        try toArray(allocator, tensor_res_1),
+        arr_res_1,
+        1e-5,
+    ));
+
+    axes.items[0] = 1;
+    var tensor_res_2 = try stdev(allocator, a, axes, true);
+    defer tensor_res_2.deinit();
+    var arr_res_2 = try af.ops.stdevV2(
+        allocator,
+        try toArray(allocator, a),
+        .Population,
+        1,
+    );
+    defer arr_res_2.deinit();
+    try std.testing.expect(try allClose(
+        allocator,
+        try toArray(allocator, tensor_res_2),
+        arr_res_2,
+        1e-5,
+    ));
+
+    try axes.insert(0, 0);
+    var tensor_res_3 = try stdev(allocator, a, axes, false);
+    defer tensor_res_3.deinit();
+    var tensor_res_3_scalar = try tensor_res_3.scalar(allocator, f32);
+    var expected = @sqrt((try af.ops.varAllV2(try toArray(allocator, a), .Population)).real);
+    try std.testing.expectEqual(tensor_res_3_scalar, @floatCast(expected));
 }

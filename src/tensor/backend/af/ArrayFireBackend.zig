@@ -1398,7 +1398,34 @@ pub const ArrayFireBackend = struct {
         }
     }
 
-    // TODO: pub fn std()
+    pub fn stdev(self: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+        const bias = false; // TODO: make this configurable
+        const bias_mode: af.VarBias = if (bias) .Sample else .Population;
+        if (try isAllAxisReduction(allocator, input, axes)) {
+            // TODO: update to af.af_std_dev_all_array_v2 once specialization is available
+            var out = try af.ops.stdevAllV2(try toArray(allocator, input), bias_mode);
+            return self.fromScalar(allocator, out.real, .f32);
+        } else if (axes.items.len == 1) {
+            // Use arrayfire default for one dimension which may be optimized
+            // TODO: update this? stddev is deprecated.
+            var arr = try af.ops.stdevV2(allocator, try toArray(allocator, input), bias_mode, @intCast(axes.items[0]));
+            var cond_arr = try condenseIndices(allocator, arr, keep_dims, null, false);
+            defer if (cond_arr.modified) arr.deinit();
+            var num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            return Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        cond_arr.arr,
+                        num_dims,
+                    ),
+                ),
+            );
+        }
+        var var_tensor = try self.variance(allocator, input, axes, bias, keep_dims);
+        defer var_tensor.deinit();
+        return self.sqrt(allocator, var_tensor);
+    }
 
     // TODO: pub fn norm()
 
