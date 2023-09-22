@@ -449,7 +449,7 @@ pub fn count(
         af.af_count(
             &arr,
             in.array_,
-            @intCast(dim),
+            af.ops.getFNSD(c_int, i32, dim, try in.getDims()),
         ),
         @src(),
     );
@@ -609,6 +609,19 @@ pub fn allTrueAll(in: *const af.Array) !ComplexParts {
     return res;
 }
 
+/// Returns whether all elements in an input `af.Array` are true.
+pub fn allTrueAllArray(allocator: std.mem.Allocator, in: *const af.Array) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_all_true_all_array(
+            &arr,
+            in.array_,
+        ),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
+}
+
 /// Returns whether any elements in an input `af.Array` are true.
 pub fn anyTrueAll(in: *const af.Array) !ComplexParts {
     var res = ComplexParts{};
@@ -621,6 +634,16 @@ pub fn anyTrueAll(in: *const af.Array) !ComplexParts {
         @src(),
     );
     return res;
+}
+
+/// Returns whether any elements in an input `af.Array` are true.
+pub fn anyTrueAllArray(allocator: std.mem.Allocator, in: *const af.Array) !*af.Array {
+    var arr: af.af_array = undefined;
+    try af.AF_CHECK(
+        af.af_any_true_all_array(&arr, in.array_),
+        @src(),
+    );
+    return af.Array.init(allocator, arr);
 }
 
 /// Returns the number of non-zero elements in an input `af.Array`.

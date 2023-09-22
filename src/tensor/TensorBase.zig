@@ -269,7 +269,7 @@ pub fn tile(allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !
     return (try tensor.backend(allocator)).tile(allocator, tensor, shape);
 }
 
-pub fn concatenate(allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
+pub fn concatenate(allocator: std.mem.Allocator, tensors: std.ArrayList(Tensor), axis: u32) !Tensor {
     if (tensors.items.len == 0) {
         std.log.debug("concatenate: called on empty set of tensors\n", .{});
         return error.ConcatFailedZeroTensors;
@@ -1259,12 +1259,20 @@ pub fn stdev(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i3
     return (try input.backend(allocator)).stdev(allocator, input, axes, keep_dims);
 }
 
-// TODO: pub fn norm()
+pub fn norm(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), p: f64, keep_dims: bool) !Tensor {
+    return (try input.backend(allocator)).norm(allocator, input, axes, p, keep_dims);
+}
 
-// TODO: pub fn countNonzero()
+pub fn countNonzero(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    return (try input.backend(allocator)).countNonzero(allocator, input, axes, keep_dims);
+}
 
-// TODO: pub fn any()
+pub fn any(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    return (try input.backend(allocator)).any(allocator, input, axes, keep_dims);
+}
 
-// TODO: pub fn all()
+pub fn all(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    return (try input.backend(allocator)).all(allocator, input, axes, keep_dims);
+}
 
 //************************** Utilities ***************************//

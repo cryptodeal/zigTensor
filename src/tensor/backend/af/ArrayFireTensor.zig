@@ -1432,3 +1432,141 @@ test "ArrayFireTensorBaseTest -> stdev" {
     var expected = @sqrt((try af.ops.varAllV2(try toArray(allocator, a), .Population)).real);
     try std.testing.expectEqual(tensor_res_3_scalar, @floatCast(expected));
 }
+
+test "ArrayFireTensorBaseTest -> norm" {
+    const norm = @import("../../TensorBase.zig").norm;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var dims = [_]Dim{ 3, 3 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+    var a = try rand(allocator, &shape, .f32);
+    defer a.deinit();
+
+    var axes = std.ArrayList(i32).init(allocator);
+    var res_tensor = try norm(allocator, a, axes, 2, false);
+    defer res_tensor.deinit();
+
+    var arr_norm = try af.ops.norm(try toArray(allocator, a), af.NormType.Vector2, 1, 1);
+    try std.testing.expectApproxEqAbs(
+        @as(f32, @floatCast(arr_norm)),
+        try res_tensor.scalar(allocator, f32),
+        1e-4,
+    );
+}
+
+test "ArrayFireTensorBaseTest -> tile" {
+    const tile = @import("../../TensorBase.zig").tile;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var dims = [_]Dim{ 3, 3 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+    var a = try rand(allocator, &shape, .f32);
+    defer a.deinit();
+
+    var tile_dims = [_]Dim{ 4, 5, 6 };
+    var tile_shape = try Shape.init(allocator, &tile_dims);
+    defer tile_shape.deinit();
+    var tile_tensor = try tile(allocator, a, &tile_shape);
+    defer tile_tensor.deinit();
+    var tile_arr = try af.ops.tile(allocator, try toArray(allocator, a), 4, 5, 6, 1);
+    defer tile_arr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, tile_tensor), tile_arr, 1e-5));
+}
+
+test "ArrayFireTensorBaseTest -> nonzero" {
+    const nonzero = @import("../../TensorBase.zig").nonzero;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var dims = [_]Dim{ 3, 3 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+    var a = try rand(allocator, &shape, .u32);
+    defer a.deinit();
+
+    var nz = try nonzero(allocator, a);
+    defer nz.deinit();
+    var arr = try af.ops.where(allocator, try toArray(allocator, a));
+    defer arr.deinit();
+    try std.testing.expect(try allClose(allocator, try toArray(allocator, nz), arr, 1e-5));
+}
+
+test "ArrayFireTensorBaseTest -> transpose" {
+    const transpose = @import("../../TensorBase.zig").transpose;
+    const rand = @import("../../Random.zig").rand;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a_dims = [_]Dim{ 3, 5 };
+    var a_shape = try Shape.init(allocator, &a_dims);
+    defer a_shape.deinit();
+    var a = try rand(allocator, &a_shape, .f32);
+    defer a.deinit();
+
+    var a_trans_dims = [_]Dim{ 0, 1, 2, 3, 4 };
+    var a_trans_shape = try Shape.init(allocator, &a_trans_dims);
+    defer a_trans_shape.deinit();
+    try std.testing.expectError(
+        error.ArrayFireTransposeFailed,
+        transpose(allocator, a, &a_trans_shape),
+    );
+
+    var a_trans_dims_2 = [0]Dim{};
+    var a_trans_shape_2 = try Shape.init(allocator, &a_trans_dims_2);
+    defer a_trans_shape_2.deinit();
+    var a_trans_tensor = try transpose(allocator, a, &a_trans_shape_2);
+    defer a_trans_tensor.deinit();
+    var a_trans_arr = try af.ops.transpose(allocator, try toArray(allocator, a), false);
+    defer a_trans_arr.deinit();
+    try std.testing.expect(try allClose(
+        allocator,
+        try toArray(allocator, a_trans_tensor),
+        a_trans_arr,
+        1e-5,
+    ));
+
+    var b_dims = [_]Dim{ 3, 5, 4, 8 };
+    var b_shape = try Shape.init(allocator, &b_dims);
+    defer b_shape.deinit();
+    var b = try rand(allocator, &b_shape, .f32);
+    defer b.deinit();
+
+    var b_trans_dims = [_]Dim{ 2, 0, 1, 3 };
+    var b_trans_shape = try Shape.init(allocator, &b_trans_dims);
+    defer b_trans_shape.deinit();
+    var b_trans_tensor = try transpose(allocator, b, &b_trans_shape);
+    defer b_trans_tensor.deinit();
+    var b_trans_arr = try af.ops.reorder(allocator, try toArray(allocator, b), 2, 0, 1, 3);
+    defer b_trans_arr.deinit();
+    try std.testing.expect(try allClose(
+        allocator,
+        try toArray(allocator, b_trans_tensor),
+        b_trans_arr,
+        1e-5,
+    ));
+}
+
+test "ArrayFireTensorBaseTest -> concatenate" {
+    const concatenate = @import("../../TensorBase.zig").concatenate;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+    var tensors = try std.ArrayList(Tensor).initCapacity(allocator, 11);
+    defer tensors.deinit();
+    try std.testing.expectError(
+        error.ConcatFailedZeroTensors,
+        concatenate(allocator, tensors, 0),
+    );
+}
+
+// TODO: test "ArrayFireTensorBaseTest -> device" {}
+
+// TODO: test "ArrayFireTensorBaseTest -> defaultConstructor" {}
+
+// TODO: test "ArrayFireTensorBaseTest -> emptyRangeIndexing" {}

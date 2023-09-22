@@ -663,7 +663,7 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn concatenate(_: *const ArrayFireBackend, allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
+    pub fn concatenate(_: *const ArrayFireBackend, allocator: std.mem.Allocator, tensors: std.ArrayList(Tensor), axis: u32) !Tensor {
         var arrays = try allocator.alloc(af.af_array, tensors.items.len);
         defer allocator.free(arrays);
         for (tensors.items, 0..) |t, i| {
@@ -1427,16 +1427,177 @@ pub const ArrayFireBackend = struct {
         return self.sqrt(allocator, var_tensor);
     }
 
-    // TODO: pub fn norm()
+    pub fn norm(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), p: f64, keep_dims: bool) !Tensor {
+        if (try isAllAxisReduction(allocator, input, axes)) {
+            // TODO: update to af_norm_all_array if device-side specialization is
+            // available. Either that or use the all-axis specializations with the below
+            // implementation
+            var flat_arr = try af.ops.flat(allocator, try toArray(allocator, input));
+            defer flat_arr.deinit();
+            var abs_arr = try af.ops.abs(allocator, flat_arr);
+            defer abs_arr.deinit();
+            var const_arr = try af.ops.constant(allocator, p, try abs_arr.getNumDims(), try abs_arr.getDims(), try abs_arr.getType());
+            defer const_arr.deinit();
+            var pow_arr = try af.ops.pow(allocator, abs_arr, const_arr, false);
+            defer pow_arr.deinit();
+            var sum_arr = try af.ops.sumAllArray(allocator, pow_arr);
+            defer sum_arr.deinit();
+            var denom_arr = try af.ops.constant(allocator, 1 / p, try sum_arr.getNumDims(), try sum_arr.getDims(), try sum_arr.getType());
+            defer denom_arr.deinit();
+            var res1 = try af.ops.pow(allocator, sum_arr, denom_arr, false);
+            var condensed = try condenseIndices(allocator, res1, false, null, false);
+            defer if (condensed.modified) res1.deinit();
+            return Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        condensed.arr,
+                        0,
+                    ),
+                ),
+            );
+        } else {
+            var abs_arr = try af.ops.abs(allocator, try toArray(allocator, input));
+            defer abs_arr.deinit();
+            var const_arr = try af.ops.constant(allocator, p, try abs_arr.getNumDims(), try abs_arr.getDims(), try abs_arr.getType());
+            defer const_arr.deinit();
+            var pow_arr = try af.ops.pow(allocator, abs_arr, const_arr, false);
+            defer pow_arr.deinit();
+            var reduced_arr = try afReduceAxes(allocator, pow_arr, axes, reduceFunc_t, af.ops.sum, keep_dims);
+            defer reduced_arr.deinit();
+            var denom_arr = try af.ops.constant(allocator, 1 / p, try reduced_arr.getNumDims(), try reduced_arr.getDims(), try reduced_arr.getType());
+            defer denom_arr.deinit();
+            var res = try af.ops.pow(allocator, reduced_arr, denom_arr, false);
+            return Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        res,
+                        getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims),
+                    ),
+                ),
+            );
+        }
+    }
 
-    // TODO: pub fn countNonzero()
+    pub fn countNonzero(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+        var arr = try toArray(allocator, input);
+        var num_dims: usize = undefined;
+        var out: *af.Array = undefined;
+        if (try isAllAxisReduction(allocator, input, axes)) {
+            var count_arr = try af.ops.count(allocator, arr, -1);
+            defer count_arr.deinit();
+            var sum_arr = try af.ops.sumAllArray(allocator, count_arr);
+            var condensed = try condenseIndices(allocator, sum_arr, keep_dims, null, false);
+            defer if (condensed.modified) sum_arr.deinit();
+            out = condensed.arr;
+            num_dims = 0;
+        } else if (axes.items.len == 1) {
+            out = try af.ops.count(allocator, arr, axes.items[0]);
+            num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+        } else {
+            var count_arr = try af.ops.count(allocator, arr, axes.items[0]);
+            defer count_arr.deinit();
+            var used_axes = std.ArrayList(i32).init(allocator);
+            defer used_axes.deinit();
+            try used_axes.appendSlice(axes.items[1..]);
+            out = try afReduceAxes(allocator, count_arr, used_axes, reduceFunc_t, af.ops.sum, keep_dims);
+            num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+        }
+        var condensed = try condenseIndices(allocator, out, keep_dims, null, false);
+        defer if (condensed.modified) out.deinit();
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    condensed.arr,
+                    num_dims,
+                ),
+            ),
+        );
+    }
 
-    // TODO: pub fn any()
+    pub fn any(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+        if (try isAllAxisReduction(allocator, input, axes)) {
+            // Reduce along all axes returning a singleton tensor
+            var arr = try af.ops.anyTrueAllArray(allocator, try toArray(allocator, input));
+            var condensed = try condenseIndices(allocator, arr, false, null, false);
+            defer if (condensed.modified) arr.deinit();
+            return Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        condensed.arr,
+                        0,
+                    ),
+                ),
+            );
+        } else {
+            var arr = try afReduceAxes(
+                allocator,
+                try toArray(allocator, input),
+                axes,
+                reduceFunc_t,
+                af.ops.anyTrue,
+                keep_dims,
+            );
+            return Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        arr,
+                        getReducedNumDims(
+                            usize,
+                            try input.ndim(allocator),
+                            axes.items.len,
+                            keep_dims,
+                        ),
+                    ),
+                ),
+            );
+        }
+    }
 
-    // TODO: pub fn all()
-
-    // TODO: Binary ops
-
+    pub fn all(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+        if (try isAllAxisReduction(allocator, input, axes)) {
+            // Reduce along all axes returning a singleton tensor
+            var arr = try af.ops.allTrueAllArray(allocator, try toArray(allocator, input));
+            var condensed = try condenseIndices(allocator, arr, false, null, false);
+            defer if (condensed.modified) arr.deinit();
+            return Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        condensed.arr,
+                        0,
+                    ),
+                ),
+            );
+        } else {
+            var arr = try afReduceAxes(
+                allocator,
+                try toArray(allocator, input),
+                axes,
+                reduceFunc_t,
+                af.ops.allTrue,
+                keep_dims,
+            );
+            return Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        arr,
+                        getReducedNumDims(
+                            usize,
+                            try input.ndim(allocator),
+                            axes.items.len,
+                            keep_dims,
+                        ),
+                    ),
+                ),
+            );
+        }
+    }
     pub fn add(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
         return doBinaryOpOrBroadcast(allocator, lhs, rhs, af.ops.add);
     }

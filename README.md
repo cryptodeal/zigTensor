@@ -93,8 +93,8 @@ defer c.deinit();
       - [ ] ArrayFireBackend (WIP)
       - [x] ArrayFireBinaryOps
       - [ ] ArrayFireCPUStream (WIP)
-      - [ ] ArrayFireReductions (WIP)
-      - [ ] ArrayFireShapeAndIndex
+      - [x] ArrayFireReductions
+      - [x] ArrayFireShapeAndIndex
       - [ ] ArrayFireTensor (WIP)
       - [ ] ArrayFireUnaryOps (WIP)
       - [x] Utils

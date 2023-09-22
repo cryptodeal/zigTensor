@@ -66,7 +66,7 @@ pub const TensorBackend = struct {
         reshape: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) anyerror!Tensor,
         transpose: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, axes: *const Shape) anyerror!Tensor,
         tile: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) anyerror!Tensor,
-        concatenate: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) anyerror!Tensor,
+        concatenate: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensors: std.ArrayList(Tensor), axis: u32) anyerror!Tensor,
         nonzero: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         pad: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) anyerror!Tensor,
         exp: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
@@ -104,6 +104,10 @@ pub const TensorBackend = struct {
         median: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
         variance: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), bias: bool, keep_dims: bool) anyerror!Tensor,
         stdev: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
+        norm: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), p: f64, keep_dims: bool) anyerror!Tensor,
+        countNonzero: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
+        any: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
+        all: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
         add: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         sub: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         mul: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
@@ -231,7 +235,7 @@ pub const TensorBackend = struct {
         return self.vtable.tile(self.ptr, allocator, tensor, shape);
     }
 
-    pub fn concatenate(self: *const Self, allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
+    pub fn concatenate(self: *const Self, allocator: std.mem.Allocator, tensors: std.ArrayList(Tensor), axis: u32) !Tensor {
         return self.vtable.concatenate(self.ptr, allocator, tensors, axis);
     }
 
@@ -377,6 +381,22 @@ pub const TensorBackend = struct {
 
     pub fn stdev(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
         return self.vtable.stdev(self.ptr, allocator, input, axes, keep_dims);
+    }
+
+    pub fn norm(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), p: f64, keep_dims: bool) !Tensor {
+        return self.vtable.norm(self.ptr, allocator, input, axes, p, keep_dims);
+    }
+
+    pub fn countNonzero(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+        return self.vtable.countNonzero(self.ptr, allocator, input, axes, keep_dims);
+    }
+
+    pub fn any(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+        return self.vtable.any(self.ptr, allocator, input, axes, keep_dims);
+    }
+
+    pub fn all(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+        return self.vtable.all(self.ptr, allocator, input, axes, keep_dims);
     }
 
     pub fn add(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
@@ -583,7 +603,7 @@ pub const TensorBackend = struct {
                 return self.tile(allocator, tensor, shape);
             }
 
-            fn concatenate(ctx: *anyopaque, allocator: std.mem.Allocator, tensors: *const std.ArrayList(Tensor), axis: u32) !Tensor {
+            fn concatenate(ctx: *anyopaque, allocator: std.mem.Allocator, tensors: std.ArrayList(Tensor), axis: u32) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.concatenate(allocator, tensors, axis);
             }
@@ -770,6 +790,26 @@ pub const TensorBackend = struct {
                 return self.stdev(allocator, input, axes, keep_dims);
             }
 
+            fn norm(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), p: f64, keep_dims: bool) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.norm(allocator, input, axes, p, keep_dims);
+            }
+
+            fn countNonzero(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.countNonzero(allocator, input, axes, keep_dims);
+            }
+
+            fn any(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.any(allocator, input, axes, keep_dims);
+            }
+
+            fn all(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.all(allocator, input, axes, keep_dims);
+            }
+
             fn add(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.add(allocator, lhs, rhs);
@@ -941,6 +981,10 @@ pub const TensorBackend = struct {
                 .median = impl.median,
                 .variance = impl.variance,
                 .stdev = impl.stdev,
+                .norm = impl.norm,
+                .countNonzero = impl.countNonzero,
+                .any = impl.any,
+                .all = impl.all,
                 .add = impl.add,
                 .sub = impl.sub,
                 .mul = impl.mul,
