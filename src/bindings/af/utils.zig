@@ -95,11 +95,7 @@ pub fn ztToAfLocation(location: Location) af.Source {
 
 pub fn ztRangeToAfSeq(range: Range) af.af_seq {
     const end = range.end() orelse -1;
-    return .{
-        .begin = @floatFromInt(range.start()),
-        .end = @floatFromInt(end),
-        .step = @floatFromInt(range.stride()),
-    };
+    return makeSeq(@floatFromInt(range.start()), @floatFromInt(end), @floatFromInt(range.stride()));
 }
 
 pub fn ztToAfIndex(idx: Index) af.af_index_t {
@@ -127,11 +123,7 @@ pub fn ztToAfIndex(idx: Index) af.af_index_t {
             .isSeq = true,
             .isBatch = false,
             .idx = .{
-                .seq = .{
-                    .begin = @floatFromInt(idx.index_.Literal),
-                    .end = @floatFromInt(idx.index_.Literal),
-                    .step = 1,
-                },
+                .seq = makeSeq(@floatFromInt(idx.index_.Literal), @floatFromInt(idx.index_.Literal), 1),
             },
         },
     };
@@ -325,10 +317,10 @@ pub inline fn getKernelCacheDir() ![]const u8 {
 }
 
 /// Returns the last error message that occurred and its error message.
-pub inline fn getLastError() ![]const u8 {
+pub inline fn getLastError() []const u8 {
     var err: [*c]u8 = undefined;
     var len: af.dim_t = undefined;
-    try af.AF_CHECK(af.af_get_last_error(&err, &len), @src());
+    af.af_get_last_error(&err, &len);
     return err[0..@intCast(len)];
 }
 
@@ -340,14 +332,14 @@ pub inline fn errToString(err: af.af_err) []const u8 {
 
 /// Create a new `af.af_seq` object.
 pub inline fn makeSeq(begin: f64, end: f64, step: f64) af.af_seq {
-    return .{ .begin = begin, .end = end, .step = step };
+    return af.af_seq{ .begin = begin, .end = end, .step = step };
 }
 
 /// Create an quadruple of `af.af_index_t` array.
 pub inline fn createIndexers() ![]af.af_index_t {
     var indexers: [*c]af.af_index_t = undefined;
     try af.AF_CHECK(af.af_create_indexers(&indexers), @src());
-    return indexers[0..3];
+    return indexers[0..4];
 }
 
 /// Set dim to given indexer `af.Array` idx.
@@ -359,7 +351,7 @@ pub inline fn setArrayIndexer(
     try af.AF_CHECK(
         af.af_set_array_indexer(
             indexer.ptr,
-            idx.array,
+            idx.array_,
             @intCast(dim),
         ),
         @src(),

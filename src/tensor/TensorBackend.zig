@@ -89,7 +89,7 @@ pub const TensorBackend = struct {
         roll: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shift: Dim, axis: usize) anyerror!Tensor,
         isnan: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         isinf: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
-        // TODO: sign: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
+        sign: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         tril: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         triu: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         amin: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
@@ -325,6 +325,10 @@ pub const TensorBackend = struct {
 
     pub fn isinf(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
         return self.vtable.isinf(self.ptr, allocator, tensor);
+    }
+
+    pub fn sign(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        return self.vtable.sign(self.ptr, allocator, tensor);
     }
 
     pub fn tril(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
@@ -718,7 +722,10 @@ pub const TensorBackend = struct {
                 return self.isinf(allocator, tensor);
             }
 
-            // TODO: fn sign()
+            fn sign(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.sign(allocator, tensor);
+            }
 
             fn tril(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
@@ -966,7 +973,7 @@ pub const TensorBackend = struct {
                 .roll = impl.roll,
                 .isnan = impl.isnan,
                 .isinf = impl.isinf,
-                // TODO: .sign = impl.sign,
+                .sign = impl.sign,
                 .tril = impl.tril,
                 .triu = impl.triu,
                 .amin = impl.amin,

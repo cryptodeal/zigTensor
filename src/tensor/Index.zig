@@ -183,7 +183,7 @@ pub const Index = struct {
     }
 };
 
-test "IndexTest Range" {
+test "IndexTest -> Range" {
     var s1 = Range.initEnd(3);
     try std.testing.expect(s1.start() == 0);
     try std.testing.expect(try s1.endVal() == 3);
@@ -203,7 +203,7 @@ test "IndexTest Range" {
     try std.testing.expect(s4.stride() == 2);
 }
 
-test "IndexTest Range.eql" {
+test "IndexTest -> Range.eql" {
     var r1 = Range.initEnd(4);
     var r2 = Range.initEnd(4);
     try std.testing.expect(r1.eql(&r2));
@@ -221,7 +221,7 @@ test "IndexTest Range.eql" {
     try std.testing.expect(r1.eql(&r2));
 }
 
-test "IndexTest Index.idxType" {
+test "IndexTest -> Index.idxType" {
     const idx1 = Index.initDim(1);
     try std.testing.expect(idx1.idxType() == .Literal);
 
@@ -231,4 +231,55 @@ test "IndexTest Index.idxType" {
     const idx3 = Index.initRange(span);
     try std.testing.expect(idx3.idxType() == .Span);
     try std.testing.expect(idx3.isSpan());
+}
+
+test "IndexTest -> ArrayFireMaxIndex" {
+    const full = @import("TensorBase.zig").full;
+    const Shape = @import("Shape.zig").Shape;
+    const deinit = @import("Init.zig").deinit;
+    defer deinit(); // deinit global singletons
+
+    const allocator = std.testing.allocator;
+    var dims = [_]Dim{ 2, 3, 4, 5 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+    var t = try full(allocator, &shape, f64, 6, .f32);
+    defer t.deinit();
+    if (t.backendType() != .ArrayFire) {
+        return error.SkipZigTest;
+    }
+    var indice_arr = [_]Index{ Index.initDim(1), Index.initDim(2), Index.initDim(3), Index.initDim(4), Index.initDim(5) };
+    var indices = std.ArrayList(Index).init(allocator);
+    defer indices.deinit();
+    try indices.appendSlice(&indice_arr);
+    try std.testing.expectError(
+        error.IndicesExceedMaxDims,
+        t.index(allocator, indices),
+    );
+}
+
+test "IndexTest -> Shape" {
+    const full = @import("TensorBase.zig").full;
+    const Shape = @import("Shape.zig").Shape;
+    const deinit = @import("Init.zig").deinit;
+    defer deinit(); // deinit global singletons
+
+    const allocator = std.testing.allocator;
+    var dims = [_]Dim{ 4, 4 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+    var t = try full(allocator, &shape, f64, 3, .f32);
+    defer t.deinit();
+
+    var indice_arr = [_]Index{ Index.initDim(2), Index.initDim(2) };
+    var indices = std.ArrayList(Index).init(allocator);
+    defer indices.deinit();
+    try indices.appendSlice(&indice_arr);
+
+    var res1 = try t.index(allocator, indices);
+    defer res1.deinit();
+    var res1_dims = [_]Dim{1};
+    var res1_shape = try Shape.init(allocator, &res1_dims);
+    defer res1_shape.deinit();
+    try std.testing.expect((try res1.shape(allocator)).eql(&res1_shape));
 }

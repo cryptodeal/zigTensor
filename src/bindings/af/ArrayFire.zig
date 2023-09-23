@@ -33,8 +33,8 @@ pub const Errors = error{ArrayFireError};
 pub inline fn AF_CHECK(v: af.af_err, src: std.builtin.SourceLocation) !void {
     if (v != af.AF_SUCCESS) {
         std.debug.print(
-            "ArrayFire error: {s}:{d} - {s}\n",
-            .{ src.file, src.line, ops.errToString(v) },
+            "ArrayFire error: {s}:{d} - {s}:\n{s}\n",
+            .{ src.file, src.line, ops.errToString(v), ops.getLastError() },
         );
         return error.ArrayFireError;
     }

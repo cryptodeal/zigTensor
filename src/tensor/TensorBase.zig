@@ -404,7 +404,9 @@ pub fn isinf(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
     return (try tensor.backend(allocator)).isinf(allocator, tensor);
 }
 
-// TODO: pub fn sign()
+pub fn sign(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return (try tensor.backend(allocator)).sign(allocator, tensor);
+}
 
 pub fn tril(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
     return (try tensor.backend(allocator)).tril(allocator, tensor);
@@ -1276,3 +1278,21 @@ pub fn all(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32)
 }
 
 //************************** Utilities ***************************//
+
+//************************** Unit Tests **************************//
+
+test "TensorBase -> sign" {
+    const rand = @import("Random.zig").rand;
+    const deinit = @import("Init.zig").deinit;
+    defer deinit(); // deinit global singletons
+
+    const allocator = std.testing.allocator;
+    var dims = [_]Dim{ 5, 5 };
+    var shape = try Shape.init(allocator, &dims);
+    defer shape.deinit();
+    var init_rand = try rand(allocator, &shape, .f32);
+    defer init_rand.deinit();
+    var vals = try sub(allocator, Tensor, init_rand, f32, 0.5);
+    defer vals.deinit();
+    // TODO: need to finish writing this test
+}

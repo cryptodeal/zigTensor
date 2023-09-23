@@ -55,7 +55,7 @@ pub const ArrayFireTensor = struct {
         pub fn get(_: *const IndexedArrayComponent, allocator: std.mem.Allocator, inst: *ArrayFireTensor) !*af.Array {
             return af.ops.indexGen(
                 allocator,
-                try inst.getHandle(allocator),
+                inst.arrayHandle_.value.*,
                 @intCast(inst.numDims_),
                 inst.indices_.?,
             );
@@ -125,9 +125,11 @@ pub const ArrayFireTensor = struct {
         is_flat: bool,
     ) !*ArrayFireTensor {
         var self = try allocator.create(ArrayFireTensor);
+        var afDims = try handle.value.*.getDims();
         self.* = .{
             .arrayHandle_ = handle,
             .indices_ = af_indices,
+            .shape_ = try afDims.toZtShape(allocator, afDims.ndims()),
             .indexTypes_ = index_types,
             .handle_ = .{ .indexedArray = IndexedArrayComponent.init(is_flat) },
             .numDims_ = num_dims,
@@ -215,7 +217,7 @@ pub const ArrayFireTensor = struct {
         self.arrayHandle_.releaseWithFn(af.Array.deinit);
         // remove indices
         if (self.indices_ != null) {
-            af.ops.releaseIndexers(@constCast(self.indices_.?)) catch unreachable;
+            af.ops.releaseIndexers(self.indices_.?) catch unreachable;
         }
         // remove IndexTypes
         if (self.indexTypes_ != null) {
@@ -229,33 +231,36 @@ pub const ArrayFireTensor = struct {
         if (@as(ComponentTypeTag, self.handle_) != .array) {
             const idxComp: IndexedArrayComponent = self.handle_.indexedArray;
             var idxTypes: ?[]IndexType = if (self.indexTypes_ != null) self.indexTypes_.?.items else null;
+
+            //std.debug.print("attempting IndexedArrayComponent.get()\n", .{});
+            var oldHandle = self.arrayHandle_;
+            defer oldHandle.releaseWithFn(af.Array.deinit);
+
+            var used_arr = try idxComp.get(allocator, self);
             var condensed = try condenseIndices(
                 allocator,
-                try idxComp.get(allocator, self),
+                used_arr,
                 false,
                 idxTypes,
                 idxComp.isFlat_,
             );
+            defer if (condensed.modified) used_arr.deinit();
 
-            // only create new handle/release old handle if the array was modified
-            if (condensed.modified) {
-                var oldHandle = self.arrayHandle_;
-                defer oldHandle.releaseWithFn(af.Array.deinit);
-                self.arrayHandle_ = try Arc(*af.Array).init(
-                    allocator,
-                    condensed.arr,
-                );
-            }
+            // assign the new handle
+            self.arrayHandle_ = try Arc(*af.Array).init(
+                allocator,
+                condensed.arr,
+            );
 
             // Clear state
             self.handle_ = .{ .array = ArrayComponent{} }; // set to passthrough
             // remove indices
             if (self.indices_ != null) {
-                try af.ops.releaseIndexers(@constCast(self.indices_.?));
+                try af.ops.releaseIndexers(self.indices_.?);
                 self.indices_ = null;
             }
             // remove IndexTypes
-            if (idxTypes != null) {
+            if (self.indexTypes_ != null) {
                 self.indexTypes_.?.deinit();
                 self.indexTypes_ = null;
             }
@@ -299,7 +304,8 @@ pub const ArrayFireTensor = struct {
     pub fn shape(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Shape {
         // Update the Shape in-place. Doesn't change any underlying data; only the
         // mirrored Shape metadata.
-        const afDims: af.Dim4 = try (try self.getHandle(allocator)).getDims();
+        var tmp_handle = try self.getHandle(allocator);
+        const afDims: af.Dim4 = try tmp_handle.getDims();
         try afDims.toZtShapeRaw(self.numDims(), &self.shape_);
         return self.shape_;
     }
@@ -388,7 +394,8 @@ pub const ArrayFireTensor = struct {
         const completeTensorIndex = indices.items.len == 1 and indices.items[0].idxType() == .Tensor and try indices.items[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try self.getHandle(allocator)).getElements()));
         var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
         if (completeTensorIndex) {
-            try af.ops.setSeqIndexer(afIndices, &af.af_seq{ .begin = 0, .end = 0, .step = 1 }, 0, false);
+            // TODO: verify this is correct; needs tests
+            try af.ops.setSeqParamIndexer(afIndices, 0, 0, 1, 0, false);
         }
 
         if (indices.items.len > afIndices.len) {
