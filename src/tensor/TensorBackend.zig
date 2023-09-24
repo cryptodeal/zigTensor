@@ -129,6 +129,7 @@ pub const TensorBackend = struct {
         minimum: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         maximum: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         power: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
+        print: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!void,
     };
 
     pub fn deinit(self: *const Self) void {
@@ -485,6 +486,10 @@ pub const TensorBackend = struct {
 
     pub fn power(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
         return self.vtable.power(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn print(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor) !void {
+        return self.vtable.print(self.ptr, allocator, tensor);
     }
 
     pub fn init(backend_impl: anytype) Self {
@@ -921,6 +926,11 @@ pub const TensorBackend = struct {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.power(allocator, lhs, rhs);
             }
+
+            fn print(ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.print(allocator, tensor);
+            }
         };
         return .{
             .ptr = backend_impl,
@@ -1013,6 +1023,7 @@ pub const TensorBackend = struct {
                 .minimum = impl.minimum,
                 .maximum = impl.maximum,
                 .power = impl.power,
+                .print = impl.print,
             },
         };
     }

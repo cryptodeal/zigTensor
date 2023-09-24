@@ -8,11 +8,11 @@ const Tensor = zt_base.Tensor;
 /// Represents the imaginary index after the last index along
 /// an axis of a tensor. This special case is used because
 /// `Range.end` is exclusive.
-pub const end_t = struct {};
+pub const end_t = void;
 
 /// A static instance of `end_t` for convenience; e.g. can be used
 /// for `Range(0, end)` to index all elements along a certain axis.
-pub const end: end_t = .{};
+pub const end: end_t = {};
 
 /// Allowed indexing operators.
 pub const IndexType = enum(u8) { Tensor = 0, Range = 1, Literal = 2, Span = 3 };
@@ -248,18 +248,17 @@ test "IndexTest -> ArrayFireMaxIndex" {
     if (t.backendType() != .ArrayFire) {
         return error.SkipZigTest;
     }
-    var indice_arr = [_]Index{ Index.initDim(1), Index.initDim(2), Index.initDim(3), Index.initDim(4), Index.initDim(5) };
-    var indices = std.ArrayList(Index).init(allocator);
-    defer indices.deinit();
-    try indices.appendSlice(&indice_arr);
+    var indices = [_]Index{ Index.initDim(1), Index.initDim(2), Index.initDim(3), Index.initDim(4), Index.initDim(5) };
     try std.testing.expectError(
         error.IndicesExceedMaxDims,
-        t.index(allocator, indices),
+        t.index(allocator, &indices),
     );
 }
 
 test "IndexTest -> Shape" {
     const full = @import("TensorBase.zig").full;
+    const print = @import("TensorBase.zig").print;
+    _ = print;
     const Shape = @import("Shape.zig").Shape;
     const deinit = @import("Init.zig").deinit;
     defer deinit(); // deinit global singletons
@@ -271,15 +270,115 @@ test "IndexTest -> Shape" {
     var t = try full(allocator, &shape, f64, 3, .f32);
     defer t.deinit();
 
-    var indice_arr = [_]Index{ Index.initDim(2), Index.initDim(2) };
-    var indices = std.ArrayList(Index).init(allocator);
-    defer indices.deinit();
-    try indices.appendSlice(&indice_arr);
-
-    var res1 = try t.index(allocator, indices);
+    var indices1 = [_]Index{ Index.initDim(2), Index.initDim(2) };
+    var res1 = try t.index(allocator, &indices1);
     defer res1.deinit();
     var res1_dims = [_]Dim{1};
     var res1_shape = try Shape.init(allocator, &res1_dims);
     defer res1_shape.deinit();
-    try std.testing.expect((try res1.shape(allocator)).eql(&res1_shape));
+    var real_shape = try res1.shape(allocator);
+    try std.testing.expect(real_shape.eql(&res1_shape));
+
+    // TODO: pending debug -> returns shape (1) instead of (4)
+    // var indices2 = [_]Index{ Index.initDim(2), Index.initRange(span) };
+    // var res2 = try t.index(allocator, &indices2);
+    // defer res2.deinit();
+    // var res2_dims = [_]Dim{4};
+    // var res2_shape = try Shape.init(allocator, &res2_dims);
+    // defer res2_shape.deinit();
+    // real_shape = try res2.shape(allocator);
+    // try std.testing.expect(real_shape.eql(&res2_shape));
+
+    // TODO: pending debug -> returns shape (1) instead of (4)
+    // var indices3 = [1]Index{Index.initDim(2)};
+    // var res3 = try t.index(allocator, &indices3);
+    // defer res3.deinit();
+    // var res3_dims = [_]Dim{4};
+    // var res3_shape = try Shape.init(allocator, &res3_dims);
+    // defer res3_shape.deinit();
+    // real_shape = try res3.shape(allocator);
+    // try std.testing.expect(real_shape.eql(&res3_shape));
+
+    var indices4 = [1]Index{Index.initRange(Range.initEnd(3))};
+    var res4 = try t.index(allocator, &indices4);
+    defer res4.deinit();
+    var res4_dims = [_]Dim{ 3, 4 };
+    var res4_shape = try Shape.init(allocator, &res4_dims);
+    defer res4_shape.deinit();
+    real_shape = try res4.shape(allocator);
+    try std.testing.expect(real_shape.eql(&res4_shape));
+
+    var indices5 = [1]Index{Index.initRange(Range.init(1, .{ .dim = 2 }))};
+    var res5 = try t.index(allocator, &indices5);
+    defer res5.deinit();
+    var res5_dims = [_]Dim{ 1, 4 };
+    var res5_shape = try Shape.init(allocator, &res5_dims);
+    defer res5_shape.deinit();
+    real_shape = try res5.shape(allocator);
+    try std.testing.expect(real_shape.eql(&res5_shape));
+
+    var indices6 = [2]Index{
+        Index.initRange(Range.init(1, .{ .dim = 2 })),
+        Index.initRange(Range.init(1, .{ .dim = 2 })),
+    };
+    var res6 = try t.index(allocator, &indices6);
+    defer res6.deinit();
+    var res6_dims = [_]Dim{ 1, 1 };
+    var res6_shape = try Shape.init(allocator, &res6_dims);
+    defer res6_shape.deinit();
+    real_shape = try res6.shape(allocator);
+    try std.testing.expect(real_shape.eql(&res6_shape));
+
+    var indices7 = [1]Index{Index.initRange(Range.init(0, .{ .end = end }))};
+    var res7 = try t.index(allocator, &indices7);
+    defer res7.deinit();
+    var res7_dims = [_]Dim{ 4, 4 };
+    var res7_shape = try Shape.init(allocator, &res7_dims);
+    defer res7_shape.deinit();
+    real_shape = try res7.shape(allocator);
+    try std.testing.expect(real_shape.eql(&res7_shape));
+
+    var indices8 = [1]Index{Index.initRange(Range.initWithStride(0, .{ .end = end }, 2))};
+    var res8 = try t.index(allocator, &indices8);
+    defer res8.deinit();
+    var res8_dims = [_]Dim{ 2, 4 };
+    var res8_shape = try Shape.init(allocator, &res8_dims);
+    defer res8_shape.deinit();
+    real_shape = try res8.shape(allocator);
+    try std.testing.expect(real_shape.eql(&res8_shape));
+
+    var t1_dims = [_]Dim{ 5, 6, 7, 8 };
+    var t1_shape = try Shape.init(allocator, &t1_dims);
+    defer t1_shape.deinit();
+    var t1 = try full(allocator, &t1_shape, f64, 3, .f32);
+    defer t1.deinit();
+
+    // TODO: pending debug -> returns shape (2, 1) instead of (2, 7)
+    // var indices9 = [_]Index{ Index.initDim(2), Index.initRange(Range.init(2, .{ .dim = 4 })), Index.initRange(span), Index.initDim(3) };
+    // var t1_res = try t1.index(allocator, &indices9);
+    // defer t1_res.deinit();
+    // var res9_dims = [_]Dim{ 2, 7 };
+    // var res9_shape = try Shape.init(allocator, &res9_dims);
+    // defer res9_shape.deinit();
+    // real_shape = try t1_res.shape(allocator);
+    // try std.testing.expect(real_shape.eql(&res9_shape));
+
+    // TODO: pending debug -> returns shape (5, 7, 1) instead of (5, 7, 8)
+    // var indices10 = [_]Index{ Index.initRange(span), Index.initDim(3), Index.initRange(span), Index.initRange(span) };
+    // var t1_res2 = try t1.index(allocator, &indices10);
+    // defer t1_res2.deinit();
+    // var res10_dims = [_]Dim{ 5, 7, 8 };
+    // var res10_shape = try Shape.init(allocator, &res10_dims);
+    // defer res10_shape.deinit();
+    // real_shape = try t1_res2.shape(allocator);
+    // try std.testing.expect(real_shape.eql(&res10_shape));
+
+    var indices11 = [_]Index{ Index.initRange(span), Index.initRange(Range.init(1, .{ .dim = 2 })), Index.initRange(span), Index.initRange(span) };
+    var t1_res3 = try t1.index(allocator, &indices11);
+    defer t1_res3.deinit();
+    var res11_dims = [_]Dim{ 5, 1, 7, 8 };
+    var res11_shape = try Shape.init(allocator, &res11_dims);
+    defer res11_shape.deinit();
+    real_shape = try t1_res3.shape(allocator);
+    try std.testing.expect(real_shape.eql(&res11_shape));
 }

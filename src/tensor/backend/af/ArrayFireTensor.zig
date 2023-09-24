@@ -235,7 +235,6 @@ pub const ArrayFireTensor = struct {
             //std.debug.print("attempting IndexedArrayComponent.get()\n", .{});
             var oldHandle = self.arrayHandle_;
             defer oldHandle.releaseWithFn(af.Array.deinit);
-
             var used_arr = try idxComp.get(allocator, self);
             var condensed = try condenseIndices(
                 allocator,
@@ -304,8 +303,7 @@ pub const ArrayFireTensor = struct {
     pub fn shape(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Shape {
         // Update the Shape in-place. Doesn't change any underlying data; only the
         // mirrored Shape metadata.
-        var tmp_handle = try self.getHandle(allocator);
-        const afDims: af.Dim4 = try tmp_handle.getDims();
+        const afDims: af.Dim4 = try (try self.getHandle(allocator)).getDims();
         try afDims.toZtShapeRaw(self.numDims(), &self.shape_);
         return self.shape_;
     }
@@ -380,9 +378,12 @@ pub const ArrayFireTensor = struct {
         return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, convertedArr, self.numDims())));
     }
 
-    pub fn index(self: *ArrayFireTensor, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
-        if (indices.items.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
-            std.log.debug("ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n", .{});
+    pub fn index(self: *ArrayFireTensor, allocator: std.mem.Allocator, indices: []Index) !Tensor {
+        if (indices.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
+            std.log.debug(
+                "ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n",
+                .{},
+            );
             return error.IndicesExceedMaxDims;
         }
 
@@ -391,14 +392,14 @@ pub const ArrayFireTensor = struct {
         // If indexing by a single element and it's a tensor with the same number of
         // indices as the array being indexed, do a flat index as this is probably a
         // filter-based index (for example: a(a < 5)).
-        const completeTensorIndex = indices.items.len == 1 and indices.items[0].idxType() == .Tensor and try indices.items[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try self.getHandle(allocator)).getElements()));
+        const completeTensorIndex = indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try self.getHandle(allocator)).getElements()));
         var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
         if (completeTensorIndex) {
             // TODO: verify this is correct; needs tests
             try af.ops.setSeqParamIndexer(afIndices, 0, 0, 1, 0, false);
         }
 
-        if (indices.items.len > afIndices.len) {
+        if (indices.len > afIndices.len) {
             std.log.debug("ArrayFireTensor.index internal error - passed indices is larger than the number of af indices.\n", .{});
             return error.PassedIndicesLargerThanAfIndices;
         }
@@ -406,9 +407,9 @@ pub const ArrayFireTensor = struct {
         // Fill in corresponding index types for each af index
         var indexTypes = try std.ArrayList(IndexType).initCapacity(allocator, afIndices.len);
         var i: usize = 0;
-        while (i < indices.items.len) : (i += 1) {
-            indexTypes.appendAssumeCapacity(indices.items[i].idxType());
-            afIndices[i] = af.ops.ztToAfIndex(indices.items[i]);
+        while (i < indices.len) : (i += 1) {
+            indexTypes.appendAssumeCapacity(indices[i].idxType());
+            afIndices[i] = af.ops.ztToAfIndex(indices[i]);
         }
 
         // If we're adding implicit spans, fill those indexTypes in
@@ -431,7 +432,7 @@ pub const ArrayFireTensor = struct {
                 if (iType == .Literal) newNumDims -= 1;
             }
         }
-        newNumDims = @max(newNumDims, 1);
+        newNumDims = @max(newNumDims, 1); // can never index to a 0 dim tensor
 
         return Tensor.init(
             TensorAdapterBase.init(

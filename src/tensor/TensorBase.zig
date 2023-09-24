@@ -143,7 +143,7 @@ pub const Tensor = struct {
         return self.impl_.astype(allocator, new_type);
     }
 
-    pub fn index(self: *const Tensor, allocator: std.mem.Allocator, indices: std.ArrayList(Index)) !Tensor {
+    pub fn index(self: *const Tensor, allocator: std.mem.Allocator, indices: []Index) !Tensor {
         return self.impl_.index(allocator, indices);
     }
 
@@ -1278,6 +1278,9 @@ pub fn all(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32)
 }
 
 //************************** Utilities ***************************//
+pub fn print(allocator: std.mem.Allocator, input: Tensor) !void {
+    return (try input.backend(allocator)).print(allocator, input);
+}
 
 //************************** Unit Tests **************************//
 

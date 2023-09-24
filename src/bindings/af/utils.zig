@@ -94,7 +94,8 @@ pub fn ztToAfLocation(location: Location) af.Source {
 }
 
 pub fn ztRangeToAfSeq(range: Range) af.af_seq {
-    const end = range.end() orelse -1;
+    const endOpt = range.end();
+    var end = if (endOpt != null) endOpt.? - 1 else -1;
     return makeSeq(@floatFromInt(range.start()), @floatFromInt(end), @floatFromInt(range.stride()));
 }
 

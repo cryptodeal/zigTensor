@@ -2378,7 +2378,7 @@ pub fn index(
     allocator: std.mem.Allocator,
     in: *const af.Array,
     ndims: u32,
-    idx: *const af.af_seq,
+    idx: []af.af_seq,
 ) !*af.Array {
     var arr: af.af_array = undefined;
     try af.AF_CHECK(
@@ -2386,7 +2386,7 @@ pub fn index(
             &arr,
             in.array_,
             @intCast(ndims),
-            idx,
+            idx.ptr,
         ),
         @src(),
     );

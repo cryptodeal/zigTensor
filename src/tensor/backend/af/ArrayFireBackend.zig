@@ -1728,6 +1728,12 @@ pub const ArrayFireBackend = struct {
     pub fn power(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
         return doBinaryOpOrBroadcast(allocator, lhs, rhs, af.ops.pow);
     }
+
+    pub fn print(_: *const ArrayFireBackend, allocator: std.mem.Allocator, tensor: Tensor) !void {
+        var arr_string = try (try toArray(allocator, tensor)).toString("ArrayFireTensor", 4, true);
+        defer af.ops.freeHost(@ptrCast(@constCast(arr_string.ptr))) catch unreachable;
+        std.debug.print("{s}\n", .{arr_string});
+    }
 };
 
 pub fn canBroadcast(lhs: *const Shape, rhs: *const Shape) bool {

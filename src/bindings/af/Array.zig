@@ -1489,12 +1489,12 @@ pub const Array = struct {
 
     /// Print this `af.Array` and dimensions to screen.
     pub fn print(self: *const Self) !void {
-        return af.ops.print(self);
+        return af.ops.printArray(self);
     }
 
     /// Print the expression, `af.Array`, and dimensions to screen.
-    pub fn printGen(self: *const Self, expr: []const u8, precision: i32) !void {
-        return af.ops.printGen(self, expr, precision);
+    pub fn printArrayGen(self: *const Self, expr: []const u8, precision: i32) !void {
+        return af.ops.printArrayGen(expr, self, precision);
     }
 
     /// Save this `af.Array` to a binary file.
