@@ -151,10 +151,9 @@ pub const Tensor = struct {
         return self.impl_.flatten(allocator);
     }
 
-    // TODO: implement
-    // pub fn flat(self: *const Tensor) Tensor {
-    // return self.impl_.flat();
-    // }
+    pub fn flat(self: *const Tensor, allocator: std.mem.Allocator, idx: Index) !Tensor {
+        return self.impl_.flat(allocator, idx);
+    }
 
     pub fn asContiguousTensor(self: *const Tensor, allocator: std.mem.Allocator) !Tensor {
         return self.impl_.asContiguousTensor(allocator);
@@ -348,6 +347,10 @@ pub fn rint(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
 
 pub fn absolute(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
     return (try tensor.backend(allocator)).absolute(allocator, tensor);
+}
+
+pub inline fn abs(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+    return absolute(allocator, tensor);
 }
 
 pub fn sigmoid(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
@@ -1280,6 +1283,32 @@ pub fn all(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32)
 //************************** Utilities ***************************//
 pub fn print(allocator: std.mem.Allocator, input: Tensor) !void {
     return (try input.backend(allocator)).print(allocator, input);
+}
+
+pub fn allClose(allocator: std.mem.Allocator, a: Tensor, b: Tensor, abs_tolerance: f64) !bool {
+    if (try a.dtype(allocator) != try b.dtype(allocator)) {
+        return false;
+    }
+    var a_shape = try a.shape(allocator);
+    var b_shape = try b.shape(allocator);
+    if (!a_shape.eql(&b_shape)) {
+        return false;
+    }
+    if (try a.elements(allocator) == 0 and try b.elements(allocator) == 0) {
+        return true;
+    }
+    var r1 = try sub(allocator, Tensor, a, Tensor, b);
+    defer r1.deinit();
+    var r2 = try abs(allocator, r1);
+    defer r2.deinit();
+    var axes = std.ArrayList(i32).init(allocator);
+    defer axes.deinit();
+    var r3 = try amax(allocator, r2, axes, false);
+    defer r3.deinit();
+    var r4 = try r3.astype(allocator, .f64);
+    defer r4.deinit();
+    var res = try r4.scalar(allocator, f64);
+    return res < abs_tolerance;
 }
 
 //************************** Unit Tests **************************//

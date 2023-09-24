@@ -257,13 +257,11 @@ test "IndexTest -> ArrayFireMaxIndex" {
 
 test "IndexTest -> Shape" {
     const full = @import("TensorBase.zig").full;
-    const print = @import("TensorBase.zig").print;
-    _ = print;
     const Shape = @import("Shape.zig").Shape;
     const deinit = @import("Init.zig").deinit;
+    const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    const allocator = std.testing.allocator;
     var dims = [_]Dim{ 4, 4 };
     var shape = try Shape.init(allocator, &dims);
     defer shape.deinit();
@@ -378,3 +376,70 @@ test "IndexTest -> Shape" {
     real_shape = try t1_res3.shape(allocator);
     try std.testing.expect(real_shape.eql(&res11_shape));
 }
+
+// TODO: test "IndexTest -> IndexAssignment" {}
+
+// TODO: test "IndexTest -> IndexInPlaceOps" {}
+
+test "IndexTest -> flat" {
+    const rand = @import("Random.zig").rand;
+    const full = @import("TensorBase.zig").full;
+    const Shape = @import("Shape.zig").Shape;
+    const allClose = @import("TensorBase.zig").allClose;
+    const deinit = @import("Init.zig").deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var m_dims = [_]Dim{ 4, 6 };
+    var m_shape = try Shape.init(allocator, &m_dims);
+    defer m_shape.deinit();
+    var m = try rand(allocator, &m_shape, .f32);
+    defer m.deinit();
+    for (0..@intCast(try m.elements(allocator))) |i| {
+        var m_flat = try m.flat(allocator, Index.initDim(@intCast(i)));
+        defer m_flat.deinit();
+        var indices = [_]Index{
+            Index.initDim(@intCast(@rem(i, 4))),
+            Index.initDim(@intCast(@divTrunc(i, 4))),
+        };
+        var m_indexed = try m.index(allocator, &indices);
+        defer m_indexed.deinit();
+        try std.testing.expect(try allClose(allocator, m_flat, m_indexed, 1e-5));
+    }
+
+    var n_dims = [_]Dim{ 4, 6, 8 };
+    var n_shape = try Shape.init(allocator, &n_dims);
+    defer n_shape.deinit();
+    var n = try rand(allocator, &n_shape, .f32);
+    defer n.deinit();
+    for (0..@intCast(try n.elements(allocator))) |i| {
+        var n_flat = try n.flat(allocator, Index.initDim(@intCast(i)));
+        defer n_flat.deinit();
+        var indices = [_]Index{
+            Index.initDim(@intCast(@rem(i, 4))),
+            Index.initDim(@intCast(@mod(@divTrunc(i, 4), 6))),
+            Index.initDim(@intCast(@mod(@divTrunc(i, 4 * 6), 8))),
+        };
+        var n_indexed = try n.index(allocator, &indices);
+        defer n_indexed.deinit();
+        try std.testing.expect(try allClose(allocator, n_flat, n_indexed, 1e-5));
+    }
+
+    var a_dims = [_]Dim{ 5, 6, 7, 8 };
+    var a_shape = try Shape.init(allocator, &a_dims);
+    defer a_shape.deinit();
+    var a = try full(allocator, &a_shape, f64, 9, .f32);
+    defer a.deinit();
+    var test_indices = [_]Dim{ 0, 1, 4, 11, 62, 104, 288 };
+    for (test_indices) |i| {
+        var a_flat = try a.flat(allocator, Index.initDim(i));
+        defer a_flat.deinit();
+        try std.testing.expect(try a_flat.scalar(allocator, f32) == 9);
+    }
+
+    // TODO finish test w assignment
+}
+
+// TODO: test "IndexTest -> TensorIndex" {}
+
+// TODO: test "IndexTest -> ExpressionIndex" {}

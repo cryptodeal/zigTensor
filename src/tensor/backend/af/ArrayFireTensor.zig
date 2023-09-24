@@ -52,12 +52,13 @@ pub const ArrayFireTensor = struct {
             return .{ .isFlat_ = isFlat };
         }
 
-        pub fn get(_: *const IndexedArrayComponent, allocator: std.mem.Allocator, inst: *ArrayFireTensor) !*af.Array {
+        pub fn get(self: *const IndexedArrayComponent, allocator: std.mem.Allocator, inst: *ArrayFireTensor) !*af.Array {
             var arr = inst.arrayHandle_.value.*;
+            var n_dims: i64 = if (!self.isFlat_) @intCast(try arr.getNumDims()) else 1;
             return af.ops.indexGen(
                 allocator,
                 arr,
-                @intCast(try arr.getNumDims()),
+                n_dims,
                 inst.indices_.?,
             );
         }
@@ -465,6 +466,7 @@ pub const ArrayFireTensor = struct {
 
     pub fn flat(self: *ArrayFireTensor, allocator: std.mem.Allocator, idx: Index) !Tensor {
         _ = try self.getHandle(allocator); // if this tensor was a view, run indexing and promote
+
         // Return a lazy indexing operation. Indexing with a single index on an
         // ArrayFire tensor (with a type that is not an af::array) ends up doing
         // flat indexing, so all index assignment operators will work as they are.

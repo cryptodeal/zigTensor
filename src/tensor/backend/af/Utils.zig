@@ -21,7 +21,6 @@ pub fn condenseIndices(
     }
 
     const dims = try arr.getDims();
-
     var newDims = af.Dim4{};
     var newDimIdx: usize = 0;
     for (0..@intCast(af.AF_MAX_DIMS)) |i| {
