@@ -279,25 +279,23 @@ test "IndexTest -> Shape" {
     var real_shape = try res1.shape(allocator);
     try std.testing.expect(real_shape.eql(&res1_shape));
 
-    // TODO: pending debug -> returns shape (1) instead of (4)
-    // var indices2 = [_]Index{ Index.initDim(2), Index.initRange(span) };
-    // var res2 = try t.index(allocator, &indices2);
-    // defer res2.deinit();
-    // var res2_dims = [_]Dim{4};
-    // var res2_shape = try Shape.init(allocator, &res2_dims);
-    // defer res2_shape.deinit();
-    // real_shape = try res2.shape(allocator);
-    // try std.testing.expect(real_shape.eql(&res2_shape));
+    var indices2 = [_]Index{ Index.initDim(2), Index.initRange(span) };
+    var res2 = try t.index(allocator, &indices2);
+    defer res2.deinit();
+    var res2_dims = [_]Dim{4};
+    var res2_shape = try Shape.init(allocator, &res2_dims);
+    defer res2_shape.deinit();
+    real_shape = try res2.shape(allocator);
+    try std.testing.expect(real_shape.eql(&res2_shape));
 
-    // TODO: pending debug -> returns shape (1) instead of (4)
-    // var indices3 = [1]Index{Index.initDim(2)};
-    // var res3 = try t.index(allocator, &indices3);
-    // defer res3.deinit();
-    // var res3_dims = [_]Dim{4};
-    // var res3_shape = try Shape.init(allocator, &res3_dims);
-    // defer res3_shape.deinit();
-    // real_shape = try res3.shape(allocator);
-    // try std.testing.expect(real_shape.eql(&res3_shape));
+    var indices3 = [1]Index{Index.initDim(2)};
+    var res3 = try t.index(allocator, &indices3);
+    defer res3.deinit();
+    var res3_dims = [_]Dim{4};
+    var res3_shape = try Shape.init(allocator, &res3_dims);
+    defer res3_shape.deinit();
+    real_shape = try res3.shape(allocator);
+    try std.testing.expect(real_shape.eql(&res3_shape));
 
     var indices4 = [1]Index{Index.initRange(Range.initEnd(3))};
     var res4 = try t.index(allocator, &indices4);
@@ -353,25 +351,23 @@ test "IndexTest -> Shape" {
     var t1 = try full(allocator, &t1_shape, f64, 3, .f32);
     defer t1.deinit();
 
-    // TODO: pending debug -> returns shape (2, 1) instead of (2, 7)
-    // var indices9 = [_]Index{ Index.initDim(2), Index.initRange(Range.init(2, .{ .dim = 4 })), Index.initRange(span), Index.initDim(3) };
-    // var t1_res = try t1.index(allocator, &indices9);
-    // defer t1_res.deinit();
-    // var res9_dims = [_]Dim{ 2, 7 };
-    // var res9_shape = try Shape.init(allocator, &res9_dims);
-    // defer res9_shape.deinit();
-    // real_shape = try t1_res.shape(allocator);
-    // try std.testing.expect(real_shape.eql(&res9_shape));
+    var indices9 = [_]Index{ Index.initDim(2), Index.initRange(Range.init(2, .{ .dim = 4 })), Index.initRange(span), Index.initDim(3) };
+    var t1_res = try t1.index(allocator, &indices9);
+    defer t1_res.deinit();
+    var res9_dims = [_]Dim{ 2, 7 };
+    var res9_shape = try Shape.init(allocator, &res9_dims);
+    defer res9_shape.deinit();
+    real_shape = try t1_res.shape(allocator);
+    try std.testing.expect(real_shape.eql(&res9_shape));
 
-    // TODO: pending debug -> returns shape (5, 7, 1) instead of (5, 7, 8)
-    // var indices10 = [_]Index{ Index.initRange(span), Index.initDim(3), Index.initRange(span), Index.initRange(span) };
-    // var t1_res2 = try t1.index(allocator, &indices10);
-    // defer t1_res2.deinit();
-    // var res10_dims = [_]Dim{ 5, 7, 8 };
-    // var res10_shape = try Shape.init(allocator, &res10_dims);
-    // defer res10_shape.deinit();
-    // real_shape = try t1_res2.shape(allocator);
-    // try std.testing.expect(real_shape.eql(&res10_shape));
+    var indices10 = [_]Index{ Index.initRange(span), Index.initDim(3), Index.initRange(span), Index.initRange(span) };
+    var t1_res2 = try t1.index(allocator, &indices10);
+    defer t1_res2.deinit();
+    var res10_dims = [_]Dim{ 5, 7, 8 };
+    var res10_shape = try Shape.init(allocator, &res10_dims);
+    defer res10_shape.deinit();
+    real_shape = try t1_res2.shape(allocator);
+    try std.testing.expect(real_shape.eql(&res10_shape));
 
     var indices11 = [_]Index{ Index.initRange(span), Index.initRange(Range.init(1, .{ .dim = 2 })), Index.initRange(span), Index.initRange(span) };
     var t1_res3 = try t1.index(allocator, &indices11);

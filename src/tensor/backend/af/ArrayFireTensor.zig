@@ -53,10 +53,11 @@ pub const ArrayFireTensor = struct {
         }
 
         pub fn get(_: *const IndexedArrayComponent, allocator: std.mem.Allocator, inst: *ArrayFireTensor) !*af.Array {
+            var arr = inst.arrayHandle_.value.*;
             return af.ops.indexGen(
                 allocator,
-                inst.arrayHandle_.value.*,
-                @intCast(inst.numDims_),
+                arr,
+                @intCast(try arr.getNumDims()),
                 inst.indices_.?,
             );
         }
