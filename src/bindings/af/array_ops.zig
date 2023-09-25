@@ -1061,6 +1061,15 @@ pub fn add(
     return af.Array.init(allocator, arr);
 }
 
+/// Performs in-place element wise addition on two `af.Array`s;
+/// lhs is modified in place.
+pub fn addInplace(lhs: *af.Array, rhs: *const af.Array, batch: bool) !void {
+    var out: af.af_array = undefined;
+    try af.AF_CHECK(af.af_add(&out, lhs.array_, rhs.array_, batch), @src());
+    try releaseArray(lhs);
+    lhs.array_ = out;
+}
+
 /// Performs element wise subtraction on two `af.Array`s.
 ///
 /// Returns ptr to the resulting `af.Array`.
@@ -1081,6 +1090,15 @@ pub fn sub(
         @src(),
     );
     return af.Array.init(allocator, arr);
+}
+
+/// Performs in-place element wise subtraction on two `af.Array`s;
+/// lhs is modified in place.
+pub fn subInplace(lhs: *af.Array, rhs: *const af.Array, batch: bool) !void {
+    var out: af.af_array = undefined;
+    try af.AF_CHECK(af.af_sub(&out, lhs.array_, rhs.array_, batch), @src());
+    try releaseArray(lhs);
+    lhs.array_ = out;
 }
 
 /// Performs element wise multiplication on two `af.Array`s.
@@ -1105,6 +1123,15 @@ pub fn mul(
     return af.Array.init(allocator, arr);
 }
 
+/// Performs in-place element wise multiplication on two `af.Array`s;
+/// lhs is modified in place.
+pub fn mulInplace(lhs: *af.Array, rhs: *const af.Array, batch: bool) !void {
+    var out: af.af_array = undefined;
+    try af.AF_CHECK(af.af_mul(&out, lhs.array_, rhs.array_, batch), @src());
+    try releaseArray(lhs);
+    lhs.array_ = out;
+}
+
 /// Performs element wise division on two `af.Array`s.
 ///
 /// Returns ptr to the resulting `af.Array`.
@@ -1125,6 +1152,15 @@ pub fn div(
         @src(),
     );
     return af.Array.init(allocator, arr);
+}
+
+/// Performs in-place element wise division on two `af.Array`s;
+/// lhs is modified in place.
+pub fn divInplace(lhs: *af.Array, rhs: *const af.Array, batch: bool) !void {
+    var out: af.af_array = undefined;
+    try af.AF_CHECK(af.af_div(&out, lhs.array_, rhs.array_, batch), @src());
+    try releaseArray(lhs);
+    lhs.array_ = out;
 }
 
 /// Perform a less-than comparison between
@@ -2719,7 +2755,7 @@ pub fn getDataPtr(data: ?*anyopaque, arr: *const af.Array) !void {
 
 /// Reduce the reference count of the `af.Array`.
 pub fn releaseArray(arr: *af.Array) !void {
-    try af.AF_CHECK(af.af_release_array(arr.array_), @src());
+    if (arr.array_ != null) try af.AF_CHECK(af.af_release_array(arr.array_), @src());
 }
 
 /// Increments an `af.Array` reference count.

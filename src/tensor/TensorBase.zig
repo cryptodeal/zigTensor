@@ -231,7 +231,73 @@ pub const Tensor = struct {
     }
 
     // TODO: equivalent of assignment operators
+    pub fn inPlaceAdd(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T) !void {
+        var bknd = try self.backend(allocator);
+        var rhsTensor: Tensor = undefined;
+        var rhsTensorInit = false;
+        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+        if (T == Tensor) {
+            rhsTensor = rhs;
+        } else {
+            var used_shape = try self.shape(allocator);
+            rhsTensor = try bknd.full(allocator, &used_shape, T, rhs, try self.dtype(allocator));
+            rhsTensorInit = true;
+        }
+        var check = [_]Tensor{ self.*, rhsTensor };
+        try ztTensorBackendsMatch(@src().fn_name, &check);
+        return bknd.inPlaceAdd(allocator, self.*, rhsTensor);
+    }
 
+    pub fn inPlaceSub(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T) !void {
+        var bknd = try self.backend(allocator);
+        var rhsTensor: Tensor = undefined;
+        var rhsTensorInit = false;
+        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+        if (T == Tensor) {
+            rhsTensor = rhs;
+        } else {
+            var used_shape = try self.shape(allocator);
+            rhsTensor = try bknd.full(allocator, &used_shape, T, rhs, try self.dtype(allocator));
+            rhsTensorInit = true;
+        }
+        var check = [_]Tensor{ self.*, rhsTensor };
+        try ztTensorBackendsMatch(@src().fn_name, &check);
+        return bknd.inPlaceSub(allocator, self.*, rhsTensor);
+    }
+
+    pub fn inPlaceMul(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T) !void {
+        var bknd = try self.backend(allocator);
+        var rhsTensor: Tensor = undefined;
+        var rhsTensorInit = false;
+        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+        if (T == Tensor) {
+            rhsTensor = rhs;
+        } else {
+            var used_shape = try self.shape(allocator);
+            rhsTensor = try bknd.full(allocator, &used_shape, T, rhs, try self.dtype(allocator));
+            rhsTensorInit = true;
+        }
+        var check = [_]Tensor{ self.*, rhsTensor };
+        try ztTensorBackendsMatch(@src().fn_name, &check);
+        return bknd.inPlaceMul(allocator, self.*, rhsTensor);
+    }
+
+    pub fn inPlaceDiv(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T) !void {
+        var bknd = try self.backend(allocator);
+        var rhsTensor: Tensor = undefined;
+        var rhsTensorInit = false;
+        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+        if (T == Tensor) {
+            rhsTensor = rhs;
+        } else {
+            var used_shape = try self.shape(allocator);
+            rhsTensor = try bknd.full(allocator, &used_shape, T, rhs, try self.dtype(allocator));
+            rhsTensorInit = true;
+        }
+        var check = [_]Tensor{ self.*, rhsTensor };
+        try ztTensorBackendsMatch(@src().fn_name, &check);
+        return bknd.inPlaceDiv(allocator, self.*, rhsTensor);
+    }
 };
 
 pub fn fromScalar(allocator: std.mem.Allocator, comptime T: type, value: T, dtype: DType) !Tensor {
@@ -1313,12 +1379,88 @@ pub fn allClose(allocator: std.mem.Allocator, a: Tensor, b: Tensor, abs_toleranc
 
 //************************** Unit Tests **************************//
 
+test "TensorBase -> inPlaceAdd" {
+    const deinit = @import("Init.zig").deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a_dims = [_]Dim{ 5, 5 };
+    var a_shape = try Shape.init(std.testing.allocator, &a_dims);
+    defer a_shape.deinit();
+    var a = try full(allocator, &a_shape, f64, 2, .f32);
+    defer a.deinit();
+    try a.inPlaceAdd(allocator, f64, 2);
+
+    var expected = try full(allocator, &a_shape, f64, 4, .f32);
+    defer expected.deinit();
+    try std.testing.expect(try allClose(allocator, a, expected, 1e-10));
+
+    // TODO: more extensive testing (mirror Flashlight's tests)
+}
+
+test "TensorBase -> inPlaceSub" {
+    const deinit = @import("Init.zig").deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a_dims = [_]Dim{ 5, 5 };
+    var a_shape = try Shape.init(std.testing.allocator, &a_dims);
+    defer a_shape.deinit();
+    var a = try full(allocator, &a_shape, f64, 6, .f32);
+    defer a.deinit();
+    try a.inPlaceSub(allocator, f64, 3);
+
+    var expected = try full(allocator, &a_shape, f64, 3, .f32);
+    defer expected.deinit();
+    try std.testing.expect(try allClose(allocator, a, expected, 1e-10));
+
+    // TODO: more extensive testing (mirror Flashlight's tests)
+}
+
+test "TensorBase -> inPlaceMul" {
+    const deinit = @import("Init.zig").deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a_dims = [_]Dim{ 5, 5 };
+    var a_shape = try Shape.init(std.testing.allocator, &a_dims);
+    defer a_shape.deinit();
+    var a = try full(allocator, &a_shape, f64, 5, .f32);
+    defer a.deinit();
+    try a.inPlaceMul(allocator, f64, 2);
+
+    var expected = try full(allocator, &a_shape, f64, 10, .f32);
+    defer expected.deinit();
+    try std.testing.expect(try allClose(allocator, a, expected, 1e-10));
+
+    // TODO: more extensive testing (mirror Flashlight's tests)
+}
+
+test "TensorBase -> inPlaceDiv" {
+    const deinit = @import("Init.zig").deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a_dims = [_]Dim{ 5, 5 };
+    var a_shape = try Shape.init(std.testing.allocator, &a_dims);
+    defer a_shape.deinit();
+    var a = try full(allocator, &a_shape, f64, 10, .f32);
+    defer a.deinit();
+    try a.inPlaceDiv(allocator, f64, 2);
+
+    var expected = try full(allocator, &a_shape, f64, 5, .f32);
+    defer expected.deinit();
+    try std.testing.expect(try allClose(allocator, a, expected, 1e-10));
+
+    // TODO: more extensive testing (mirror Flashlight's tests)
+}
+
 test "TensorBase -> sign" {
     const rand = @import("Random.zig").rand;
     const deinit = @import("Init.zig").deinit;
+    const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    const allocator = std.testing.allocator;
     var dims = [_]Dim{ 5, 5 };
     var shape = try Shape.init(allocator, &dims);
     defer shape.deinit();

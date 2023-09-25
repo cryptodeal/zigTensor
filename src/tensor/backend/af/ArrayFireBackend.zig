@@ -14,6 +14,8 @@ const zt_backend = @import("../../TensorBackend.zig");
 const gforGet = af.gforGet;
 const batchFunc = af.batchFunc;
 const batchFunc_t = af.batchFunc_t;
+const inPlaceBatchFunc_t = af.inPlaceBatchFunc_t;
+const inPlaceBatchFunc = af.inPlaceBatchFunc;
 
 const deinit = @import("../../Init.zig").deinit;
 const ValIdxRes = zt_backend.ValIdxRes;
@@ -1645,20 +1647,38 @@ pub const ArrayFireBackend = struct {
             );
         }
     }
+
     pub fn add(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
         return doBinaryOpOrBroadcast(allocator, lhs, rhs, af.ops.add);
+    }
+
+    // TODO: handle advanced index case for `inPlaceAdd` (only impacts ArrayFire CUDA Backend)
+    pub fn inPlaceAdd(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+        return doBinaryOpOrBroadcastInPlace(allocator, lhs, rhs, af.ops.addInplace);
     }
 
     pub fn sub(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
         return doBinaryOpOrBroadcast(allocator, lhs, rhs, af.ops.sub);
     }
 
+    pub fn inPlaceSub(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+        return doBinaryOpOrBroadcastInPlace(allocator, lhs, rhs, af.ops.subInplace);
+    }
+
     pub fn mul(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
         return doBinaryOpOrBroadcast(allocator, lhs, rhs, af.ops.mul);
     }
 
+    pub fn inPlaceMul(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+        return doBinaryOpOrBroadcastInPlace(allocator, lhs, rhs, af.ops.mulInplace);
+    }
+
     pub fn div(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
         return doBinaryOpOrBroadcast(allocator, lhs, rhs, af.ops.div);
+    }
+
+    pub fn inPlaceDiv(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+        return doBinaryOpOrBroadcastInPlace(allocator, lhs, rhs, af.ops.divInplace);
     }
 
     pub fn eq(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
@@ -1783,6 +1803,28 @@ pub fn doBinaryOpOrBroadcast(allocator: std.mem.Allocator, lhs: Tensor, rhs: Ten
     } else {
         std.log.debug(
             "doBinaryOpOrBroadcast: cannot perform operation or broadcasting with tensors of shapes {any} and {any}  - dimension mismatch.\n",
+            .{ lhsShape, rhsShape },
+        );
+        return error.FailedBinaryOpOrBroadcast;
+    }
+}
+
+pub fn doBinaryOpOrBroadcastInPlace(allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, func: inPlaceBatchFunc_t) !void {
+    var lhsShape = try lhs.shape(allocator);
+    var rhsShape = try rhs.shape(allocator);
+
+    // Dims are the same or scalar <> 1-el tensor - no broadcasting
+    if (lhsShape.eql(&rhsShape) or (lhsShape.elements() <= 1 and rhsShape.elements() <= 1)) {
+        try func(try toArray(allocator, lhs), try toArray(allocator, rhs), gforGet());
+        return;
+    }
+
+    if (canBroadcast(&lhsShape, &rhsShape)) {
+        try inPlaceBatchFunc(try toArray(allocator, lhs), try toArray(allocator, rhs), func);
+        return;
+    } else {
+        std.log.debug(
+            "doBinaryOpOrBroadcastInPlace: cannot perform operation or broadcasting with tensors of shapes {any} and {any}  - dimension mismatch.\n",
             .{ lhsShape, rhsShape },
         );
         return error.FailedBinaryOpOrBroadcast;

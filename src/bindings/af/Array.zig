@@ -741,6 +741,12 @@ pub const Array = struct {
         return af.ops.add(allocator, self, rhs, batch);
     }
 
+    /// Performs in-place element wise addition on this `af.Array` and
+    /// another `af.Array`.
+    pub fn addInplace(self: *Self, rhs: *const Self, batch: bool) !void {
+        try af.ops.addInplace(self, rhs, batch);
+    }
+
     /// Performs element wise subtraction on this `af.Array` and
     /// another `af.Array`.
     ///
@@ -752,6 +758,12 @@ pub const Array = struct {
         batch: bool,
     ) !*Self {
         return af.ops.sub(allocator, self, rhs, batch);
+    }
+
+    /// Performs in-place element wise subtraction on this `af.Array` and
+    /// another `af.Array`.
+    pub fn subInplace(self: *Self, rhs: *const Self, batch: bool) !void {
+        try af.ops.subInplace(self, rhs, batch);
     }
 
     /// Performs element wise multiplication on this `af.Array` and
@@ -767,6 +779,12 @@ pub const Array = struct {
         return af.ops.mul(allocator, self, rhs, batch);
     }
 
+    /// Performs in-place element wise multiplication on this `af.Array` and
+    /// another `af.Array`.
+    pub fn mulInplace(self: *Self, rhs: *const Self, batch: bool) !void {
+        try af.ops.mulInplace(self, rhs, batch);
+    }
+
     /// Performs element wise division on this `af.Array` and
     /// another `af.Array`.
     ///
@@ -778,6 +796,12 @@ pub const Array = struct {
         batch: bool,
     ) !*Self {
         return af.ops.div(allocator, self, rhs, batch);
+    }
+
+    /// Performs in-place element wise division on this `af.Array` and
+    /// another `af.Array`.
+    pub fn divInplace(self: *Self, rhs: *const Self, batch: bool) !void {
+        try af.ops.divInplace(self, rhs, batch);
     }
 
     /// Perform a less-than comparison between

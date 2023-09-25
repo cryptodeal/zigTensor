@@ -33,6 +33,19 @@ pub fn batchFunc(allocator: std.mem.Allocator, lhs: *const af.Array, rhs: *const
     return res;
 }
 
+pub const inPlaceBatchFunc_t = *const fn (lhs: *af.Array, rhs: *const af.Array, batch: bool) anyerror!void;
+
+pub fn inPlaceBatchFunc(lhs: *af.Array, rhs: *const af.Array, func: inPlaceBatchFunc_t) !void {
+    if (gforGet()) {
+        std.log.debug("inPlaceBatchFunc can not be used inside GFOR\n", .{});
+        return error.InPlaceBatchFuncFailed;
+    }
+    gforSet(true);
+    try func(lhs, rhs, gforGet());
+    errdefer gforSet(false); // if errors, still need to set false
+    gforSet(false); // if no error, set false
+}
+
 test "gforToggle" {
     var lastStatus = false;
     for (0..10) |_| {

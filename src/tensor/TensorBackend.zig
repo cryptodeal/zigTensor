@@ -109,9 +109,13 @@ pub const TensorBackend = struct {
         any: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
         all: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
         add: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
+        inPlaceAdd: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!void,
         sub: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
+        inPlaceSub: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!void,
         mul: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
+        inPlaceMul: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!void,
         div: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
+        inPlaceDiv: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!void,
         eq: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         neq: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         lessThan: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
@@ -408,16 +412,32 @@ pub const TensorBackend = struct {
         return self.vtable.add(self.ptr, allocator, lhs, rhs);
     }
 
+    pub fn inPlaceAdd(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+        return self.vtable.inPlaceAdd(self.ptr, allocator, lhs, rhs);
+    }
+
     pub fn sub(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
         return self.vtable.sub(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn inPlaceSub(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+        return self.vtable.inPlaceSub(self.ptr, allocator, lhs, rhs);
     }
 
     pub fn mul(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
         return self.vtable.mul(self.ptr, allocator, lhs, rhs);
     }
 
+    pub fn inPlaceMul(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+        return self.vtable.inPlaceMul(self.ptr, allocator, lhs, rhs);
+    }
+
     pub fn div(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
         return self.vtable.div(self.ptr, allocator, lhs, rhs);
+    }
+
+    pub fn inPlaceDiv(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+        return self.vtable.inPlaceDiv(self.ptr, allocator, lhs, rhs);
     }
 
     pub fn eq(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
@@ -827,9 +847,19 @@ pub const TensorBackend = struct {
                 return self.add(allocator, lhs, rhs);
             }
 
+            fn inPlaceAdd(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.inPlaceAdd(allocator, lhs, rhs);
+            }
+
             fn sub(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.sub(allocator, lhs, rhs);
+            }
+
+            fn inPlaceSub(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.inPlaceSub(allocator, lhs, rhs);
             }
 
             fn mul(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
@@ -837,9 +867,19 @@ pub const TensorBackend = struct {
                 return self.mul(allocator, lhs, rhs);
             }
 
+            fn inPlaceMul(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.inPlaceMul(allocator, lhs, rhs);
+            }
+
             fn div(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.div(allocator, lhs, rhs);
+            }
+
+            fn inPlaceDiv(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.inPlaceDiv(allocator, lhs, rhs);
             }
 
             fn eq(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
@@ -1003,9 +1043,13 @@ pub const TensorBackend = struct {
                 .any = impl.any,
                 .all = impl.all,
                 .add = impl.add,
+                .inPlaceAdd = impl.inPlaceAdd,
                 .sub = impl.sub,
+                .inPlaceSub = impl.inPlaceSub,
                 .mul = impl.mul,
+                .inPlaceMul = impl.inPlaceMul,
                 .div = impl.div,
+                .inPlaceDiv = impl.inPlaceDiv,
                 .eq = impl.eq,
                 .neq = impl.neq,
                 .lessThan = impl.lessThan,
