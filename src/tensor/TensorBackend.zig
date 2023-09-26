@@ -108,6 +108,7 @@ pub const TensorBackend = struct {
         countNonzero: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
         any: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
         all: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
+        assign: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!void,
         add: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         inPlaceAdd: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!void,
         sub: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
@@ -406,6 +407,10 @@ pub const TensorBackend = struct {
 
     pub fn all(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
         return self.vtable.all(self.ptr, allocator, input, axes, keep_dims);
+    }
+
+    pub fn assign(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+        return self.vtable.assign(self.ptr, allocator, lhs, rhs);
     }
 
     pub fn add(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
@@ -842,6 +847,11 @@ pub const TensorBackend = struct {
                 return self.all(allocator, input, axes, keep_dims);
             }
 
+            fn assign(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.assign(allocator, lhs, rhs);
+            }
+
             fn add(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.add(allocator, lhs, rhs);
@@ -1042,6 +1052,7 @@ pub const TensorBackend = struct {
                 .countNonzero = impl.countNonzero,
                 .any = impl.any,
                 .all = impl.all,
+                .assign = impl.assign,
                 .add = impl.add,
                 .inPlaceAdd = impl.inPlaceAdd,
                 .sub = impl.sub,

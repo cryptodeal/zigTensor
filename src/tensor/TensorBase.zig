@@ -230,7 +230,24 @@ pub const Tensor = struct {
         return self.impl_.toString(allocator);
     }
 
-    // TODO: equivalent of assignment operators
+    // in-place operations/assignment operators
+    pub fn assign(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T) !void {
+        var bknd = try self.backend(allocator);
+        var rhsTensor: Tensor = undefined;
+        var rhsTensorInit = false;
+        defer if (rhsTensorInit) rhsTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+        if (T == Tensor) {
+            rhsTensor = rhs;
+        } else {
+            var used_shape = try self.shape(allocator);
+            rhsTensor = try bknd.full(allocator, &used_shape, T, rhs, try self.dtype(allocator));
+            rhsTensorInit = true;
+        }
+        var check = [_]Tensor{ self.*, rhsTensor };
+        try ztTensorBackendsMatch(@src().fn_name, &check);
+        return bknd.assign(allocator, self.*, rhsTensor);
+    }
+
     pub fn inPlaceAdd(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T) !void {
         var bknd = try self.backend(allocator);
         var rhsTensor: Tensor = undefined;
@@ -1377,7 +1394,61 @@ pub fn allClose(allocator: std.mem.Allocator, a: Tensor, b: Tensor, abs_toleranc
     return res < abs_tolerance;
 }
 
+pub fn allEqual(allocator: std.mem.Allocator, a: Tensor, b: Tensor) !bool {
+    if (try a.dtype(allocator) != try b.dtype(allocator)) {
+        return false;
+    }
+    var a_shape = try a.shape(allocator);
+    var b_shape = try b.shape(allocator);
+    if (!a_shape.eql(&b_shape)) {
+        return false;
+    }
+    if (try a.elements(allocator) == 0 and try b.elements(allocator) == 0) {
+        return true;
+    }
+    var r1 = try sub(allocator, Tensor, a, Tensor, b);
+    defer r1.deinit();
+    var r2 = try abs(allocator, r1);
+    defer r2.deinit();
+    var axes = std.ArrayList(i32).init(allocator);
+    defer axes.deinit();
+    var r3 = try amax(allocator, r2, axes, false);
+    defer r3.deinit();
+    var r4 = try r3.astype(allocator, .f64);
+    defer r4.deinit();
+    var res = try r4.scalar(allocator, f64);
+    return res == 0;
+}
+
 //************************** Unit Tests **************************//
+
+test "TensorBase -> assign" {
+    const rand = @import("Random.zig").rand;
+    const deinit = @import("Init.zig").deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a_dims = [_]Dim{ 5, 5 };
+    var a_shape = try Shape.init(std.testing.allocator, &a_dims);
+    defer a_shape.deinit();
+    var a = try full(allocator, &a_shape, f64, 2, .f32);
+    defer a.deinit();
+    var b = try rand(allocator, &a_shape, .f32);
+    defer b.deinit();
+
+    // a = b;
+    try a.assign(allocator, Tensor, b);
+    try std.testing.expect(try allEqual(allocator, a, b));
+
+    // a = 2;
+    try a.assign(allocator, f64, 10);
+
+    var expected = try full(allocator, &a_shape, f64, 10, .f32);
+    defer expected.deinit();
+    try std.testing.expect(try allEqual(allocator, a, expected));
+
+    // TODO: more extensive testing (mirror Flashlight's tests)
+}
 
 test "TensorBase -> inPlaceAdd" {
     const deinit = @import("Init.zig").deinit;
@@ -1393,7 +1464,7 @@ test "TensorBase -> inPlaceAdd" {
 
     var expected = try full(allocator, &a_shape, f64, 4, .f32);
     defer expected.deinit();
-    try std.testing.expect(try allClose(allocator, a, expected, 1e-10));
+    try std.testing.expect(try allEqual(allocator, a, expected));
 
     // TODO: more extensive testing (mirror Flashlight's tests)
 }
@@ -1412,7 +1483,7 @@ test "TensorBase -> inPlaceSub" {
 
     var expected = try full(allocator, &a_shape, f64, 3, .f32);
     defer expected.deinit();
-    try std.testing.expect(try allClose(allocator, a, expected, 1e-10));
+    try std.testing.expect(try allEqual(allocator, a, expected));
 
     // TODO: more extensive testing (mirror Flashlight's tests)
 }
@@ -1431,7 +1502,7 @@ test "TensorBase -> inPlaceMul" {
 
     var expected = try full(allocator, &a_shape, f64, 10, .f32);
     defer expected.deinit();
-    try std.testing.expect(try allClose(allocator, a, expected, 1e-10));
+    try std.testing.expect(try allEqual(allocator, a, expected));
 
     // TODO: more extensive testing (mirror Flashlight's tests)
 }
@@ -1450,7 +1521,7 @@ test "TensorBase -> inPlaceDiv" {
 
     var expected = try full(allocator, &a_shape, f64, 5, .f32);
     defer expected.deinit();
-    try std.testing.expect(try allClose(allocator, a, expected, 1e-10));
+    try std.testing.expect(try allEqual(allocator, a, expected));
 
     // TODO: more extensive testing (mirror Flashlight's tests)
 }

@@ -8,6 +8,16 @@ const Location = zt_base.Location;
 const Shape = zt_shape.Shape;
 const Dim = zt_shape.Dim;
 
+pub fn assign(lhs: *af.Array, rhs: *const af.Array) !void {
+    if (lhs == rhs or lhs.array_ == rhs.array_) {
+        return;
+    }
+    try lhs.release();
+    var temp: af.af_array = undefined;
+    try af.AF_CHECK(af.af_retain_array(&temp, rhs.array_), @src());
+    lhs.array_ = temp;
+}
+
 pub fn copy(dst: *af.Array, src: *const af.Array, indices: []af.af_index_t) !void {
     const nd = try dst.getNumDims();
     try af.AF_CHECK(

@@ -236,6 +236,10 @@ pub const Array = struct {
         );
     }
 
+    pub fn assign(self: *Self, other: *const Self) !void {
+        return af.ops.assign(self, other);
+    }
+
     /// Converts a dense `af.Array` into a sparse array.
     pub fn createSparseArrayFromDense(allocator: std.mem.Allocator, dense: *const Self, stype: af.Storage) !*Self {
         return af.ops.createSparseArrayFromDense(allocator, dense, stype);

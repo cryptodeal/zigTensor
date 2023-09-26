@@ -1648,6 +1648,13 @@ pub const ArrayFireBackend = struct {
         }
     }
 
+    pub fn assign(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+        return af.ops.assign(
+            try toArray(allocator, lhs),
+            try toArray(allocator, rhs),
+        );
+    }
+
     pub fn add(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
         return doBinaryOpOrBroadcast(allocator, lhs, rhs, af.ops.add);
     }
