@@ -10,17 +10,24 @@ const zigrc = @import("zigrc");
 const rt_device_type = @import("../../../runtime/DeviceType.zig");
 const reductions = @import("reductions.zig");
 const zt_backend = @import("../../TensorBackend.zig");
+const zt_index = @import("../../Index.zig");
+const af_utils = @import("Utils.zig");
 
+const assert = std.debug.assert;
 const gforGet = af.gforGet;
 const batchFunc = af.batchFunc;
 const batchFunc_t = af.batchFunc_t;
 const inPlaceBatchFunc_t = af.inPlaceBatchFunc_t;
 const inPlaceBatchFunc = af.inPlaceBatchFunc;
-
+const Index = zt_index.Index;
+const IndexType = zt_index.IndexType;
 const deinit = @import("../../Init.zig").deinit;
 const ValIdxRes = zt_backend.ValIdxRes;
 const SortIndexRes = zt_backend.SortIndexRes;
-const condenseIndices = @import("Utils.zig").condenseIndices;
+const condenseIndices = af_utils.condenseIndices;
+const gForDim = af_utils.gForDim;
+const seqToDims = af_utils.seqToDims;
+const gForReorder = af_utils.gForReorder;
 const isAllAxisReduction = reductions.isAllAxisReduction;
 const afReduceAxes = reductions.afReduceAxes;
 const reduceFunc_t = reductions.reduceFunc_t;
@@ -1652,6 +1659,199 @@ pub const ArrayFireBackend = struct {
         return af.ops.assign(
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
+        );
+    }
+
+    pub fn getIndexAssignShape(_: *const ArrayFireBackend, allocator: std.mem.Allocator, target: Tensor, indices: []Index, is_linear: bool) !Shape {
+        if (indices.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
+            std.log.debug(
+                "ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n",
+                .{},
+            );
+            return error.IndicesExceedMaxDims;
+        }
+
+        const completeTensorIndex = indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try toArray(allocator, target)).getElements()));
+        var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
+        defer af.ops.releaseIndexers(afIndices) catch unreachable;
+        if (completeTensorIndex) {
+            // TODO: verify this is correct; needs tests
+            try af.ops.setSeqParamIndexer(afIndices, 0, 0, 1, 0, false);
+        }
+
+        if (indices.len > afIndices.len) {
+            std.log.debug("ArrayFireTensor.index internal error - passed indices is larger than the number of af indices.\n", .{});
+            return error.PassedIndicesLargerThanAfIndices;
+        }
+
+        // Fill in corresponding index types for each af index
+        var i: usize = 0;
+        while (i < indices.len) : (i += 1) {
+            afIndices[i] = af.ops.ztToAfIndex(indices[i]);
+        }
+
+        var target_array = try toArray(allocator, target);
+        var p_dims = try target_array.getDims();
+        if (is_linear) {
+            p_dims = af.Dim4{};
+            p_dims.dims[0] = @intCast(p_dims.elements());
+        }
+        var dims = try seqToDims(afIndices, p_dims, true);
+        return dims.toZtShape(allocator, dims.ndims());
+    }
+
+    fn idxAssign(_: *const ArrayFireBackend, impl: *af.Array, other: *af.Array, indices: []af.af_index_t, is_linear: bool) !void {
+        var nd = try impl.getNumDims();
+        var this_dims = try impl.getDims();
+        var other_dims = try other.getDims();
+        var dim = gForDim(indices);
+        var other_arr = other.get();
+
+        var batch_assign = false;
+        var is_reordered = false;
+        if (dim >= 0) {
+            // FIXME: Figure out a faster, cleaner way to do this
+            var out_dims = try seqToDims(indices, this_dims, false);
+
+            batch_assign = true;
+            for (0..@intCast(af.AF_MAX_DIMS)) |i| {
+                if (indices[i].isBatch) {
+                    var tmp_batch_assign = @intFromBool(batch_assign);
+                    tmp_batch_assign &= @intFromBool(other_dims.dims[i] == 1);
+                    batch_assign = tmp_batch_assign != 0;
+                } else {
+                    var tmp_batch_assign = @intFromBool(batch_assign);
+                    tmp_batch_assign &= @intFromBool(other_dims.dims[i] == out_dims.dims[i]);
+                    batch_assign = tmp_batch_assign != 0;
+                }
+            }
+
+            if (batch_assign) {
+                var out: af.af_array = undefined;
+                try af.AF_CHECK(
+                    af.af_tile(
+                        &out,
+                        other_arr,
+                        @intCast(@divTrunc(out_dims.dims[0], other_dims.dims[0])),
+                        @intCast(@divTrunc(out_dims.dims[1], other_dims.dims[1])),
+                        @intCast(@divTrunc(out_dims.dims[2], other_dims.dims[2])),
+                        @intCast(@divTrunc(out_dims.dims[3], other_dims.dims[3])),
+                    ),
+                    @src(),
+                );
+                other_arr = out;
+            } else if (!std.mem.eql(af.dim_t, &out_dims.dims, &other_dims.dims)) {
+                // HACK: This is a quick check to see if other has been reordered
+                // inside gfor
+                // TODO: Figure out if this breaks and implement a cleaner
+                // method
+                other_arr = try gForReorder(other_arr, @intCast(dim));
+                is_reordered = true;
+            }
+        }
+
+        var par_arr: af.af_array = null;
+
+        var parent_dims = try impl.getDims();
+        if (is_linear) {
+            try af.AF_CHECK(af.af_flat(&par_arr, impl.get()), @src());
+
+            // The set call will dereference the impl->parent_ array. We are doing
+            // this because the af_flat call above increases the reference count of
+            // the parent array which triggers a copy operation. This triggers a
+            // copy operation inside the af_assign_gen function below. The parent
+            // array will be reverted to the original array and shape later in the
+            // code.
+            try impl.release(); // also sets underlying array to null
+            nd = 1;
+        } else {
+            par_arr = impl.get();
+        }
+
+        var flat_res: af.af_array = null;
+        try af.AF_CHECK(
+            af.af_assign_gen(
+                &flat_res,
+                par_arr,
+                @intCast(nd),
+                indices.ptr,
+                other_arr,
+            ),
+            @src(),
+        );
+
+        var res: af.af_array = null;
+        var unflattened: af.af_array = null;
+        if (is_linear) {
+            try af.AF_CHECK(
+                af.af_moddims(
+                    &res,
+                    flat_res,
+                    @intCast(this_dims.ndims()),
+                    (&this_dims.dims).ptr,
+                ),
+                @src(),
+            );
+            // Unflatten the af_array and reset the original reference
+            try af.AF_CHECK(
+                af.af_moddims(
+                    &unflattened,
+                    par_arr,
+                    @intCast(parent_dims.ndims()),
+                    (&parent_dims.dims).ptr,
+                ),
+                @src(),
+            );
+            try impl.set(unflattened);
+            try af.AF_CHECK(af.af_release_array(par_arr), @src());
+            try af.AF_CHECK(af.af_release_array(flat_res), @src());
+        } else {
+            res = flat_res;
+        }
+
+        try impl.set(res);
+        if (dim >= 0 and (is_reordered or batch_assign)) {
+            if (other_arr != null) try af.AF_CHECK(af.af_release_array(other_arr), @src());
+        }
+    }
+
+    pub fn indexAssign(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []Index) !void {
+        if (indices.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
+            std.log.debug(
+                "ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n",
+                .{},
+            );
+            return error.IndicesExceedMaxDims;
+        }
+
+        // TODO: vet and stress test this a lot more/add proper support for
+        // multi-tensor
+        // If indexing by a single element and it's a tensor with the same number of
+        // indices as the array being indexed, do a flat index as this is probably a
+        // filter-based index (for example: a(a < 5)).
+        const completeTensorIndex = indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try toArray(allocator, lhs)).getElements()));
+        var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
+        if (completeTensorIndex) {
+            // TODO: verify this is correct; needs tests
+            try af.ops.setSeqParamIndexer(afIndices, 0, 0, 1, 0, false);
+        }
+
+        if (indices.len > afIndices.len) {
+            std.log.debug("ArrayFireTensor.index internal error - passed indices is larger than the number of af indices.\n", .{});
+            return error.PassedIndicesLargerThanAfIndices;
+        }
+
+        // Fill in corresponding index types for each af index
+        var i: usize = 0;
+        while (i < indices.len) : (i += 1) {
+            afIndices[i] = af.ops.ztToAfIndex(indices[i]);
+        }
+
+        return self.idxAssign(
+            try toArray(allocator, lhs),
+            try toArray(allocator, rhs),
+            afIndices,
+            indices.len == 1 and indices[0].idxType() != .Tensor,
         );
     }
 

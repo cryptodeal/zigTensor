@@ -1,6 +1,7 @@
 const std = @import("std");
 const af = @import("../../../bindings/af/ArrayFire.zig");
 const zt_idx = @import("../../Index.zig");
+const assert = std.debug.assert;
 
 const IndexType = zt_idx.IndexType;
 
@@ -43,4 +44,90 @@ pub fn condenseIndices(
     } else {
         return .{ .arr = arr, .modified = false };
     }
+}
+
+pub fn gForDim(indices: []af.af_index_t) i32 {
+    for (0..indices.len) |i| {
+        if (indices[i].isBatch) return @intCast(i);
+    }
+    return -1;
+}
+
+fn hasEnd(seq: *const af.af_seq) bool {
+    return (seq.begin <= -1 or seq.end <= -1);
+}
+
+fn isSpan(seq: *const af.af_seq) bool {
+    return std.meta.eql(seq.*, af.af_span);
+}
+
+fn seqElements(seq: *const af.af_seq) usize {
+    var out: usize = 0;
+    if (seq.step > std.math.floatMin(f64)) {
+        out = @intFromFloat(((seq.end - seq.begin) / @fabs(seq.step)) + 1);
+    } else if (seq.step < -(std.math.floatMin(f64))) {
+        out = @intFromFloat(((seq.begin - seq.end) / @fabs(seq.step)) + 1);
+    } else {
+        out = std.math.maxInt(usize);
+    }
+    return out;
+}
+
+fn calcDim(seq: *const af.af_seq, parent_dim: af.dim_t) !af.dim_t {
+    var out_dim: af.dim_t = 1;
+    if (isSpan(seq)) {
+        out_dim = parent_dim;
+    } else if (hasEnd(seq)) {
+        var tmp: af.af_seq = .{ .begin = seq.begin, .end = seq.end, .step = seq.step };
+        if (seq.begin < 0) tmp.begin += @floatFromInt(parent_dim);
+        if (seq.end < 0) tmp.end += @floatFromInt(parent_dim);
+        out_dim = @intCast(seqElements(&tmp));
+    } else {
+        // TODO: if (!(seq.begin >= -(std.math.floatMin(f64)) and seq.begin < @as(f64, @floatFromInt(parent_dim)))) {
+        // Throw error??
+        // }
+        // TODO: if (!(seq.end < @as(f64, @floatFromInt(parent_dim)))) {
+        // Throw error??
+        // }
+        out_dim = @intCast(seqElements(seq));
+    }
+    return out_dim;
+}
+
+pub fn seqToDims(indices: []af.af_index_t, parent_dims: af.Dim4, reorder: bool) !af.Dim4 {
+    var odims = af.Dim4{};
+    for (0..@intCast(af.AF_MAX_DIMS)) |i| {
+        if (indices[i].isSeq) {
+            odims.dims[i] = try calcDim(&indices[i].idx.seq, parent_dims.dims[i]);
+        } else {
+            var elems: af.dim_t = 0;
+            try af.AF_CHECK(af.af_get_elements(&elems, indices[i].idx.arr), @src());
+            odims.dims[i] = elems;
+        }
+    }
+
+    // Change the dimensions if inside GFOR
+    if (reorder) {
+        for (0..@intCast(af.AF_MAX_DIMS)) |i| {
+            if (indices[i].isBatch) {
+                var tmp = odims.dims[i];
+                odims.dims[i] = odims.dims[3];
+                odims.dims[3] = tmp;
+                break;
+            }
+        }
+    }
+    return odims;
+}
+
+pub fn gForReorder(in: af.af_array, dim: c_uint) !af.af_array {
+    if (dim > 3) {
+        std.log.err("GFor: Dimension is invalid", .{});
+        return error.ArrayFireInvalidDimError;
+    }
+    var order = [@intCast(af.AF_MAX_DIMS)]c_uint{ 0, 1, 2, dim };
+    order[@intCast(dim)] = 3;
+    var out: af.af_array = undefined;
+    try af.AF_CHECK(af.af_reorder(&out, in, order[0], order[1], order[2], order[3]), @src());
+    return out;
 }

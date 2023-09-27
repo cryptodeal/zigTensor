@@ -13,6 +13,7 @@ const MatrixProperty = base.MatrixProperty;
 const PadType = base.PadType;
 const Shape = zt_shape.Shape;
 const Dim = zt_shape.Dim;
+const Index = @import("Index.zig").Index;
 const TensorBackendType = base.TensorBackendType;
 
 pub fn areBackendsEqual(self: TensorBackend, other: TensorBackend) bool {
@@ -109,6 +110,8 @@ pub const TensorBackend = struct {
         any: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
         all: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
         assign: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!void,
+        getIndexAssignShape: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, target: Tensor, indices: []Index, is_linear: bool) anyerror!Shape, // util used to create constant from numeric literal for index assign
+        indexAssign: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []Index) anyerror!void,
         add: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
         inPlaceAdd: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!void,
         sub: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!Tensor,
@@ -191,6 +194,28 @@ pub const TensorBackend = struct {
             else => return error.InvalidTypePassedToFromScalar,
         }
         return self.vtable.full(self.ptr, allocator, shape, f, dtype);
+    }
+
+    fn getIndexAssignShape(self: *const Self, allocator: std.mem.Allocator, target: Tensor, indices: []Index, is_linear: bool) !Shape {
+        return self.vtable.getIndexAssignShape(self.ptr, allocator, target, indices, is_linear);
+    }
+
+    pub fn indexAssign(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []Index) !void {
+        var rhsTensor: Tensor = undefined;
+        var init_rhs_tensor = false;
+        var shape: Shape = undefined;
+        defer if (init_rhs_tensor) {
+            rhsTensor.deinit();
+            shape.deinit();
+        };
+        if (T == Tensor) {
+            rhsTensor = rhs;
+        } else {
+            shape = try self.getIndexAssignShape(allocator, lhs, indices, indices.len == 1 and indices[0].idxType() != .Tensor);
+            rhsTensor = try self.full(allocator, &shape, T, rhs, try lhs.dtype(allocator));
+            init_rhs_tensor = true;
+        }
+        return self.vtable.indexAssign(self.ptr, allocator, lhs, rhsTensor, indices);
     }
 
     pub fn identity(self: *const Self, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
@@ -852,6 +877,16 @@ pub const TensorBackend = struct {
                 return self.assign(allocator, lhs, rhs);
             }
 
+            fn getIndexAssignShape(ctx: *anyopaque, allocator: std.mem.Allocator, target: Tensor, indices: []Index, is_linear: bool) !Shape {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.getIndexAssignShape(allocator, target, indices, is_linear);
+            }
+
+            fn indexAssign(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []Index) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.indexAssign(allocator, lhs, rhs, indices);
+            }
+
             fn add(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.add(allocator, lhs, rhs);
@@ -1053,6 +1088,8 @@ pub const TensorBackend = struct {
                 .any = impl.any,
                 .all = impl.all,
                 .assign = impl.assign,
+                .getIndexAssignShape = impl.getIndexAssignShape,
+                .indexAssign = impl.indexAssign,
                 .add = impl.add,
                 .inPlaceAdd = impl.inPlaceAdd,
                 .sub = impl.sub,

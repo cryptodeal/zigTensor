@@ -248,6 +248,11 @@ pub const Tensor = struct {
         return bknd.assign(allocator, self.*, rhsTensor);
     }
 
+    pub fn indexAssign(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []Index) !void {
+        var bknd = try self.backend(allocator);
+        return bknd.indexAssign(allocator, self.*, T, rhs, indices);
+    }
+
     pub fn inPlaceAdd(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T) !void {
         var bknd = try self.backend(allocator);
         var rhsTensor: Tensor = undefined;

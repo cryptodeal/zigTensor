@@ -7,13 +7,14 @@ const zt_shape = @import("../../Shape.zig");
 const zigrc = @import("zigrc");
 const build_options = @import("build_options");
 const runtime = @import("../../../runtime/runtime.zig");
+const af_utils = @import("Utils.zig");
 
 const assert = std.debug.assert;
 const deinit = @import("../../Init.zig").deinit;
 const TensorAdapterBase = @import("../../TensorAdapter.zig").TensorAdapterBase;
 const ArrayFireBackend = @import("ArrayFireBackend.zig").ArrayFireBackend;
 const TensorBackend = @import("../../TensorBackend.zig").TensorBackend;
-const condenseIndices = @import("Utils.zig").condenseIndices;
+const condenseIndices = af_utils.condenseIndices;
 const ZT_BACKEND_CUDA = build_options.ZT_BACKEND_CUDA;
 const ZT_BACKEND_CPU = build_options.ZT_BACKEND_CPU;
 const ZT_BACKEND_OPENCL = build_options.ZT_BACKEND_OPENCL;

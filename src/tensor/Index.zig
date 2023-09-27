@@ -440,6 +440,25 @@ test "IndexTest -> flat" {
     // TODO finish test w assignment
 }
 
-// TODO: test "IndexTest -> TensorIndex" {}
+test "IndexTest -> TensorIndex" {
+    const print = @import("TensorBase.zig").print;
+    const full = @import("TensorBase.zig").full;
+    const Shape = @import("Shape.zig").Shape;
+    const deinit = @import("Init.zig").deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
 
+    var idxs = [_]Dim{ 0, 1, 4, 9, 11, 13, 16, 91 };
+    var size = idxs.len;
+    var indice_dims = [_]Dim{@intCast(size)};
+    var indices_shape = try Shape.init(allocator, &indice_dims);
+    defer indices_shape.deinit();
+    var indices = try full(allocator, &indices_shape, f64, 0, .f32);
+    defer indices.deinit();
+    for (0..idxs.len) |i| {
+        var idx = [_]Index{Index.initDim(@intCast(i))};
+        try indices.indexAssign(allocator, Dim, idxs[i], &idx);
+    }
+    try print(allocator, indices);
+}
 // TODO: test "IndexTest -> ExpressionIndex" {}

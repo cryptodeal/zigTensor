@@ -15,6 +15,15 @@ pub const Array = struct {
     array_: af.af_array,
     allocator: std.mem.Allocator,
 
+    pub fn get(self: *const Self) af.af_array {
+        return self.array_;
+    }
+
+    pub fn set(self: *Self, arr: af.af_array) !void {
+        try self.release();
+        self.array_ = arr;
+    }
+
     pub fn init(allocator: std.mem.Allocator, arr: af.af_array) !*Self {
         var self = try allocator.create(Self);
         self.* = .{ .array_ = arr, .allocator = allocator };
@@ -1587,7 +1596,8 @@ pub const Array = struct {
 
     /// Reduce the reference count of this `af.Array`.
     pub fn release(self: *Self) !void {
-        return af.ops.releaseArray(self);
+        try af.ops.releaseArray(self);
+        self.array_ = null;
     }
 
     /// Increments this `af.Array` reference count.
