@@ -64,9 +64,9 @@ fn isSpan(seq: *const af.af_seq) bool {
 fn seqElements(seq: *const af.af_seq) usize {
     var out: usize = 0;
     if (seq.step > std.math.floatMin(f64)) {
-        out = @intFromFloat(((seq.end - seq.begin) / @fabs(seq.step)) + 1);
+        out = @intFromFloat(((seq.end - seq.begin) / @abs(seq.step)) + 1);
     } else if (seq.step < -(std.math.floatMin(f64))) {
-        out = @intFromFloat(((seq.begin - seq.end) / @fabs(seq.step)) + 1);
+        out = @intFromFloat(((seq.begin - seq.end) / @abs(seq.step)) + 1);
     } else {
         out = std.math.maxInt(usize);
     }

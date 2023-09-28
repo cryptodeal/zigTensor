@@ -591,7 +591,7 @@ pub const ArrayFireTensor = struct {
                             postIdxDims.dims[i] = size;
                         } else if (indexTypes[i] == .Range) {
                             const seq = indices[i].idx.seq;
-                            postIdxDims.dims[i] = if (seq.step == 0) 0 else @as(af.dim_t, @intCast(@fabs((seq.end - seq.begin) / seq.step))) + 1;
+                            postIdxDims.dims[i] = if (seq.step == 0) 0 else @as(af.dim_t, @intCast(@abs((seq.end - seq.begin) / seq.step))) + 1;
                         } else if (indexTypes[i] == .Literal) {
                             postIdxDims.dims[i] = 1;
                         }
