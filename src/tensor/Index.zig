@@ -1,9 +1,8 @@
 const std = @import("std");
-const zt_shape = @import("Shape.zig");
-const zt_base = @import("TensorBase.zig");
+const tensor_ = @import("tensor.zig");
 
-const Dim = zt_shape.Dim;
-const Tensor = zt_base.Tensor;
+const Dim = tensor_.Dim;
+const Tensor = tensor_.Tensor;
 
 /// Represents the imaginary index after the last index along
 /// an axis of a tensor. This special case is used because
@@ -234,7 +233,7 @@ test "IndexTest -> Index.idxType" {
 }
 
 test "IndexTest -> ArrayFireMaxIndex" {
-    const full = @import("TensorBase.zig").full;
+    const full = tensor_.full;
     const Shape = @import("Shape.zig").Shape;
     const deinit = @import("Init.zig").deinit;
     defer deinit(); // deinit global singletons
@@ -256,8 +255,8 @@ test "IndexTest -> ArrayFireMaxIndex" {
 }
 
 test "IndexTest -> Shape" {
-    const full = @import("TensorBase.zig").full;
-    const Shape = @import("Shape.zig").Shape;
+    const full = tensor_.full;
+    const Shape = tensor_.Shape;
     const deinit = @import("Init.zig").deinit;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
@@ -382,11 +381,11 @@ test "IndexTest -> Shape" {
 // TODO: test "IndexTest -> IndexInPlaceOps" {}
 
 test "IndexTest -> flat" {
-    const rand = @import("Random.zig").rand;
-    const full = @import("TensorBase.zig").full;
-    const Shape = @import("Shape.zig").Shape;
-    const allClose = @import("TensorBase.zig").allClose;
-    const deinit = @import("Init.zig").deinit;
+    const rand = tensor_.rand;
+    const full = tensor_.full;
+    const Shape = tensor_.Shape;
+    const allClose = tensor_.allClose;
+    const deinit = tensor_.deinit;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -441,10 +440,10 @@ test "IndexTest -> flat" {
 }
 
 test "IndexTest -> TensorIndex" {
-    const print = @import("TensorBase.zig").print;
-    const full = @import("TensorBase.zig").full;
-    const Shape = @import("Shape.zig").Shape;
-    const deinit = @import("Init.zig").deinit;
+    const print = tensor_.print;
+    const full = tensor_.full;
+    const Shape = tensor_.Shape;
+    const deinit = tensor_.deinit;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -461,4 +460,5 @@ test "IndexTest -> TensorIndex" {
     }
     try print(allocator, indices);
 }
+
 // TODO: test "IndexTest -> ExpressionIndex" {}

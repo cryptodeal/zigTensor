@@ -1,21 +1,17 @@
 const std = @import("std");
-const zt_base = @import("TensorBase.zig");
-const zt_shape = @import("Shape.zig");
-const zt_tensor_backend = @import("TensorBackend.zig");
 const zigrc = @import("zigrc");
-const zt_type = @import("Types.zig");
-const rt_stream = @import("../runtime/Stream.zig");
-const zt_idx = @import("Index.zig");
+const tensor = @import("tensor.zig");
 
 const assert = std.debug.assert;
-const Index = zt_idx.Index;
-const Shape = zt_shape.Shape;
-const Tensor = zt_base.Tensor;
-const Location = zt_base.Location;
-const TensorBackendType = zt_base.TensorBackendType;
-const TensorBackend = zt_tensor_backend.TensorBackend;
-const DType = zt_type.DType;
-const Stream = rt_stream.Stream;
+const DType = tensor.DType;
+const Index = tensor.Index;
+const Location = tensor.Location;
+const Shape = tensor.Shape;
+const Tensor = tensor.Tensor;
+const TensorBackend = tensor.TensorBackend;
+const TensorBackendType = tensor.TensorBackendType;
+// TODO: import from `../runtime/runtime.zig`
+const Stream = @import("../runtime/Stream.zig").Stream;
 
 pub const TensorAdapterBase = struct {
     const Self = @This();

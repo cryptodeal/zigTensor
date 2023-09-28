@@ -1,5 +1,4 @@
 const std = @import("std");
-const af = @import("../bindings/af/ArrayFire.zig");
 
 /// The type of a dimension.
 pub const Dim = i64;

@@ -1,20 +1,18 @@
 //! The standard TensorBackend implementation.
-
 const std = @import("std");
 const zigrc = @import("zigrc");
-const DType = @import("Types.zig").DType;
-const base = @import("TensorBase.zig");
-const zt_shape = @import("Shape.zig");
+const tensor_ = @import("tensor.zig");
 
 const assert = std.debug.assert;
-const Tensor = base.Tensor;
-const SortMode = base.SortMode;
-const MatrixProperty = base.MatrixProperty;
-const PadType = base.PadType;
-const Shape = zt_shape.Shape;
-const Dim = zt_shape.Dim;
-const Index = @import("Index.zig").Index;
-const TensorBackendType = base.TensorBackendType;
+const Tensor = tensor_.Tensor;
+const TensorBackendType = tensor_.TensorBackendType;
+const DType = tensor_.DType;
+const Shape = tensor_.Shape;
+const Dim = tensor_.Dim;
+const SortMode = tensor_.SortMode;
+const MatrixProperty = tensor_.MatrixProperty;
+const PadType = tensor_.PadType;
+const Index = tensor_.Index;
 
 pub fn areBackendsEqual(self: TensorBackend, other: TensorBackend) bool {
     return self.backendType() == other.backendType();

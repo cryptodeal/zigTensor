@@ -1,6 +1,7 @@
 const std = @import("std");
 const build_options = @import("build_options");
-const TensorBackend = @import("TensorBackend.zig").TensorBackend;
+
+const TensorBackend = @import("tensor.zig").TensorBackend;
 
 const ZT_USE_ARRAYFIRE = build_options.ZT_USE_ARRAYFIRE;
 // TODO: const ZT_USE_ONEDNN = build_options.ZT_USE_ONEDNN;

@@ -682,9 +682,9 @@ test "ArrayFireTensorBaseTest -> AfRefCountBasic" {
 }
 
 test "ArrayFireTensorBaseTest -> AfRefCountModify" {
-    const full = @import("../../TensorBase.zig").full;
-    const add = @import("../../TensorBase.zig").add;
-    const mul = @import("../../TensorBase.zig").mul;
+    const full = @import("../../tensor.zig").full;
+    const add = @import("../../tensor.zig").add;
+    const mul = @import("../../tensor.zig").mul;
 
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
@@ -725,7 +725,7 @@ test "ArrayFireTensorBaseTest -> AfRefCountModify" {
 test "ArrayFireTensorBaseTest -> astypeRefcount" {
     const allocator = std.testing.allocator;
     var tDims = [_]Dim{ 5, 5 };
-    const rand = @import("../../Random.zig").rand;
+    const rand = @import("../../tensor.zig").rand;
     var tShape = try Shape.init(allocator, &tDims);
     defer tShape.deinit();
     var t = try rand(allocator, &tShape, .f32);
@@ -744,7 +744,7 @@ test "ArrayFireTensorBaseTest -> astypeRefcount" {
 
 test "ArrayFireTensorBaseTest -> BackendInterop" {
     const allocator = std.testing.allocator;
-    const rand = @import("../../Random.zig").rand;
+    const rand = @import("../../tensor.zig").rand;
     defer deinit(); // deinit global singletons
     var dims = [_]Dim{ 10, 12 };
     var shape = try Shape.init(allocator, &dims);
@@ -759,9 +759,9 @@ test "ArrayFireTensorBaseTest -> BackendInterop" {
 // TODO: test "ArrayFireAssignmentOperators" {}
 
 test "ArrayFireTensorBaseTest -> BinaryOperators" {
-    const full = @import("../../TensorBase.zig").full;
-    const eq = @import("../../TensorBase.zig").eq;
-    const add = @import("../../TensorBase.zig").add;
+    const full = @import("../../tensor.zig").full;
+    const eq = @import("../../tensor.zig").eq;
+    const add = @import("../../tensor.zig").add;
 
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
@@ -791,7 +791,7 @@ test "ArrayFireTensorBaseTest -> BinaryOperators" {
 }
 
 test "ArrayFireTensorBaseTest -> full" {
-    const full = @import("../../TensorBase.zig").full;
+    const full = @import("../../tensor.zig").full;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -829,7 +829,7 @@ test "ArrayFireTensorBaseTest -> full" {
 }
 
 test "ArrayFireTensorBaseTest -> identity" {
-    const identity = @import("../../TensorBase.zig").identity;
+    const identity = @import("../../tensor.zig").identity;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -855,7 +855,7 @@ test "ArrayFireTensorBaseTest -> identity" {
 }
 
 test "ArrayFireTensorBaseTest -> randn" {
-    const randn = @import("../../Random.zig").randn;
+    const randn = @import("../../tensor.zig").randn;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -885,7 +885,7 @@ test "ArrayFireTensorBaseTest -> randn" {
 }
 
 test "ArrayFireTensorBaseTest -> rand" {
-    const rand = @import("../../Random.zig").rand;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -922,8 +922,8 @@ test "ArrayFireTensorBaseTest -> rand" {
 }
 
 test "ArrayFireTensorBaseTest -> amin" {
-    const rand = @import("../../Random.zig").rand;
-    const amin = @import("../../TensorBase.zig").amin;
+    const rand = @import("../../tensor.zig").rand;
+    const amin = @import("../../tensor.zig").amin;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -954,8 +954,8 @@ test "ArrayFireTensorBaseTest -> amin" {
 }
 
 test "ArrayFireTensorBaseTest -> amax" {
-    const rand = @import("../../Random.zig").rand;
-    const amax = @import("../../TensorBase.zig").amax;
+    const rand = @import("../../tensor.zig").rand;
+    const amax = @import("../../tensor.zig").amax;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -986,8 +986,8 @@ test "ArrayFireTensorBaseTest -> amax" {
 }
 
 test "ArrayFireTensorBaseTest -> sum" {
-    const rand = @import("../../Random.zig").rand;
-    const sum = @import("../../TensorBase.zig").sum;
+    const rand = @import("../../tensor.zig").rand;
+    const sum = @import("../../tensor.zig").sum;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1045,8 +1045,8 @@ test "ArrayFireTensorBaseTest -> sum" {
 }
 
 test "ArrayFireTensorBaseTest -> exp" {
-    const exp = @import("../../TensorBase.zig").exp;
-    const full = @import("../../TensorBase.zig").full;
+    const exp = @import("../../tensor.zig").exp;
+    const full = @import("../../tensor.zig").full;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1064,8 +1064,8 @@ test "ArrayFireTensorBaseTest -> exp" {
 }
 
 test "ArrayFireTensorBaseTest -> log" {
-    const log = @import("../../TensorBase.zig").log;
-    const full = @import("../../TensorBase.zig").full;
+    const log = @import("../../tensor.zig").log;
+    const full = @import("../../tensor.zig").full;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1083,10 +1083,10 @@ test "ArrayFireTensorBaseTest -> log" {
 }
 
 test "ArrayFireTensorBaseTest -> log1p" {
-    const log = @import("../../TensorBase.zig").log;
-    const log1p = @import("../../TensorBase.zig").log1p;
-    const add = @import("../../TensorBase.zig").add;
-    const rand = @import("../../Random.zig").rand;
+    const log = @import("../../tensor.zig").log;
+    const log1p = @import("../../tensor.zig").log1p;
+    const add = @import("../../tensor.zig").add;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1106,8 +1106,8 @@ test "ArrayFireTensorBaseTest -> log1p" {
 }
 
 test "ArrayFireTensorBaseTest -> sin" {
-    const sin = @import("../../TensorBase.zig").sin;
-    const rand = @import("../../Random.zig").rand;
+    const sin = @import("../../tensor.zig").sin;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1125,8 +1125,8 @@ test "ArrayFireTensorBaseTest -> sin" {
 }
 
 test "ArrayFireTensorBaseTest -> cos" {
-    const cos = @import("../../TensorBase.zig").cos;
-    const rand = @import("../../Random.zig").rand;
+    const cos = @import("../../tensor.zig").cos;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1144,9 +1144,9 @@ test "ArrayFireTensorBaseTest -> cos" {
 }
 
 test "ArrayFireTensorBaseTest -> sqrt" {
-    const sqrt = @import("../../TensorBase.zig").sqrt;
-    const full = @import("../../TensorBase.zig").full;
-    const div = @import("../../TensorBase.zig").div;
+    const sqrt = @import("../../tensor.zig").sqrt;
+    const full = @import("../../tensor.zig").full;
+    const div = @import("../../tensor.zig").div;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1164,8 +1164,8 @@ test "ArrayFireTensorBaseTest -> sqrt" {
 }
 
 test "ArrayFireTensorBaseTest -> tanh" {
-    const tanh = @import("../../TensorBase.zig").tanh;
-    const rand = @import("../../Random.zig").rand;
+    const tanh = @import("../../tensor.zig").tanh;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1183,8 +1183,8 @@ test "ArrayFireTensorBaseTest -> tanh" {
 }
 
 test "ArrayFireTensorBaseTest -> absolute" {
-    const absolute = @import("../../TensorBase.zig").absolute;
-    const full = @import("../../TensorBase.zig").full;
+    const absolute = @import("../../tensor.zig").absolute;
+    const full = @import("../../tensor.zig").full;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1204,8 +1204,8 @@ test "ArrayFireTensorBaseTest -> absolute" {
 }
 
 test "ArrayFireTensorBaseTest -> erf" {
-    const erf = @import("../../TensorBase.zig").erf;
-    const rand = @import("../../Random.zig").rand;
+    const erf = @import("../../tensor.zig").erf;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1223,8 +1223,8 @@ test "ArrayFireTensorBaseTest -> erf" {
 }
 
 test "ArrayFireTensorBaseTest -> mean" {
-    const mean = @import("../../TensorBase.zig").mean;
-    const rand = @import("../../Random.zig").rand;
+    const mean = @import("../../tensor.zig").mean;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1256,8 +1256,8 @@ test "ArrayFireTensorBaseTest -> mean" {
 }
 
 test "ArrayFireTensorBaseTest -> median" {
-    const median = @import("../../TensorBase.zig").median;
-    const rand = @import("../../Random.zig").rand;
+    const median = @import("../../tensor.zig").median;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1294,8 +1294,8 @@ test "ArrayFireTensorBaseTest -> median" {
 }
 
 test "ArrayFireTensorBaseTest -> variance" {
-    const variance = @import("../../TensorBase.zig").variance;
-    const rand = @import("../../Random.zig").rand;
+    const variance = @import("../../tensor.zig").variance;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1390,8 +1390,8 @@ test "ArrayFireTensorBaseTest -> variance" {
 }
 
 test "ArrayFireTensorBaseTest -> stdev" {
-    const stdev = @import("../../TensorBase.zig").stdev;
-    const rand = @import("../../Random.zig").rand;
+    const stdev = @import("../../tensor.zig").stdev;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1446,8 +1446,8 @@ test "ArrayFireTensorBaseTest -> stdev" {
 }
 
 test "ArrayFireTensorBaseTest -> norm" {
-    const norm = @import("../../TensorBase.zig").norm;
-    const rand = @import("../../Random.zig").rand;
+    const norm = @import("../../tensor.zig").norm;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1470,8 +1470,8 @@ test "ArrayFireTensorBaseTest -> norm" {
 }
 
 test "ArrayFireTensorBaseTest -> tile" {
-    const tile = @import("../../TensorBase.zig").tile;
-    const rand = @import("../../Random.zig").rand;
+    const tile = @import("../../tensor.zig").tile;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1492,8 +1492,8 @@ test "ArrayFireTensorBaseTest -> tile" {
 }
 
 test "ArrayFireTensorBaseTest -> nonzero" {
-    const nonzero = @import("../../TensorBase.zig").nonzero;
-    const rand = @import("../../Random.zig").rand;
+    const nonzero = @import("../../tensor.zig").nonzero;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1511,8 +1511,8 @@ test "ArrayFireTensorBaseTest -> nonzero" {
 }
 
 test "ArrayFireTensorBaseTest -> transpose" {
-    const transpose = @import("../../TensorBase.zig").transpose;
-    const rand = @import("../../Random.zig").rand;
+    const transpose = @import("../../tensor.zig").transpose;
+    const rand = @import("../../tensor.zig").rand;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1566,7 +1566,7 @@ test "ArrayFireTensorBaseTest -> transpose" {
 }
 
 test "ArrayFireTensorBaseTest -> concatenate" {
-    const concatenate = @import("../../TensorBase.zig").concatenate;
+    const concatenate = @import("../../tensor.zig").concatenate;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
     var tensors = try std.ArrayList(Tensor).initCapacity(allocator, 11);
