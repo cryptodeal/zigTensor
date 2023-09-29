@@ -1076,8 +1076,7 @@ pub fn add(
 pub fn addInplace(lhs: *af.Array, rhs: *const af.Array, batch: bool) !void {
     var out: af.af_array = undefined;
     try af.AF_CHECK(af.af_add(&out, lhs.array_, rhs.array_, batch), @src());
-    try releaseArray(lhs);
-    lhs.array_ = out;
+    try lhs.set(out);
 }
 
 /// Performs element wise subtraction on two `af.Array`s.
@@ -1107,8 +1106,7 @@ pub fn sub(
 pub fn subInplace(lhs: *af.Array, rhs: *const af.Array, batch: bool) !void {
     var out: af.af_array = undefined;
     try af.AF_CHECK(af.af_sub(&out, lhs.array_, rhs.array_, batch), @src());
-    try releaseArray(lhs);
-    lhs.array_ = out;
+    try lhs.set(out);
 }
 
 /// Performs element wise multiplication on two `af.Array`s.
@@ -1138,8 +1136,7 @@ pub fn mul(
 pub fn mulInplace(lhs: *af.Array, rhs: *const af.Array, batch: bool) !void {
     var out: af.af_array = undefined;
     try af.AF_CHECK(af.af_mul(&out, lhs.array_, rhs.array_, batch), @src());
-    try releaseArray(lhs);
-    lhs.array_ = out;
+    try lhs.set(out);
 }
 
 /// Performs element wise division on two `af.Array`s.
@@ -1169,8 +1166,7 @@ pub fn div(
 pub fn divInplace(lhs: *af.Array, rhs: *const af.Array, batch: bool) !void {
     var out: af.af_array = undefined;
     try af.AF_CHECK(af.af_div(&out, lhs.array_, rhs.array_, batch), @src());
-    try releaseArray(lhs);
-    lhs.array_ = out;
+    try lhs.set(out);
 }
 
 /// Perform a less-than comparison between
@@ -2876,7 +2872,7 @@ pub fn isColumn(arr: *const af.Array) !bool {
 }
 
 /// Returns bool indicating whether an `af.Array` is a vector.
-pub fn isVector(arr: *af.Array) !bool {
+pub fn isVector(arr: *const af.Array) !bool {
     var vec: bool = undefined;
     try af.AF_CHECK(af.af_is_vector(&vec, arr.array_), @src());
     return vec;

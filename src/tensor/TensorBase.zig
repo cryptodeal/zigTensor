@@ -232,6 +232,26 @@ pub const Tensor = struct {
         return bknd.indexAssign(allocator, self.*, T, rhs, indices);
     }
 
+    pub fn indexAdd(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []Index) !void {
+        var bknd = try self.backend(allocator);
+        return bknd.indexAdd(allocator, self.*, T, rhs, indices);
+    }
+
+    pub fn indexSub(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []Index) !void {
+        var bknd = try self.backend(allocator);
+        return bknd.indexSub(allocator, self.*, T, rhs, indices);
+    }
+
+    pub fn indexMul(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []Index) !void {
+        var bknd = try self.backend(allocator);
+        return bknd.indexMul(allocator, self.*, T, rhs, indices);
+    }
+
+    pub fn indexDiv(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []Index) !void {
+        var bknd = try self.backend(allocator);
+        return bknd.indexDiv(allocator, self.*, T, rhs, indices);
+    }
+
     pub fn inPlaceAdd(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T) !void {
         var bknd = try self.backend(allocator);
         var rhsTensor: Tensor = undefined;
