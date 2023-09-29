@@ -13,6 +13,8 @@ const Tensor = tensor_.Tensor;
 const TensorBackend = tensor_.TensorBackend;
 const TensorBackendType = tensor_.TensorBackendType;
 const ValIdxRes = tensor_.ValIdxRes;
+const DefaultTensorType_t = tensor_.DefaultTensorType_t;
+const TensorAdapterBase = tensor_.TensorAdapterBase;
 
 pub inline fn ztTensorBackendsMatch(fn_name: []const u8, tensors: []Tensor) !void {
     if (tensors.len <= 1) return;
@@ -24,6 +26,12 @@ pub inline fn ztTensorBackendsMatch(fn_name: []const u8, tensors: []Tensor) !voi
             return error.TensorBackendMismatch;
         }
     }
+}
+
+pub fn initAssign(allocator: std.mem.Allocator, rhs: Tensor) !Tensor {
+    var new_tensor = Tensor.init(TensorAdapterBase.init(try DefaultTensorType_t.initRaw(allocator)));
+    try (try defaultTensorBackend(allocator)).assign(allocator, new_tensor, rhs);
+    return new_tensor;
 }
 
 pub fn fromScalar(allocator: std.mem.Allocator, comptime T: type, value: T, dtype: DType) !Tensor {
@@ -1079,11 +1087,13 @@ pub fn print(allocator: std.mem.Allocator, input: Tensor) !void {
 
 pub fn allClose(allocator: std.mem.Allocator, a: Tensor, b: Tensor, abs_tolerance: f64) !bool {
     if (try a.dtype(allocator) != try b.dtype(allocator)) {
+        std.debug.print("DType mismatch: a.dtype: {s} vs b.dtype: {s}\n", .{ @tagName(try a.dtype(allocator)), @tagName(try b.dtype(allocator)) });
         return false;
     }
     var a_shape = try a.shape(allocator);
     var b_shape = try b.shape(allocator);
     if (!a_shape.eql(&b_shape)) {
+        std.debug.print("Shape mismatch: a.shape: {any}, b.dtype: {any}\n", .{ try a.shape(allocator), try b.shape(allocator) });
         return false;
     }
     if (try a.elements(allocator) == 0 and try b.elements(allocator) == 0) {

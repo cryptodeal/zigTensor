@@ -378,6 +378,8 @@ test "IndexTest -> Shape" {
 
 test "IndexTest -> IndexAssignment" {
     const full = tensor_.full;
+    const rand = tensor_.rand;
+    const initAssign = tensor_.initAssign;
     const Shape = tensor_.Shape;
     const allClose = tensor_.allClose;
     const deinit = tensor_.deinit;
@@ -435,10 +437,54 @@ test "IndexTest -> IndexAssignment" {
     defer b_shape.deinit();
     var b = try full(allocator, &b_shape, f64, 1, .f32);
     defer b.deinit();
+    var c = try initAssign(allocator, b);
+    defer c.deinit();
+    try b.inPlaceAdd(allocator, f64, 1);
+    var b_expected = try full(allocator, &b_shape, f64, 2, .f32);
+    defer b_expected.deinit();
+    try std.testing.expect(try allClose(allocator, b, b_expected, 1e-5));
+    var c_expected = try full(allocator, &b_shape, f64, 1, .f32);
+    defer c_expected.deinit();
+    try std.testing.expect(try allClose(allocator, c, c_expected, 1e-5));
 
-    // TODO: implement fn so `var c = b;` works (initAssign??)
+    var q = try full(allocator, &t_shape, f64, 2, .f32);
+    defer q.deinit();
+    var r_dims = [_]Dim{4};
+    var r_shape = try Shape.init(allocator, &r_dims);
+    defer r_shape.deinit();
+    var r = try full(allocator, &r_shape, f64, 3, .f32);
+    defer r.deinit();
+    indices1 = [1]Index{Index.initDim(0)};
+    try q.indexAssign(allocator, Tensor, r, &indices1);
+    var q_idx = try q.index(allocator, &indices1);
+    defer q_idx.deinit();
+    try std.testing.expect(try allClose(allocator, q_idx, r, 1e-5));
+    indices1 = [1]Index{Index.initRange(Range.init(1, .{ .end = end }))};
+    var q_exp_dims = [_]Dim{ 3, 4 };
+    var q_exp_shape = try Shape.init(allocator, &q_exp_dims);
+    defer q_exp_shape.deinit();
+    var q_exp = try full(allocator, &q_exp_shape, f64, 2, .f32);
+    defer q_exp.deinit();
+    var q_idx2 = try q.index(allocator, &indices1);
+    defer q_idx2.deinit();
+    try std.testing.expect(try allClose(allocator, q_idx2, q_exp, 1e-5));
 
-    // TODO: finish this test
+    // weak ref
+    var g_dims = [_]Dim{ 3, 4, 5 };
+    var g_shape = try Shape.init(allocator, &g_dims);
+    defer g_shape.deinit();
+    var g = try rand(allocator, &g_shape, .f32);
+    defer g.deinit();
+    var gC = try g.copy(allocator);
+    defer gC.deinit();
+    indices = [2]Index{ Index.initRange(span), Index.initRange(Range.init(0, .{ .dim = 3 })) };
+    var gI = try g.index(allocator, &indices);
+    defer gI.deinit();
+    try g.indexAdd(allocator, f64, 3, &indices);
+    try gI.inPlaceSub(allocator, f64, 3);
+    var gC_idx = try gC.index(allocator, &indices);
+    defer gC_idx.deinit();
+    try std.testing.expect(try allClose(allocator, gC_idx, gI, 1e-5));
 }
 
 // TODO: test "IndexTest -> IndexInPlaceOps" {}

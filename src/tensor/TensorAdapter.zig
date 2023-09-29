@@ -194,8 +194,8 @@ pub const TensorAdapterBase = struct {
     }
 
     /// Initializes a new `TensorAdapter`.
-    pub fn init(backend_impl: anytype) Self {
-        const Ptr = @TypeOf(backend_impl);
+    pub fn init(tensor_impl: anytype) Self {
+        const Ptr = @TypeOf(tensor_impl);
         const PtrInfo = @typeInfo(Ptr);
         assert(PtrInfo == .Pointer); // Must be a pointer
         assert(PtrInfo.Pointer.size == .One); // Must be a single-item pointer
@@ -332,7 +332,7 @@ pub const TensorAdapterBase = struct {
             }
         };
         return .{
-            .ptr = backend_impl,
+            .ptr = tensor_impl,
             .vtable = &.{
                 .deinit = impl.deinit,
                 .clone = impl.clone,

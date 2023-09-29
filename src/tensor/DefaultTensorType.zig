@@ -11,7 +11,7 @@ pub const DefaultTensorType_t = if (ZT_USE_ARRAYFIRE) @import("backend/af/ArrayF
 pub const DefaultTensorBackend_t = if (ZT_USE_ARRAYFIRE) @import("backend/af/ArrayFireBackend.zig").ArrayFireBackend else @compileError("Must specify backend as compile flag");
 
 pub fn defaultTensorBackend(allocator: std.mem.Allocator) !TensorBackend {
-    var tensor = try DefaultTensorType_t.initRaw(allocator);
+    var tensor = try DefaultTensorType_t.initEmpty(allocator);
     defer allocator.destroy(tensor);
     return tensor.backend(allocator);
 }

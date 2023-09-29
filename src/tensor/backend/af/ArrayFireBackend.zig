@@ -1656,6 +1656,7 @@ pub const ArrayFireBackend = struct {
     }
 
     pub fn assign(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !void {
+        (lhs.getAdapter(ArrayFireTensor)).numDims_ = try rhs.ndim(allocator);
         return af.ops.assign(
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
@@ -1980,11 +1981,18 @@ pub const ArrayFireBackend = struct {
             afIndices[i] = af.ops.ztToAfIndex(indices[i]);
         }
 
+        var is_vector = false;
+        var lhs_shape = try lhs.shape(allocator);
+        for (lhs_shape.dims_.items) |v| {
+            if (v > 1) {
+                is_vector = true;
+            }
+        }
         return self.idxAssign(
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
             afIndices,
-            indices.len == 1 and indices[0].idxType() != .Tensor and try lhs.ndim(allocator) == 1, // verify this is correct
+            indices.len == 1 and indices[0].idxType() != .Tensor and !is_vector, // verify this is correct
         );
     }
 

@@ -169,6 +169,11 @@ pub const ArrayFireTensor = struct {
     }
 
     pub fn initRaw(allocator: std.mem.Allocator) !*ArrayFireTensor {
+        var arr = try af.Array.initHandle(allocator, 0, af.Dim4{}, af.Dtype.f32);
+        return ArrayFireTensor.initFromArray(allocator, arr, 0);
+    }
+
+    pub fn initEmpty(allocator: std.mem.Allocator) !*ArrayFireTensor {
         return allocator.create(ArrayFireTensor);
     }
 
