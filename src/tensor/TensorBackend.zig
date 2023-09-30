@@ -202,23 +202,22 @@ pub const TensorBackend = struct {
         return self.vtable.getIndexAssignShape(self.ptr, allocator, target, indices);
     }
 
-    fn modifyIdxAssignShape(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor, target_shape: *const Shape) !Tensor {
-        var og_shape = try tensor.shape(allocator);
-        if (target_shape.elements() != og_shape.elements()) {
+    fn validateDimMatch(_: *const Self, allocator: std.mem.Allocator, og_shape: *const Shape, target_shape: *const Shape) !bool {
+        // TODO: find a better method of validating this
+        var no_empty_dims = std.ArrayList(Dim).init(allocator);
+        defer no_empty_dims.deinit();
+        for (target_shape.dims_.items) |v| {
+            if (v != 1) try no_empty_dims.append(v);
+        }
+        return std.mem.eql(Dim, no_empty_dims.items, og_shape.dims_.items);
+    }
+
+    fn modifyIdxAssignShape(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor, tensor_shape: *const Shape, target_shape: *const Shape) !Tensor {
+        if (target_shape.elements() != tensor_shape.elements() or !try self.validateDimMatch(allocator, tensor_shape, target_shape)) {
+            std.debug.print("tensor_shape: {any} vs target_shape: {any}\n", .{ tensor_shape, target_shape });
             return error.FailedToModifyIndexAssignShape;
         }
-        // TODO: find a better method of validating this
-        var loc: usize = 0;
-        for (target_shape.dims_.items, 0..) |v, i| {
-            if (v == 1) {
-                loc = i;
-                break;
-            }
-        }
-        if (target_shape.dims_.items.len == og_shape.dims_.items.len + 1 and std.mem.eql(Dim, target_shape.dims_.items[0..loc], og_shape.dims_.items[0..loc]) and std.mem.eql(Dim, target_shape.dims_.items[loc + 1 ..], og_shape.dims_.items[loc..])) {
-            return self.reshape(allocator, tensor, target_shape);
-        }
-        return error.FailedToModifyIndexAssignShape;
+        return self.reshape(allocator, tensor, target_shape);
     }
 
     pub fn indexAssign(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []Index) !void {
@@ -232,7 +231,7 @@ pub const TensorBackend = struct {
             if (shape.eql(&rhs_shape)) {
                 rhsTensor = rhs;
             } else {
-                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, &shape);
+                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, &rhs_shape, &shape);
                 init_rhs_tensor = true;
             }
         } else {
@@ -253,7 +252,7 @@ pub const TensorBackend = struct {
             if (shape.eql(&rhs_shape)) {
                 rhsTensor = rhs;
             } else {
-                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, &shape);
+                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, &rhs_shape, &shape);
                 init_rhs_tensor = true;
             }
         } else {
@@ -274,7 +273,7 @@ pub const TensorBackend = struct {
             if (shape.eql(&rhs_shape)) {
                 rhsTensor = rhs;
             } else {
-                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, &shape);
+                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, &rhs_shape, &shape);
                 init_rhs_tensor = true;
             }
         } else {
@@ -295,7 +294,7 @@ pub const TensorBackend = struct {
             if (shape.eql(&rhs_shape)) {
                 rhsTensor = rhs;
             } else {
-                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, &shape);
+                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, &rhs_shape, &shape);
                 init_rhs_tensor = true;
             }
         } else {
@@ -316,7 +315,7 @@ pub const TensorBackend = struct {
             if (shape.eql(&rhs_shape)) {
                 rhsTensor = rhs;
             } else {
-                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, &shape);
+                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, &rhs_shape, &shape);
                 init_rhs_tensor = true;
             }
         } else {

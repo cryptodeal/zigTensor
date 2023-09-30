@@ -1776,7 +1776,7 @@ pub const ArrayFireBackend = struct {
         if (comptime std.mem.eql(u8, op, "+=")) {
             try af.AF_CHECK(af.af_add(&op_res, tmp_lhs, other_arr, false), @src());
         } else if (comptime std.mem.eql(u8, op, "-=")) {
-            try af.AF_CHECK(af.af_add(&op_res, tmp_lhs, other_arr, false), @src());
+            try af.AF_CHECK(af.af_sub(&op_res, tmp_lhs, other_arr, false), @src());
         } else if (comptime std.mem.eql(u8, op, "*=")) {
             try af.AF_CHECK(af.af_mul(&op_res, tmp_lhs, other_arr, false), @src());
         } else if (comptime std.mem.eql(u8, op, "/=")) {
