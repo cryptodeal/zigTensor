@@ -1663,7 +1663,7 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn getIndexAssignShape(_: *const ArrayFireBackend, allocator: std.mem.Allocator, target: Tensor, indices: []Index, is_linear: bool) !Shape {
+    pub fn getIndexAssignShape(_: *const ArrayFireBackend, allocator: std.mem.Allocator, target: Tensor, indices: []Index) !Shape {
         if (indices.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug(
                 "ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n",
@@ -1693,7 +1693,7 @@ pub const ArrayFireBackend = struct {
 
         var target_array = try toArray(allocator, target);
         var p_dims = try target_array.getDims();
-        if (is_linear) {
+        if (completeTensorIndex) {
             p_dims = af.Dim4{};
             p_dims.dims[0] = @intCast(p_dims.elements());
         }
@@ -1981,18 +1981,11 @@ pub const ArrayFireBackend = struct {
             afIndices[i] = af.ops.ztToAfIndex(indices[i]);
         }
 
-        var is_vector = false;
-        var lhs_shape = try lhs.shape(allocator);
-        for (lhs_shape.dims_.items) |v| {
-            if (v > 1) {
-                is_vector = true;
-            }
-        }
         return self.idxAssign(
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
             afIndices,
-            indices.len == 1 and indices[0].idxType() != .Tensor and !is_vector, // verify this is correct
+            completeTensorIndex, // verify this is correct
         );
     }
 

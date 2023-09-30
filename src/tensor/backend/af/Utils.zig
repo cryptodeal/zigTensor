@@ -58,7 +58,7 @@ fn hasEnd(seq: *const af.af_seq) bool {
 }
 
 fn isSpan(seq: *const af.af_seq) bool {
-    return std.meta.eql(seq.*, af.af_span);
+    return (seq.step == 0 and seq.begin == 1 and seq.end == 1);
 }
 
 fn seqElements(seq: *const af.af_seq) usize {
