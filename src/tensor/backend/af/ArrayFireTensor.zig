@@ -9,6 +9,7 @@ const build_options = @import("build_options");
 const runtime = @import("../../../runtime/runtime.zig");
 const af_utils = @import("Utils.zig");
 
+const growCapacity = @import("../utils.zig").growCapacity;
 const assert = std.debug.assert;
 const deinit = @import("../../Init.zig").deinit;
 const TensorAdapterBase = @import("../../TensorAdapter.zig").TensorAdapterBase;
@@ -96,7 +97,9 @@ pub const ArrayFireTensor = struct {
     /// requirements per returning a const reference.
     /// `af.af_get_numdims` should be used for internal
     /// computation where shape/dimensions are needed.
-    shape_: Shape = undefined,
+    shape_: []Dim = &[_]Dim{},
+
+    capacity: usize = 0,
 
     /// The number of dimensions in this ArrayFire tensor
     /// that are "expected" per interoperability with other
@@ -117,6 +120,109 @@ pub const ArrayFireTensor = struct {
 
     allocator: std.mem.Allocator,
 
+    // utils for modifying the underlying shape (reduce allocations)
+
+    /// Extend the shape by 1 element. Allocates more memory as necessary.
+    /// Invalidates pointers if additional memory is needed.
+    pub fn append(self: *ArrayFireTensor, item: Dim) !void {
+        const new_item_ptr = try self.addOne();
+        new_item_ptr.* = item;
+    }
+
+    /// Append the slice of dims to the list. Allocates more
+    /// memory as necessary.
+    /// Invalidates pointers if additional memory is needed.
+    pub fn appendSlice(self: *ArrayFireTensor, items: []const Dim) !void {
+        try self.ensureUnusedCapacity(items.len);
+        self.appendSliceAssumeCapacity(items);
+    }
+
+    /// Adjust the shape's length to `new_len`.
+    /// Does not initialize added dims if any.
+    /// Invalidates pointers if additional memory is needed.
+    pub fn resize(self: *ArrayFireTensor, new_len: usize) !void {
+        try self.ensureTotalCapacity(new_len);
+        self.shape_.len = new_len;
+    }
+
+    /// Modify the array so that it can hold at least `additional_count` **more** items.
+    /// Invalidates pointers if additional memory is needed.
+    pub fn ensureUnusedCapacity(self: *ArrayFireTensor, additional_count: usize) !void {
+        return self.ensureTotalCapacity(self.items.len + additional_count);
+    }
+
+    /// Modify the shape so that it can hold at least `new_capacity` dims.
+    /// Invalidates pointers if additional memory is needed.
+    pub fn ensureTotalCapacity(self: *ArrayFireTensor, new_capacity: usize) !void {
+        if (self.capacity >= new_capacity) return;
+
+        const better_capacity = growCapacity(self.capacity, new_capacity);
+        return self.ensureTotalCapacityPrecise(better_capacity);
+    }
+
+    /// Modify the shape so that it can hold `new_capacity` dims.
+    /// Like `ensureTotalCapacity`, but the resulting capacity is guaranteed
+    /// to be equal to `new_capacity`.
+    /// Invalidates pointers if additional memory is needed.
+    pub fn ensureTotalCapacityPrecise(self: *ArrayFireTensor, new_capacity: usize) !void {
+        if (self.capacity >= new_capacity) return;
+
+        // Here we avoid copying allocated but unused bytes by
+        // attempting a resize in place, and falling back to allocating
+        // a new buffer and doing our own copy. With a realloc() call,
+        // the allocator implementation would pointlessly copy our
+        // extra capacity.
+        const old_memory = self.allocatedSlice();
+        if (self.allocator.resize(old_memory, new_capacity)) {
+            self.capacity = new_capacity;
+        } else {
+            const new_memory = try self.allocator.alignedAlloc(Dim, null, new_capacity);
+            @memcpy(new_memory[0..self.shape_.len], self.shape_);
+            self.allocator.free(old_memory);
+            self.shape_.ptr = new_memory.ptr;
+            self.capacity = new_memory.len;
+        }
+    }
+
+    /// Returns a slice of all the dims plus the extra capacity, whose memory
+    /// contents are `undefined`.
+    pub fn allocatedSlice(self: ArrayFireTensor) []Dim {
+        // `shape_.len` is the length, not the capacity.
+        return self.shape_.ptr[0..self.capacity];
+    }
+
+    /// Increase length by 1, returning pointer to the new item.
+    /// The returned pointer becomes invalid when the list resized.
+    pub fn addOne(self: *ArrayFireTensor) !*Dim {
+        try self.ensureTotalCapacity(self.shape_.len + 1);
+        return self.addOneAssumeCapacity();
+    }
+
+    pub fn afDimsToZtShape(self: *ArrayFireTensor, af_dims: *const af.Dim4) !void {
+        var num_dims = self.numDims();
+        if (num_dims > @as(usize, @intCast(af.AF_MAX_DIMS))) {
+            std.log.debug("afToZtDims: num_dims ({d}) > af.AF_MAX_DIMS ({d} )", .{ num_dims, af.AF_MAX_DIMS });
+            return error.ExceedsArrayFireMaxDims;
+        }
+
+        // num_dims constraint is enforced by the internal API per condenseDims
+        if (num_dims == 1 and af_dims.elements() == 0) {
+            // Empty tensor
+            try self.resize(1);
+            self.shape_[0] = 0;
+            return;
+        }
+
+        // num_dims == 0 --> scalar tensor
+        if (num_dims == 0) {
+            try self.resize(0);
+            return;
+        }
+
+        try self.resize(num_dims);
+        for (0..num_dims) |i| self.shape_[i] = @intCast(af_dims.dims[i]);
+    }
+
     /// Initializes a new ArrayFireTensor that will be lazily indexed.
     /// Intended for internal use only.
     pub fn initLazyIndexing(
@@ -127,17 +233,18 @@ pub const ArrayFireTensor = struct {
         num_dims: usize,
         is_flat: bool,
     ) !*ArrayFireTensor {
-        var self = try allocator.create(ArrayFireTensor);
+        var self: *ArrayFireTensor = try allocator.create(ArrayFireTensor);
         var afDims = try handle.value.*.getDims();
         self.* = .{
             .arrayHandle_ = handle,
             .indices_ = af_indices,
-            .shape_ = try afDims.toZtShape(allocator, afDims.ndims()),
             .indexTypes_ = index_types,
             .handle_ = .{ .indexedArray = IndexedArrayComponent.init(is_flat) },
             .numDims_ = num_dims,
             .allocator = allocator,
         };
+        try self.afDimsToZtShape(&afDims);
+
         return self;
     }
 
@@ -145,26 +252,26 @@ pub const ArrayFireTensor = struct {
     /// handle without copying the handle. Used for creating
     /// gauranteed shallow-copies.
     pub fn initFromShared(allocator: std.mem.Allocator, arr: Arc(*af.Array), num_dims: usize) !*ArrayFireTensor {
-        var self = try allocator.create(ArrayFireTensor);
+        var self: *ArrayFireTensor = try allocator.create(ArrayFireTensor);
         var afDims = try arr.value.*.getDims();
         self.* = .{
             .arrayHandle_ = arr,
             .numDims_ = num_dims,
             .allocator = allocator,
-            .shape_ = try afDims.toZtShape(allocator, afDims.ndims()),
         };
+        try self.afDimsToZtShape(&afDims);
         return self;
     }
 
     pub fn initFromArray(allocator: std.mem.Allocator, arr: *af.Array, num_dims: usize) !*ArrayFireTensor {
-        var self = try allocator.create(ArrayFireTensor);
+        var self: *ArrayFireTensor = try allocator.create(ArrayFireTensor);
         var afDims = try arr.getDims();
         self.* = .{
             .arrayHandle_ = try Arc(*af.Array).init(allocator, arr),
             .numDims_ = num_dims,
-            .shape_ = try afDims.toZtShape(allocator, afDims.ndims()),
             .allocator = allocator,
         };
+        try self.afDimsToZtShape(&afDims);
         return self;
     }
 
@@ -231,7 +338,7 @@ pub const ArrayFireTensor = struct {
         if (self.indexTypes_ != null) {
             self.indexTypes_.?.deinit();
         }
-        self.shape_.deinit();
+        self.allocator.free(self.allocatedSlice());
         self.allocator.destroy(self);
     }
 
@@ -312,7 +419,7 @@ pub const ArrayFireTensor = struct {
         // Update the Shape in-place. Doesn't change any underlying data; only the
         // mirrored Shape metadata.
         const afDims: af.Dim4 = try (try self.getHandle(allocator)).getDims();
-        try afDims.toZtShapeRaw(self.numDims(), &self.shape_);
+        try self.afDimsToZtShape(&afDims);
         return self.shape_;
     }
 
@@ -367,10 +474,10 @@ pub const ArrayFireTensor = struct {
         return arr.isLinear();
     }
 
-    pub fn strides(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Shape {
+    pub fn strides(self: *ArrayFireTensor, allocator: std.mem.Allocator) ![]Dim {
         var arr = try self.getHandle(allocator);
         var afStrides = try arr.getStrides();
-        return afStrides.toZtShape(allocator, self.numDims());
+        return afStrides.dimsToOwnedShape(allocator);
     }
 
     pub fn stream(self: *ArrayFireTensor, allocator: std.mem.Allocator) !runtime.Stream {
@@ -679,7 +786,6 @@ test "ArrayFireTensorBaseTest -> AfRefCountBasic" {
         ),
     );
     defer tensor.deinit();
-
     var aRef = try toArray(allocator, tensor);
     try std.testing.expect(try getRefCount(aRef, true) == 1);
 
@@ -690,17 +796,13 @@ test "ArrayFireTensorBaseTest -> AfRefCountModify" {
     const full = @import("../../tensor.zig").full;
     const add = @import("../../tensor.zig").add;
     const mul = @import("../../tensor.zig").mul;
-
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
-    var dims = [_]Dim{ 2, 2 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
 
     // Compositional operations don't increment refcount
-    var a = try full(allocator, &shape, f64, 1, .f32);
+    var a = try full(allocator, &.{ 2, 2 }, f64, 1, .f32);
     defer a.deinit();
-    var b = try full(allocator, &shape, f64, 1, .f32);
+    var b = try full(allocator, &.{ 2, 2 }, f64, 1, .f32);
     defer b.deinit();
 
     var res1 = try add(allocator, Tensor, a, Tensor, b);
@@ -712,9 +814,9 @@ test "ArrayFireTensorBaseTest -> AfRefCountModify" {
     defer allocator.free(res1Data.?);
     for (res1Data.?) |v| try std.testing.expect(v == 2);
 
-    var c = try full(allocator, &shape, f64, 1, .f32);
+    var c = try full(allocator, &.{ 2, 2 }, f64, 1, .f32);
     defer c.deinit();
-    var d = try full(allocator, &shape, f64, 1, .f32);
+    var d = try full(allocator, &.{ 2, 2 }, f64, 1, .f32);
     defer d.deinit();
 
     var res2_a = try mul(allocator, Tensor, c, Tensor, c);
@@ -729,13 +831,11 @@ test "ArrayFireTensorBaseTest -> AfRefCountModify" {
 
 test "ArrayFireTensorBaseTest -> astypeRefcount" {
     const allocator = std.testing.allocator;
-    var tDims = [_]Dim{ 5, 5 };
     const rand = @import("../../tensor.zig").rand;
-    var tShape = try Shape.init(allocator, &tDims);
-    defer tShape.deinit();
-    var t = try rand(allocator, &tShape, .f32);
-    defer t.deinit();
     defer deinit(); // deinit global singletons
+
+    var t = try rand(allocator, &.{ 5, 5 }, .f32);
+    defer t.deinit();
 
     try std.testing.expect(try getRefCount(try toArray(allocator, t), true) == 1);
 
@@ -751,10 +851,7 @@ test "ArrayFireTensorBaseTest -> BackendInterop" {
     const allocator = std.testing.allocator;
     const rand = @import("../../tensor.zig").rand;
     defer deinit(); // deinit global singletons
-    var dims = [_]Dim{ 10, 12 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-    var a = try rand(allocator, &shape, .f32);
+    var a = try rand(allocator, &.{ 10, 12 }, .f32);
     defer a.deinit();
     try std.testing.expect(a.backendType() == .ArrayFire);
 }
@@ -767,17 +864,14 @@ test "ArrayFireTensorBaseTest -> BinaryOperators" {
     const full = @import("../../tensor.zig").full;
     const eq = @import("../../tensor.zig").eq;
     const add = @import("../../tensor.zig").add;
-
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
-    var dims = [_]Dim{ 2, 2 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-    var a = try full(allocator, &shape, f64, 1, .f32);
+
+    var a = try full(allocator, &.{ 2, 2 }, f64, 1, .f32);
     defer a.deinit();
-    var b = try full(allocator, &shape, f64, 2, .f32);
+    var b = try full(allocator, &.{ 2, 2 }, f64, 2, .f32);
     defer b.deinit();
-    var c = try full(allocator, &shape, f64, 3, .f32);
+    var c = try full(allocator, &.{ 2, 2 }, f64, 3, .f32);
     defer c.deinit();
 
     // test equality of tensors vs equality of underlying ArrayFire arrays
@@ -801,15 +895,10 @@ test "ArrayFireTensorBaseTest -> full" {
     defer deinit(); // deinit global singletons
 
     // TODO: expand with fixtures for each type
-
-    var aDims = [_]Dim{ 3, 4 };
-    var aShape = try Shape.init(allocator, &aDims);
-    defer aShape.deinit();
-    var a = try full(allocator, &aShape, f64, 3, .f32);
+    var a = try full(allocator, &.{ 3, 4 }, f64, 3, .f32);
     defer a.deinit();
 
-    var tmpShape = try a.shape(allocator);
-    try std.testing.expect(aShape.eql(&tmpShape));
+    try std.testing.expect(zt_shape.eql(&.{ 3, 4 }, try a.shape(allocator)));
     try std.testing.expect(try a.dtype(allocator) == .f32);
     var aAfDim = af.Dim4{};
     aAfDim.dims[0] = 3;
@@ -818,14 +907,9 @@ test "ArrayFireTensorBaseTest -> full" {
     defer aArray.deinit();
     try std.testing.expect(try allClose(allocator, try toArray(allocator, a), aArray, 1e-5));
 
-    var bDims = [_]Dim{ 1, 1, 5, 4 };
-    var bShape = try Shape.init(allocator, &bDims);
-    defer bShape.deinit();
-    var b = try full(allocator, &bShape, f64, 4.5, .f32);
+    var b = try full(allocator, &.{ 1, 1, 5, 4 }, f64, 4.5, .f32);
     defer b.deinit();
-
-    tmpShape = try b.shape(allocator);
-    try std.testing.expect(bShape.eql(&tmpShape));
+    try std.testing.expect(zt_shape.eql(&.{ 1, 1, 5, 4 }, try b.shape(allocator)));
     try std.testing.expect(try b.dtype(allocator) == .f32);
     var bAfDim = af.Dim4.init([4]af.dim_t{ 1, 1, 5, 4 });
     var bArray = try af.ops.constant(allocator, 4.5, 4, bAfDim, .f32);
@@ -840,12 +924,8 @@ test "ArrayFireTensorBaseTest -> identity" {
 
     var a = try identity(allocator, 6, .f32);
     defer a.deinit();
-    var expDims = [2]Dim{ 6, 6 };
-    var expShape = try Shape.init(allocator, &expDims);
-    defer expShape.deinit();
 
-    var aShape = try a.shape(allocator);
-    try std.testing.expect(expShape.eql(&aShape));
+    try std.testing.expect(zt_shape.eql(&.{ 6, 6 }, try a.shape(allocator)));
     try std.testing.expect(try a.dtype(allocator) == .f32);
     var afDim = af.Dim4{};
     afDim.dims[0] = 6;
@@ -865,14 +945,10 @@ test "ArrayFireTensorBaseTest -> randn" {
     defer deinit(); // deinit global singletons
 
     const s: Dim = 30;
-    var dims = [_]Dim{ s, s };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-    var a = try randn(allocator, &shape, .f32);
+    var a = try randn(allocator, &.{ s, s }, .f32);
     defer a.deinit();
 
-    var aShape = try a.shape(allocator);
-    try std.testing.expect(shape.eql(&aShape));
+    try std.testing.expect(zt_shape.eql(&.{ s, s }, try a.shape(allocator)));
     try std.testing.expect(try a.dtype(allocator) == .f32);
     var afDim = af.Dim4{};
     afDim.dims[0] = @intCast(s * s);
@@ -895,14 +971,9 @@ test "ArrayFireTensorBaseTest -> rand" {
     defer deinit(); // deinit global singletons
 
     const s: Dim = 30;
-    var dims = [_]Dim{ s, s };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-    var a = try rand(allocator, &shape, .f32);
+    var a = try rand(allocator, &.{ s, s }, .f32);
     defer a.deinit();
-
-    var aShape = try a.shape(allocator);
-    try std.testing.expect(shape.eql(&aShape));
+    try std.testing.expect(zt_shape.eql(&.{ s, s }, try a.shape(allocator)));
     try std.testing.expect(try a.dtype(allocator) == .f32);
 
     var afDims = af.Dim4{};
@@ -918,10 +989,8 @@ test "ArrayFireTensorBaseTest -> rand" {
     var gteArr = try af.ops.ge(allocator, try toArray(allocator, a), tmpConst2, false);
     defer gteArr.deinit();
     try std.testing.expect(@as(u1, @intFromFloat((try af.ops.allTrueAll(gteArr)).real)) != 0);
-    var bDims = [_]Dim{1};
-    var bShape = try Shape.init(allocator, &bDims);
-    defer bShape.deinit();
-    var b = try rand(allocator, &bShape, .f64);
+
+    var b = try rand(allocator, &.{1}, .f64);
     defer b.deinit();
     try std.testing.expect(try b.dtype(allocator) == .f64);
 }
@@ -932,11 +1001,7 @@ test "ArrayFireTensorBaseTest -> amin" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var dims = [_]Dim{ 3, 3 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-
-    var a = try rand(allocator, &shape, .f32);
+    var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
 
     var axes = std.ArrayList(i32).init(allocator);
@@ -964,11 +1029,7 @@ test "ArrayFireTensorBaseTest -> amax" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var dims = [_]Dim{ 3, 3 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-
-    var a = try rand(allocator, &shape, .f32);
+    var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
 
     var axes = std.ArrayList(i32).init(allocator);
@@ -996,11 +1057,7 @@ test "ArrayFireTensorBaseTest -> sum" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var dims = [_]Dim{ 3, 3 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-
-    var a = try rand(allocator, &shape, .f32);
+    var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
 
     var axes = std.ArrayList(i32).init(allocator);
@@ -1021,10 +1078,7 @@ test "ArrayFireTensorBaseTest -> sum" {
     defer if (afRes3.modified) afRes3.arr.deinit();
     try std.testing.expect(try allClose(allocator, try toArray(allocator, tensorSum), afRes3.arr, 1e-5));
 
-    var bDims = [_]Dim{ 5, 6, 7, 8 };
-    var bShape = try Shape.init(allocator, &bDims);
-    defer bShape.deinit();
-    var b = try rand(allocator, &bShape, .f32);
+    var b = try rand(allocator, &.{ 5, 6, 7, 8 }, .f32);
     defer b.deinit();
 
     var bAxes = std.ArrayList(i32).init(allocator);
@@ -1055,10 +1109,7 @@ test "ArrayFireTensorBaseTest -> exp" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var inDims = [_]Dim{ 3, 3 };
-    var inShape = try Shape.init(allocator, &inDims);
-    defer inShape.deinit();
-    var in = try full(allocator, &inShape, f64, 4, .f32);
+    var in = try full(allocator, &.{ 3, 3 }, f64, 4, .f32);
     defer in.deinit();
 
     var expTensor = try exp(allocator, in);
@@ -1074,10 +1125,7 @@ test "ArrayFireTensorBaseTest -> log" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var inDims = [_]Dim{ 3, 3 };
-    var inShape = try Shape.init(allocator, &inDims);
-    defer inShape.deinit();
-    var in = try full(allocator, &inShape, f64, 2, .f32);
+    var in = try full(allocator, &.{ 3, 3 }, f64, 2, .f32);
     defer in.deinit();
 
     var logTensor = try log(allocator, in);
@@ -1095,10 +1143,7 @@ test "ArrayFireTensorBaseTest -> log1p" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var inDims = [_]Dim{ 3, 3 };
-    var inShape = try Shape.init(allocator, &inDims);
-    defer inShape.deinit();
-    var in = try rand(allocator, &inShape, .f32);
+    var in = try rand(allocator, &.{ 3, 3 }, .f32);
     defer in.deinit();
 
     var log1pTensor = try log1p(allocator, in);
@@ -1116,10 +1161,7 @@ test "ArrayFireTensorBaseTest -> sin" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var inDims = [_]Dim{ 3, 3 };
-    var inShape = try Shape.init(allocator, &inDims);
-    defer inShape.deinit();
-    var in = try rand(allocator, &inShape, .f32);
+    var in = try rand(allocator, &.{ 3, 3 }, .f32);
     defer in.deinit();
 
     var sinTensor = try sin(allocator, in);
@@ -1135,10 +1177,7 @@ test "ArrayFireTensorBaseTest -> cos" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var inDims = [_]Dim{ 3, 3 };
-    var inShape = try Shape.init(allocator, &inDims);
-    defer inShape.deinit();
-    var in = try rand(allocator, &inShape, .f32);
+    var in = try rand(allocator, &.{ 3, 3 }, .f32);
     defer in.deinit();
 
     var cosTensor = try cos(allocator, in);
@@ -1155,10 +1194,7 @@ test "ArrayFireTensorBaseTest -> sqrt" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var inDims = [_]Dim{ 3, 3 };
-    var inShape = try Shape.init(allocator, &inDims);
-    defer inShape.deinit();
-    var in = try full(allocator, &inShape, f64, 4, .f32);
+    var in = try full(allocator, &.{ 3, 3 }, f64, 4, .f32);
     defer in.deinit();
 
     var sqrtTensor = try sqrt(allocator, in);
@@ -1174,10 +1210,7 @@ test "ArrayFireTensorBaseTest -> tanh" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var inDims = [_]Dim{ 3, 3 };
-    var inShape = try Shape.init(allocator, &inDims);
-    defer inShape.deinit();
-    var in = try rand(allocator, &inShape, .f32);
+    var in = try rand(allocator, &.{ 3, 3 }, .f32);
     defer in.deinit();
 
     var tanhTensor = try tanh(allocator, in);
@@ -1194,16 +1227,13 @@ test "ArrayFireTensorBaseTest -> absolute" {
     defer deinit(); // deinit global singletons
 
     const val: f64 = -3.1;
-    var dims = [_]Dim{ 3, 3 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
 
-    var a = try full(allocator, &shape, f64, val, .f32);
+    var a = try full(allocator, &.{ 3, 3 }, f64, val, .f32);
     defer a.deinit();
     var absA = try absolute(allocator, a);
     defer absA.deinit();
 
-    var comp = try full(allocator, &shape, f64, -val, .f32);
+    var comp = try full(allocator, &.{ 3, 3 }, f64, -val, .f32);
     defer comp.deinit();
     try std.testing.expect(try allClose(allocator, try toArray(allocator, absA), try toArray(allocator, comp), 1e-5));
 }
@@ -1214,10 +1244,7 @@ test "ArrayFireTensorBaseTest -> erf" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var inDims = [_]Dim{ 3, 3 };
-    var inShape = try Shape.init(allocator, &inDims);
-    defer inShape.deinit();
-    var in = try rand(allocator, &inShape, .f32);
+    var in = try rand(allocator, &.{ 3, 3 }, .f32);
     defer in.deinit();
 
     var erfTensor = try erf(allocator, in);
@@ -1233,10 +1260,7 @@ test "ArrayFireTensorBaseTest -> mean" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var inDims = [_]Dim{ 3, 50 };
-    var inShape = try Shape.init(allocator, &inDims);
-    defer inShape.deinit();
-    var a = try rand(allocator, &inShape, .f32);
+    var a = try rand(allocator, &.{ 3, 50 }, .f32);
     defer a.deinit();
 
     var axes = std.ArrayList(i32).init(allocator);
@@ -1266,10 +1290,7 @@ test "ArrayFireTensorBaseTest -> median" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var inDims = [_]Dim{ 3, 50 };
-    var inShape = try Shape.init(allocator, &inDims);
-    defer inShape.deinit();
-    var a = try rand(allocator, &inShape, .f32);
+    var a = try rand(allocator, &.{ 3, 50 }, .f32);
     defer a.deinit();
 
     var axes = std.ArrayList(i32).init(allocator);
@@ -1306,11 +1327,8 @@ test "ArrayFireTensorBaseTest -> variance" {
 
     const bias = false;
     const bias_mode: af.VarBias = if (bias) .Sample else .Population;
-    var dims = [_]Dim{ 3, 3 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
 
-    var a = try rand(allocator, &shape, .f32);
+    var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
     var axes = std.ArrayList(i32).init(allocator);
     defer axes.deinit();
@@ -1400,10 +1418,7 @@ test "ArrayFireTensorBaseTest -> stdev" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var dims = [_]Dim{ 3, 3 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-    var a = try rand(allocator, &shape, .f32);
+    var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
 
     var axes = std.ArrayList(i32).init(allocator);
@@ -1456,10 +1471,7 @@ test "ArrayFireTensorBaseTest -> norm" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var dims = [_]Dim{ 3, 3 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-    var a = try rand(allocator, &shape, .f32);
+    var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
 
     var axes = std.ArrayList(i32).init(allocator);
@@ -1480,16 +1492,10 @@ test "ArrayFireTensorBaseTest -> tile" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var dims = [_]Dim{ 3, 3 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-    var a = try rand(allocator, &shape, .f32);
+    var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
 
-    var tile_dims = [_]Dim{ 4, 5, 6 };
-    var tile_shape = try Shape.init(allocator, &tile_dims);
-    defer tile_shape.deinit();
-    var tile_tensor = try tile(allocator, a, &tile_shape);
+    var tile_tensor = try tile(allocator, a, &.{ 4, 5, 6 });
     defer tile_tensor.deinit();
     var tile_arr = try af.ops.tile(allocator, try toArray(allocator, a), 4, 5, 6, 1);
     defer tile_arr.deinit();
@@ -1502,10 +1508,7 @@ test "ArrayFireTensorBaseTest -> nonzero" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var dims = [_]Dim{ 3, 3 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-    var a = try rand(allocator, &shape, .u32);
+    var a = try rand(allocator, &.{ 3, 3 }, .u32);
     defer a.deinit();
 
     var nz = try nonzero(allocator, a);
@@ -1521,24 +1524,15 @@ test "ArrayFireTensorBaseTest -> transpose" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var a_dims = [_]Dim{ 3, 5 };
-    var a_shape = try Shape.init(allocator, &a_dims);
-    defer a_shape.deinit();
-    var a = try rand(allocator, &a_shape, .f32);
+    var a = try rand(allocator, &.{ 3, 5 }, .f32);
     defer a.deinit();
 
-    var a_trans_dims = [_]Dim{ 0, 1, 2, 3, 4 };
-    var a_trans_shape = try Shape.init(allocator, &a_trans_dims);
-    defer a_trans_shape.deinit();
     try std.testing.expectError(
         error.ArrayFireTransposeFailed,
-        transpose(allocator, a, &a_trans_shape),
+        transpose(allocator, a, &.{ 0, 1, 2, 3, 4 }),
     );
 
-    var a_trans_dims_2 = [0]Dim{};
-    var a_trans_shape_2 = try Shape.init(allocator, &a_trans_dims_2);
-    defer a_trans_shape_2.deinit();
-    var a_trans_tensor = try transpose(allocator, a, &a_trans_shape_2);
+    var a_trans_tensor = try transpose(allocator, a, &.{});
     defer a_trans_tensor.deinit();
     var a_trans_arr = try af.ops.transpose(allocator, try toArray(allocator, a), false);
     defer a_trans_arr.deinit();
@@ -1549,16 +1543,10 @@ test "ArrayFireTensorBaseTest -> transpose" {
         1e-5,
     ));
 
-    var b_dims = [_]Dim{ 3, 5, 4, 8 };
-    var b_shape = try Shape.init(allocator, &b_dims);
-    defer b_shape.deinit();
-    var b = try rand(allocator, &b_shape, .f32);
+    var b = try rand(allocator, &.{ 3, 5, 4, 8 }, .f32);
     defer b.deinit();
 
-    var b_trans_dims = [_]Dim{ 2, 0, 1, 3 };
-    var b_trans_shape = try Shape.init(allocator, &b_trans_dims);
-    defer b_trans_shape.deinit();
-    var b_trans_tensor = try transpose(allocator, b, &b_trans_shape);
+    var b_trans_tensor = try transpose(allocator, b, &.{ 2, 0, 1, 3 });
     defer b_trans_tensor.deinit();
     var b_trans_arr = try af.ops.reorder(allocator, try toArray(allocator, b), 2, 0, 1, 3);
     defer b_trans_arr.deinit();

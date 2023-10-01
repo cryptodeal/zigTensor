@@ -5993,15 +5993,11 @@ test "createArray" {
     var data = try allocator.alloc(f32, 100);
     defer allocator.free(data);
     @memset(data, 100);
-    var dim = [_]Dim{100};
-    var shape = try Shape.init(allocator, &dim);
-    defer shape.deinit();
-
     var arr = try createArray(
         allocator,
         data.ptr,
-        @intCast(shape.ndim()),
-        try af.ops.ztToAfDims(&shape),
+        @intCast(zt_shape.ndim(&.{100})),
+        try af.ops.ztToAfDims(&.{100}),
         .f32,
     );
     defer arr.deinit();

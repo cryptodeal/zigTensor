@@ -2,7 +2,6 @@ const default_tensor_type = @import("DefaultTensorType.zig");
 const index = @import("Index.zig");
 const init_ = @import("Init.zig");
 const base = @import("TensorBase.zig");
-const shape = @import("Shape.zig");
 const types = @import("Types.zig");
 const tensor_backend = @import("TensorBackend.zig");
 
@@ -43,9 +42,7 @@ pub const PadType = base.PadType;
 pub const Tensor = base.Tensor;
 
 // Shape.zig exports
-pub const Dim = shape.Dim;
-pub const ShapeErrors = shape.ShapeErrors;
-pub const Shape = shape.Shape;
+pub const shape = @import("Shape.zig");
 
 // Types.zig exports
 pub const DTypeError = types.DTypeError;

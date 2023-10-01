@@ -1,7 +1,7 @@
 const std = @import("std");
 const tensor_ = @import("tensor.zig");
 
-const Dim = tensor_.Dim;
+const Dim = tensor_.shape.Dim;
 const Tensor = tensor_.Tensor;
 
 /// Represents the imaginary index after the last index along
@@ -234,15 +234,11 @@ test "IndexTest -> Index.idxType" {
 
 test "IndexTest -> ArrayFireMaxIndex" {
     const full = tensor_.full;
-    const Shape = @import("Shape.zig").Shape;
     const deinit = @import("Init.zig").deinit;
     defer deinit(); // deinit global singletons
-
     const allocator = std.testing.allocator;
-    var dims = [_]Dim{ 2, 3, 4, 5 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-    var t = try full(allocator, &shape, f64, 6, .f32);
+
+    var t = try full(allocator, &.{ 2, 3, 4, 5 }, f64, 6, .f32);
     defer t.deinit();
     if (t.backendType() != .ArrayFire) {
         return error.SkipZigTest;
@@ -256,61 +252,38 @@ test "IndexTest -> ArrayFireMaxIndex" {
 
 test "IndexTest -> Shape" {
     const full = tensor_.full;
-    const Shape = tensor_.Shape;
     const deinit = @import("Init.zig").deinit;
     const allocator = std.testing.allocator;
+    const shape = tensor_.shape;
     defer deinit(); // deinit global singletons
 
-    var dims = [_]Dim{ 4, 4 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-    var t = try full(allocator, &shape, f64, 3, .f32);
+    var t = try full(allocator, &.{ 4, 4 }, f64, 3, .f32);
     defer t.deinit();
 
     var indices1 = [_]Index{ Index.initDim(2), Index.initDim(2) };
     var res1 = try t.index(allocator, &indices1);
     defer res1.deinit();
-    var res1_dims = [_]Dim{1};
-    var res1_shape = try Shape.init(allocator, &res1_dims);
-    defer res1_shape.deinit();
-    var real_shape = try res1.shape(allocator);
-    try std.testing.expect(real_shape.eql(&res1_shape));
+    try std.testing.expect(shape.eql(try res1.shape(allocator), &.{1}));
 
     var indices2 = [_]Index{ Index.initDim(2), Index.initRange(span) };
     var res2 = try t.index(allocator, &indices2);
     defer res2.deinit();
-    var res2_dims = [_]Dim{4};
-    var res2_shape = try Shape.init(allocator, &res2_dims);
-    defer res2_shape.deinit();
-    real_shape = try res2.shape(allocator);
-    try std.testing.expect(real_shape.eql(&res2_shape));
+    try std.testing.expect(shape.eql(try res2.shape(allocator), &.{4}));
 
     var indices3 = [1]Index{Index.initDim(2)};
     var res3 = try t.index(allocator, &indices3);
     defer res3.deinit();
-    var res3_dims = [_]Dim{4};
-    var res3_shape = try Shape.init(allocator, &res3_dims);
-    defer res3_shape.deinit();
-    real_shape = try res3.shape(allocator);
-    try std.testing.expect(real_shape.eql(&res3_shape));
+    try std.testing.expect(shape.eql(try res3.shape(allocator), &.{4}));
 
     var indices4 = [1]Index{Index.initRange(Range.initEnd(3))};
     var res4 = try t.index(allocator, &indices4);
     defer res4.deinit();
-    var res4_dims = [_]Dim{ 3, 4 };
-    var res4_shape = try Shape.init(allocator, &res4_dims);
-    defer res4_shape.deinit();
-    real_shape = try res4.shape(allocator);
-    try std.testing.expect(real_shape.eql(&res4_shape));
+    try std.testing.expect(shape.eql(try res4.shape(allocator), &.{ 3, 4 }));
 
     var indices5 = [1]Index{Index.initRange(Range.init(1, .{ .dim = 2 }))};
     var res5 = try t.index(allocator, &indices5);
     defer res5.deinit();
-    var res5_dims = [_]Dim{ 1, 4 };
-    var res5_shape = try Shape.init(allocator, &res5_dims);
-    defer res5_shape.deinit();
-    real_shape = try res5.shape(allocator);
-    try std.testing.expect(real_shape.eql(&res5_shape));
+    try std.testing.expect(shape.eql(try res5.shape(allocator), &.{ 1, 4 }));
 
     var indices6 = [2]Index{
         Index.initRange(Range.init(1, .{ .dim = 2 })),
@@ -318,62 +291,34 @@ test "IndexTest -> Shape" {
     };
     var res6 = try t.index(allocator, &indices6);
     defer res6.deinit();
-    var res6_dims = [_]Dim{ 1, 1 };
-    var res6_shape = try Shape.init(allocator, &res6_dims);
-    defer res6_shape.deinit();
-    real_shape = try res6.shape(allocator);
-    try std.testing.expect(real_shape.eql(&res6_shape));
+    try std.testing.expect(shape.eql(try res6.shape(allocator), &.{ 1, 1 }));
 
     var indices7 = [1]Index{Index.initRange(Range.init(0, .{ .end = end }))};
     var res7 = try t.index(allocator, &indices7);
     defer res7.deinit();
-    var res7_dims = [_]Dim{ 4, 4 };
-    var res7_shape = try Shape.init(allocator, &res7_dims);
-    defer res7_shape.deinit();
-    real_shape = try res7.shape(allocator);
-    try std.testing.expect(real_shape.eql(&res7_shape));
+    try std.testing.expect(shape.eql(try res7.shape(allocator), &.{ 4, 4 }));
 
     var indices8 = [1]Index{Index.initRange(Range.initWithStride(0, .{ .end = end }, 2))};
     var res8 = try t.index(allocator, &indices8);
     defer res8.deinit();
-    var res8_dims = [_]Dim{ 2, 4 };
-    var res8_shape = try Shape.init(allocator, &res8_dims);
-    defer res8_shape.deinit();
-    real_shape = try res8.shape(allocator);
-    try std.testing.expect(real_shape.eql(&res8_shape));
+    try std.testing.expect(shape.eql(try res8.shape(allocator), &.{ 2, 4 }));
 
-    var t1_dims = [_]Dim{ 5, 6, 7, 8 };
-    var t1_shape = try Shape.init(allocator, &t1_dims);
-    defer t1_shape.deinit();
-    var t1 = try full(allocator, &t1_shape, f64, 3, .f32);
+    var t1 = try full(allocator, &.{ 5, 6, 7, 8 }, f64, 3, .f32);
     defer t1.deinit();
-
     var indices9 = [_]Index{ Index.initDim(2), Index.initRange(Range.init(2, .{ .dim = 4 })), Index.initRange(span), Index.initDim(3) };
     var t1_res = try t1.index(allocator, &indices9);
     defer t1_res.deinit();
-    var res9_dims = [_]Dim{ 2, 7 };
-    var res9_shape = try Shape.init(allocator, &res9_dims);
-    defer res9_shape.deinit();
-    real_shape = try t1_res.shape(allocator);
-    try std.testing.expect(real_shape.eql(&res9_shape));
+    try std.testing.expect(shape.eql(try t1_res.shape(allocator), &.{ 2, 7 }));
 
     var indices10 = [_]Index{ Index.initRange(span), Index.initDim(3), Index.initRange(span), Index.initRange(span) };
     var t1_res2 = try t1.index(allocator, &indices10);
     defer t1_res2.deinit();
-    var res10_dims = [_]Dim{ 5, 7, 8 };
-    var res10_shape = try Shape.init(allocator, &res10_dims);
-    defer res10_shape.deinit();
-    real_shape = try t1_res2.shape(allocator);
-    try std.testing.expect(real_shape.eql(&res10_shape));
+    try std.testing.expect(shape.eql(try t1_res2.shape(allocator), &.{ 5, 7, 8 }));
 
     var indices11 = [_]Index{ Index.initRange(span), Index.initRange(Range.init(1, .{ .dim = 2 })), Index.initRange(span), Index.initRange(span) };
     var t1_res3 = try t1.index(allocator, &indices11);
     defer t1_res3.deinit();
-    var res11_dims = [_]Dim{ 5, 1, 7, 8 };
-    var res11_shape = try Shape.init(allocator, &res11_dims);
-    defer res11_shape.deinit();
-    real_shape = try t1_res3.shape(allocator);
-    try std.testing.expect(real_shape.eql(&res11_shape));
+    try std.testing.expect(shape.eql(try t1_res3.shape(allocator), &.{ 5, 1, 7, 8 }));
 }
 
 test "IndexTest -> IndexAssignment" {
@@ -381,16 +326,12 @@ test "IndexTest -> IndexAssignment" {
     const rand = tensor_.rand;
     const arange = tensor_.arange;
     const initAssign = tensor_.initAssign;
-    const Shape = tensor_.Shape;
     const allClose = tensor_.allClose;
     const deinit = tensor_.deinit;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var t_dims = [_]Dim{ 4, 4 };
-    var t_shape = try Shape.init(allocator, &t_dims);
-    defer t_shape.deinit();
-    var t = try full(allocator, &t_shape, f64, 0, .s32);
+    var t = try full(allocator, &.{ 4, 4 }, f64, 0, .s32);
     defer t.deinit();
 
     var indices2 = [2]Index{ Index.initRange(span), Index.initDim(0) };
@@ -402,30 +343,23 @@ test "IndexTest -> IndexAssignment" {
     indices2 = [2]Index{ Index.initRange(span), Index.initRange(span) };
     try t.indexMul(allocator, i32, 7, &indices2);
     try t.inPlaceDiv(allocator, i32, 7);
-    var expected = try full(allocator, &t_shape, f64, 1, .s32);
+    var expected = try full(allocator, &.{ 4, 4 }, f64, 1, .s32);
     defer expected.deinit();
     try std.testing.expect(try allClose(allocator, t, expected, 1));
 
     var a_dims = [_]Dim{ 6, 6 };
-    var a_shape = try Shape.init(allocator, &a_dims);
-    defer a_shape.deinit();
-    var a = try full(allocator, &a_shape, f64, 0, .f32);
+    _ = a_dims;
+    var a = try full(allocator, &.{ 6, 6 }, f64, 0, .f32);
     defer a.deinit();
     indices2 = [2]Index{ Index.initDim(3), Index.initDim(4) };
     try a.indexAssign(allocator, f64, 4, &indices2);
-    var expected2_dims = [_]Dim{1};
-    var expected2_shape = try Shape.init(allocator, &expected2_dims);
-    defer expected2_shape.deinit();
-    var expected2 = try full(allocator, &expected2_shape, f64, 4, .f32);
+    var expected2 = try full(allocator, &.{1}, f64, 4, .f32);
     defer expected2.deinit();
     var a_idx = try a.index(allocator, &indices2);
     defer a_idx.deinit();
     try std.testing.expect(try allClose(allocator, a_idx, expected2, 1e-5));
 
-    var a_assign_dims = [_]Dim{6};
-    var a_assign_shape = try Shape.init(allocator, &a_assign_dims);
-    defer a_assign_shape.deinit();
-    var a_assign_val = try full(allocator, &a_assign_shape, f64, 8, .f32);
+    var a_assign_val = try full(allocator, &.{6}, f64, 8, .f32);
     defer a_assign_val.deinit();
     var indices1 = [1]Index{Index.initDim(2)};
     try a.indexAssign(allocator, Tensor, a_assign_val, &indices1);
@@ -433,53 +367,40 @@ test "IndexTest -> IndexAssignment" {
     defer a_idx2.deinit();
     try std.testing.expect(try allClose(allocator, a_idx2, a_assign_val, 1e-5));
 
-    var b_dims = [_]Dim{ 3, 3 };
-    var b_shape = try Shape.init(allocator, &b_dims);
-    defer b_shape.deinit();
-    var b = try full(allocator, &b_shape, f64, 1, .f32);
+    var b = try full(allocator, &.{ 3, 3 }, f64, 1, .f32);
     defer b.deinit();
     var c = try initAssign(allocator, b);
     defer c.deinit();
     try b.inPlaceAdd(allocator, f64, 1);
-    var b_expected = try full(allocator, &b_shape, f64, 2, .f32);
+    var b_expected = try full(allocator, &.{ 3, 3 }, f64, 2, .f32);
     defer b_expected.deinit();
     try std.testing.expect(try allClose(allocator, b, b_expected, 1e-5));
-    var c_expected = try full(allocator, &b_shape, f64, 1, .f32);
+
+    var c_expected = try full(allocator, &.{ 3, 3 }, f64, 1, .f32);
     defer c_expected.deinit();
     try std.testing.expect(try allClose(allocator, c, c_expected, 1e-5));
 
-    var q = try full(allocator, &t_shape, f64, 2, .f32);
+    var q = try full(allocator, &.{ 4, 4 }, f64, 2, .f32);
     defer q.deinit();
-    var r_dims = [_]Dim{4};
-    var r_shape = try Shape.init(allocator, &r_dims);
-    defer r_shape.deinit();
-    var r = try full(allocator, &r_shape, f64, 3, .f32);
+    var r = try full(allocator, &.{4}, f64, 3, .f32);
     defer r.deinit();
     indices1 = [1]Index{Index.initDim(0)};
     try q.indexAssign(allocator, Tensor, r, &indices1);
     var q_idx = try q.index(allocator, &indices1);
     defer q_idx.deinit();
     try std.testing.expect(try allClose(allocator, q_idx, r, 1e-5));
+
     indices1 = [1]Index{Index.initRange(Range.init(1, .{ .end = end }))};
-    var q_exp_dims = [_]Dim{ 3, 4 };
-    var q_exp_shape = try Shape.init(allocator, &q_exp_dims);
-    defer q_exp_shape.deinit();
-    var q_exp = try full(allocator, &q_exp_shape, f64, 2, .f32);
+    var q_exp = try full(allocator, &.{ 3, 4 }, f64, 2, .f32);
     defer q_exp.deinit();
     var q_idx2 = try q.index(allocator, &indices1);
     defer q_idx2.deinit();
     try std.testing.expect(try allClose(allocator, q_idx2, q_exp, 1e-5));
 
-    var k_dims = [2]Dim{ 100, 200 };
-    var k_shape = try Shape.init(allocator, &k_dims);
-    defer k_shape.deinit();
-    var k = try rand(allocator, &k_shape, .f32);
+    var k = try rand(allocator, &.{ 100, 200 }, .f32);
     defer k.deinit();
     indices1 = [1]Index{Index.initDim(3)};
-    var k_assign_dims = [_]Dim{200};
-    var k_assign_shape = try Shape.init(allocator, &k_assign_dims);
-    defer k_assign_shape.deinit();
-    var k_assign = try full(allocator, &k_assign_shape, f64, 0, .f32);
+    var k_assign = try full(allocator, &.{200}, f64, 0, .f32);
     defer k_assign.deinit();
     try k.indexAssign(allocator, Tensor, k_assign, &indices1);
     var k_idx = try k.index(allocator, &indices1);
@@ -487,10 +408,7 @@ test "IndexTest -> IndexAssignment" {
     try std.testing.expect(try allClose(allocator, k_idx, k_assign, 1e-5));
 
     // weak ref
-    var g_dims = [_]Dim{ 3, 4, 5 };
-    var g_shape = try Shape.init(allocator, &g_dims);
-    defer g_shape.deinit();
-    var g = try rand(allocator, &g_shape, .f32);
+    var g = try rand(allocator, &.{ 3, 4, 5 }, .f32);
     defer g.deinit();
     var gC = try g.copy(allocator);
     defer gC.deinit();
@@ -503,15 +421,9 @@ test "IndexTest -> IndexAssignment" {
     defer gC_idx.deinit();
     try std.testing.expect(try allClose(allocator, gC_idx, gI, 1e-5));
 
-    var x_dims = [_]Dim{ 5, 6, 7, 8 };
-    var x_shape = try Shape.init(allocator, &x_dims);
-    defer x_shape.deinit();
-    var x = try rand(allocator, &x_shape, .f32);
+    var x = try rand(allocator, &.{ 5, 6, 7, 8 }, .f32);
     defer x.deinit();
-    var x_assign_dims = [_]Dim{ 6, 7, 8 };
-    var x_assign_shape = try Shape.init(allocator, &x_assign_dims);
-    defer x_assign_shape.deinit();
-    var x_assign = try full(allocator, &x_assign_shape, f64, 0, .f32);
+    var x_assign = try full(allocator, &.{ 6, 7, 8 }, f64, 0, .f32);
     defer x_assign.deinit();
     indices1 = [1]Index{Index.initDim(3)};
     try x.indexAssign(allocator, Tensor, x_assign, &indices1);
@@ -519,10 +431,7 @@ test "IndexTest -> IndexAssignment" {
     defer x_idx.deinit();
     try std.testing.expect(try allClose(allocator, x_idx, x_assign, 1e-5));
 
-    x_assign_dims = [3]Dim{ 5, 6, 8 };
-    var x_assign_shape2 = try Shape.init(allocator, &x_assign_dims);
-    defer x_assign_shape2.deinit();
-    var x_assign2 = try full(allocator, &x_assign_shape2, f64, 3, .f32);
+    var x_assign2 = try full(allocator, &.{ 5, 6, 8 }, f64, 3, .f32);
     defer x_assign2.deinit();
     var indices3 = [3]Index{ Index.initRange(span), Index.initRange(span), Index.initDim(2) };
     try x.indexAssign(allocator, Tensor, x_assign2, &indices3);
@@ -530,10 +439,7 @@ test "IndexTest -> IndexAssignment" {
     defer x_idx2.deinit();
     try std.testing.expect(try allClose(allocator, x_idx2, x_assign2, 1e-5));
 
-    var x_assign_dims2 = [4]Dim{ 5, 2, 7, 8 };
-    var x_assign_shape3 = try Shape.init(allocator, &x_assign_dims2);
-    defer x_assign_shape3.deinit();
-    var x_assign3 = try full(allocator, &x_assign_shape3, f64, 2, .f32);
+    var x_assign3 = try full(allocator, &.{ 5, 2, 7, 8 }, f64, 2, .f32);
     defer x_assign3.deinit();
     indices3 = [3]Index{ Index.initRange(span), Index.initRange(Range.init(1, .{ .dim = 3 })), Index.initRange(span) };
     try x.indexAssign(allocator, Tensor, x_assign3, &indices3);
@@ -541,15 +447,9 @@ test "IndexTest -> IndexAssignment" {
     defer x_idx3.deinit();
     try std.testing.expect(try allClose(allocator, x_idx3, x_assign3, 1e-5));
 
-    x_assign_dims2 = [4]Dim{ 5, 5, 7, 5 };
-    var x_assign_shape4 = try Shape.init(allocator, &x_assign_dims2);
-    defer x_assign_shape4.deinit();
-    var x_assign4 = try full(allocator, &x_assign_shape4, f64, 2, .f32);
+    var x_assign4 = try full(allocator, &.{ 5, 5, 7, 5 }, f64, 2, .f32);
     defer x_assign4.deinit();
-    var arange_dims = [_]Dim{5};
-    var arange_shape = try Shape.init(allocator, &arange_dims);
-    defer arange_shape.deinit();
-    var arange_tensor = try arange(allocator, &arange_shape, 0, .f32);
+    var arange_tensor = try arange(allocator, &.{5}, 0, .f32);
     defer arange_tensor.deinit();
     var indices4 = [4]Index{ Index.initRange(span), Index.initTensor(arange_tensor), Index.initRange(span), Index.initTensor(arange_tensor) };
     try x.indexAssign(allocator, Tensor, x_assign4, &indices4);
@@ -560,21 +460,14 @@ test "IndexTest -> IndexAssignment" {
 
 test "IndexTest -> IndexInPlaceOps" {
     const full = tensor_.full;
-    const Shape = tensor_.Shape;
     const allClose = tensor_.allClose;
     const deinit = tensor_.deinit;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var a_dims = [_]Dim{ 4, 5, 6 };
-    var a_shape = try Shape.init(allocator, &a_dims);
-    defer a_shape.deinit();
-    var a = try full(allocator, &a_shape, f64, 0, .f32);
+    var a = try full(allocator, &.{ 4, 5, 6 }, f64, 0, .f32);
     defer a.deinit();
-    var b_dims = [_]Dim{ 5, 6 };
-    var b_shape = try Shape.init(allocator, &b_dims);
-    defer b_shape.deinit();
-    var b = try full(allocator, &b_shape, f64, 1, .f32);
+    var b = try full(allocator, &.{ 5, 6 }, f64, 1, .f32);
     defer b.deinit();
     var indices1 = [1]Index{Index.initDim(2)};
     try a.indexAdd(allocator, Tensor, b, &indices1);
@@ -582,19 +475,13 @@ test "IndexTest -> IndexInPlaceOps" {
     defer a_idx.deinit();
     try std.testing.expect(try allClose(allocator, a_idx, b, 1e-5));
     try a.indexSub(allocator, Tensor, b, &indices1);
-    var a_expected = try full(allocator, &a_shape, f64, 0, .f32);
+    var a_expected = try full(allocator, &.{ 4, 5, 6 }, f64, 0, .f32);
     defer a_expected.deinit();
     try std.testing.expect(try allClose(allocator, a, a_expected, 1e-5));
 
-    var f_dims = [_]Dim{ 1, 3, 3 };
-    var f_shape = try Shape.init(allocator, &f_dims);
-    defer f_shape.deinit();
-    var f = try full(allocator, &f_shape, f64, 4, .f32);
+    var f = try full(allocator, &.{ 1, 3, 3 }, f64, 4, .f32);
     defer f.deinit();
-    var d_dims = [_]Dim{3};
-    var d_shape = try Shape.init(allocator, &d_dims);
-    defer d_shape.deinit();
-    var d = try full(allocator, &d_shape, f64, 6, .f32);
+    var d = try full(allocator, &.{3}, f64, 6, .f32);
     defer d.deinit();
     var indices2 = [2]Index{ Index.initDim(0), Index.initDim(1) };
     try f.indexAdd(allocator, Tensor, d, &indices2);
@@ -603,12 +490,9 @@ test "IndexTest -> IndexInPlaceOps" {
     try d.inPlaceAdd(allocator, f64, 4);
     try std.testing.expect(try allClose(allocator, f_idx, d, 1e-5));
 
-    var s = try full(allocator, &a_shape, f64, 5, .s32);
+    var s = try full(allocator, &.{ 4, 5, 6 }, f64, 5, .s32);
     defer s.deinit();
-    var sA_dims = [_]Dim{6};
-    var sA_shape = try Shape.init(allocator, &sA_dims);
-    defer sA_shape.deinit();
-    var sA = try full(allocator, &sA_shape, f64, 3, .s32);
+    var sA = try full(allocator, &.{6}, f64, 3, .s32);
     defer sA.deinit();
     indices2 = [2]Index{ Index.initDim(0), Index.initDim(1) };
     try s.indexAdd(allocator, Tensor, sA, &indices2);
@@ -621,16 +505,12 @@ test "IndexTest -> IndexInPlaceOps" {
 test "IndexTest -> flat" {
     const rand = tensor_.rand;
     const full = tensor_.full;
-    const Shape = tensor_.Shape;
     const allClose = tensor_.allClose;
     const deinit = tensor_.deinit;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var m_dims = [_]Dim{ 4, 6 };
-    var m_shape = try Shape.init(allocator, &m_dims);
-    defer m_shape.deinit();
-    var m = try rand(allocator, &m_shape, .f32);
+    var m = try rand(allocator, &.{ 4, 6 }, .f32);
     defer m.deinit();
     for (0..@intCast(try m.elements(allocator))) |i| {
         var m_flat = try m.flat(allocator, Index.initDim(@intCast(i)));
@@ -644,10 +524,7 @@ test "IndexTest -> flat" {
         try std.testing.expect(try allClose(allocator, m_flat, m_indexed, 1e-5));
     }
 
-    var n_dims = [_]Dim{ 4, 6, 8 };
-    var n_shape = try Shape.init(allocator, &n_dims);
-    defer n_shape.deinit();
-    var n = try rand(allocator, &n_shape, .f32);
+    var n = try rand(allocator, &.{ 4, 6, 8 }, .f32);
     defer n.deinit();
     for (0..@intCast(try n.elements(allocator))) |i| {
         var n_flat = try n.flat(allocator, Index.initDim(@intCast(i)));
@@ -662,10 +539,7 @@ test "IndexTest -> flat" {
         try std.testing.expect(try allClose(allocator, n_flat, n_indexed, 1e-5));
     }
 
-    var a_dims = [_]Dim{ 5, 6, 7, 8 };
-    var a_shape = try Shape.init(allocator, &a_dims);
-    defer a_shape.deinit();
-    var a = try full(allocator, &a_shape, f64, 9, .f32);
+    var a = try full(allocator, &.{ 5, 6, 7, 8 }, f64, 9, .f32);
     defer a.deinit();
     var test_indices = [_]Dim{ 0, 1, 4, 11, 62, 104, 288 };
     for (test_indices) |i| {
@@ -680,31 +554,25 @@ test "IndexTest -> flat" {
 test "IndexTest -> TensorIndex" {
     const full = tensor_.full;
     const rand = tensor_.rand;
+    const shape = tensor_.shape;
     const allClose = tensor_.allClose;
     const initAssign = tensor_.initAssign;
     const arange = tensor_.arange;
     const add = tensor_.add;
-    const Shape = tensor_.Shape;
     const deinit = tensor_.deinit;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
     var idxs = [_]Dim{ 0, 1, 4, 9, 11, 13, 16, 91 };
     var size = idxs.len;
-    var indice_dims = [_]Dim{@intCast(size)};
-    var indices_shape = try Shape.init(allocator, &indice_dims);
-    defer indices_shape.deinit();
-    var tensor_indices = try full(allocator, &indices_shape, f64, 0, .f32);
+    var tensor_indices = try full(allocator, &.{@as(i64, @intCast(size))}, f64, 0, .f32);
     defer tensor_indices.deinit();
     for (0..size) |i| {
         var idx = [_]Index{Index.initDim(@intCast(i))};
         try tensor_indices.indexAssign(allocator, Dim, idxs[i], &idx);
     }
 
-    var a_dims = [1]Dim{100};
-    var a_shape = try Shape.init(allocator, &a_dims);
-    defer a_shape.deinit();
-    var a = try rand(allocator, &a_shape, .f32);
+    var a = try rand(allocator, &.{100}, .f32);
     defer a.deinit();
     var indices = [_]Index{Index.initTensor(tensor_indices)};
     var indexed = try a.index(allocator, &indices);
@@ -720,22 +588,16 @@ test "IndexTest -> TensorIndex" {
     }
 
     try a.indexAssign(allocator, f64, 5, &indices);
-    var expected1 = try full(allocator, &indices_shape, f64, 5, .f32);
+    var expected1 = try full(allocator, &.{@as(i64, @intCast(size))}, f64, 5, .f32);
     defer expected1.deinit();
     var a_idx1 = try a.index(allocator, &indices);
     defer a_idx1.deinit();
     try std.testing.expect(try allClose(allocator, a_idx1, expected1, 1e-5));
 
     // Out of range indices
-    var i_dims = [1]Dim{10};
-    var i_shape = try Shape.init(allocator, &i_dims);
-    defer i_shape.deinit();
-    var i = try arange(allocator, &i_shape, 0, .u32);
+    var i = try arange(allocator, &.{10}, 0, .u32);
     defer i.deinit();
-    var b_dims = [_]Dim{ 20, 20 };
-    var b_shape = try Shape.init(allocator, &b_dims);
-    defer b_shape.deinit();
-    var b = try rand(allocator, &b_shape, .f32);
+    var b = try rand(allocator, &.{ 20, 20 }, .f32);
     defer b.deinit();
     var ref = try initAssign(allocator, b);
     defer ref.deinit();
@@ -745,7 +607,7 @@ test "IndexTest -> TensorIndex" {
     b_indice[0] = Index.initRange(Range.initEnd(10));
     var b_idx2 = try b.index(allocator, &b_indice);
     defer b_idx2.deinit();
-    try std.testing.expect((try b_idx.shape(allocator)).eql(&(try b_idx2.shape(allocator))));
+    try std.testing.expect(shape.eql(try b_idx.shape(allocator), try b_idx2.shape(allocator)));
     try std.testing.expect(try allClose(allocator, b_idx, b_idx2, 1e-5));
 
     b_indice[0] = Index.initTensor(i);
@@ -765,10 +627,13 @@ test "IndexTest -> TensorIndex" {
     defer ref_exp1.deinit();
     try std.testing.expect(try allClose(allocator, b_idx5, ref_exp1, 1e-5));
 
-    var b_rhs_dims = [2]Dim{ @intCast(try i.elements(allocator)), try b.dim(allocator, 1) };
-    var b_rhs_shape = try Shape.init(allocator, &b_rhs_dims);
-    defer b_rhs_shape.deinit();
-    var b_rhs = try full(allocator, &b_rhs_shape, f64, 10, .f32);
+    var b_rhs = try full(
+        allocator,
+        &.{ @as(i64, @intCast(try i.elements(allocator))), try b.dim(allocator, 1) },
+        f64,
+        10,
+        .f32,
+    );
     defer b_rhs.deinit();
     try b.indexAdd(allocator, Tensor, b_rhs, &b_indice);
     var b_idx6 = try b.index(allocator, &b_indice);
@@ -777,27 +642,18 @@ test "IndexTest -> TensorIndex" {
     defer ref_add2.deinit();
     var ref_exp2 = try ref_add2.index(allocator, &b_indice);
     defer ref_exp2.deinit();
-    try std.testing.expect((try b_idx6.shape(allocator)).eql(&(try ref_exp2.shape(allocator))));
+    try std.testing.expect(shape.eql(try b_idx6.shape(allocator), try ref_exp2.shape(allocator)));
     try std.testing.expect(try allClose(allocator, b_idx6, ref_exp2, 1e-5));
 
     // Tensor index a > 1D tensor
-    var c_dims = [_]Dim{ 10, 10, 10 };
-    var c_shape = try Shape.init(allocator, &c_dims);
-    defer c_shape.deinit();
-    var c = try rand(allocator, &c_shape, .f32);
+    var c = try rand(allocator, &.{ 10, 10, 10 }, .f32);
     defer c.deinit();
-    var c_arange_dims = [1]Dim{5};
-    var c_arange_shape = try Shape.init(allocator, &c_arange_dims);
-    defer c_arange_shape.deinit();
-    var c_arange = try arange(allocator, &c_arange_shape, 0, .f32);
+    var c_arange = try arange(allocator, &.{5}, 0, .f32);
     defer c_arange.deinit();
     indices[0] = Index.initTensor(c_arange);
     var c_idx = try c.index(allocator, &indices);
     defer c_idx.deinit();
-    var exp_shape_dims = [_]Dim{ 5, 10, 10 };
-    var exp_shape = try Shape.init(allocator, &exp_shape_dims);
-    defer exp_shape.deinit();
-    try std.testing.expect((&(try c_idx.shape(allocator))).eql(&exp_shape));
+    try std.testing.expect(shape.eql(try c_idx.shape(allocator), &.{ 5, 10, 10 }));
 }
 
 // TODO: test "IndexTest -> ExpressionIndex" {}
