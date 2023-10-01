@@ -19,6 +19,7 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v2
       - run: zig fmt --check src/*.zig
   deploy:
+    if: github.ref == 'refs/heads/main'
     permissions:
       pages: write
       id-token: write
