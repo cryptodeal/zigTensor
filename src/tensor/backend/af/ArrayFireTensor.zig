@@ -1004,17 +1004,14 @@ test "ArrayFireTensorBaseTest -> amin" {
     var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
 
-    var axes = std.ArrayList(i32).init(allocator);
-    defer axes.deinit();
-    var tensorRes1 = try amin(allocator, a, axes, false);
+    var tensorRes1 = try amin(allocator, a, &.{}, false);
     defer tensorRes1.deinit();
 
     var tensorScalar1 = try tensorRes1.scalar(allocator, f32);
     var afRes1 = try af.ops.minAll(try toArray(allocator, a));
     try std.testing.expect(tensorScalar1 == @as(f32, @floatCast(afRes1.real)));
 
-    try axes.append(0);
-    var tensorRes2 = try amin(allocator, a, axes, false);
+    var tensorRes2 = try amin(allocator, a, &.{0}, false);
     defer tensorRes2.deinit();
     var afRes2 = try af.ops.min(allocator, try toArray(allocator, a), 0);
     defer afRes2.deinit();
@@ -1032,17 +1029,14 @@ test "ArrayFireTensorBaseTest -> amax" {
     var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
 
-    var axes = std.ArrayList(i32).init(allocator);
-    defer axes.deinit();
-    var tensorRes1 = try amax(allocator, a, axes, false);
+    var tensorRes1 = try amax(allocator, a, &.{}, false);
     defer tensorRes1.deinit();
 
     var tensorScalar1 = try tensorRes1.scalar(allocator, f32);
     var afRes1 = try af.ops.maxAll(try toArray(allocator, a));
     try std.testing.expect(tensorScalar1 == @as(f32, @floatCast(afRes1.real)));
 
-    try axes.append(0);
-    var tensorRes2 = try amax(allocator, a, axes, false);
+    var tensorRes2 = try amax(allocator, a, &.{0}, false);
     defer tensorRes2.deinit();
     var afRes2 = try af.ops.max(allocator, try toArray(allocator, a), 0);
     defer afRes2.deinit();
@@ -1060,17 +1054,14 @@ test "ArrayFireTensorBaseTest -> sum" {
     var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
 
-    var axes = std.ArrayList(i32).init(allocator);
-    defer axes.deinit();
-    var aSum = try sum(allocator, a, axes, false);
+    var aSum = try sum(allocator, a, &.{}, false);
     defer aSum.deinit();
 
     var aSumScalar = try aSum.scalar(allocator, f32);
     var aAfSum = try af.ops.sumAll(try toArray(allocator, a));
     try std.testing.expectApproxEqAbs(aSumScalar, @as(f32, @floatCast(aAfSum.real)), 1e-5);
 
-    try axes.append(0);
-    var tensorSum = try sum(allocator, a, axes, false);
+    var tensorSum = try sum(allocator, a, &.{0}, false);
     defer tensorSum.deinit();
     var afRes2 = try af.ops.sum(allocator, try toArray(allocator, a), 0);
     defer afRes2.deinit();
@@ -1081,18 +1072,14 @@ test "ArrayFireTensorBaseTest -> sum" {
     var b = try rand(allocator, &.{ 5, 6, 7, 8 }, .f32);
     defer b.deinit();
 
-    var bAxes = std.ArrayList(i32).init(allocator);
-    defer bAxes.deinit();
-    var bSum = try sum(allocator, b, bAxes, false);
+    var bSum = try sum(allocator, b, &.{}, false);
     defer bSum.deinit();
 
     var bSumScalar = try bSum.scalar(allocator, f32);
     var bAfSum = try af.ops.sumAll(try toArray(allocator, b));
     try std.testing.expectApproxEqAbs(bSumScalar, @as(f32, @floatCast(bAfSum.real)), 1e-5);
 
-    try bAxes.append(1);
-    try bAxes.append(2);
-    var bTensorSum = try sum(allocator, b, bAxes, false);
+    var bTensorSum = try sum(allocator, b, &.{ 1, 2 }, false);
     defer bTensorSum.deinit();
     var afRes4 = try af.ops.sum(allocator, try toArray(allocator, b), 1);
     defer afRes4.deinit();
@@ -1263,9 +1250,7 @@ test "ArrayFireTensorBaseTest -> mean" {
     var a = try rand(allocator, &.{ 3, 50 }, .f32);
     defer a.deinit();
 
-    var axes = std.ArrayList(i32).init(allocator);
-    defer axes.deinit();
-    var meanTensor = try mean(allocator, a, axes, false);
+    var meanTensor = try mean(allocator, a, &.{}, false);
     defer meanTensor.deinit();
 
     try std.testing.expectApproxEqAbs(
@@ -1274,8 +1259,7 @@ test "ArrayFireTensorBaseTest -> mean" {
         1e-4,
     );
 
-    try axes.append(0);
-    var meanTensor2 = try mean(allocator, a, axes, false);
+    var meanTensor2 = try mean(allocator, a, &.{0}, false);
     defer meanTensor2.deinit();
     var meanArr = try af.ops.mean(allocator, try toArray(allocator, a), 0);
     defer meanArr.deinit();
@@ -1293,9 +1277,7 @@ test "ArrayFireTensorBaseTest -> median" {
     var a = try rand(allocator, &.{ 3, 50 }, .f32);
     defer a.deinit();
 
-    var axes = std.ArrayList(i32).init(allocator);
-    defer axes.deinit();
-    var medianTensor = try median(allocator, a, axes, false);
+    var medianTensor = try median(allocator, a, &.{}, false);
     defer medianTensor.deinit();
 
     try std.testing.expectApproxEqAbs(
@@ -1304,8 +1286,7 @@ test "ArrayFireTensorBaseTest -> median" {
         1e-3,
     );
 
-    try axes.append(0);
-    var medianTensor2 = try median(allocator, a, axes, false);
+    var medianTensor2 = try median(allocator, a, &.{0}, false);
     defer medianTensor2.deinit();
     var medianArr = try af.ops.median(allocator, try toArray(allocator, a), 0);
     defer medianArr.deinit();
@@ -1330,10 +1311,8 @@ test "ArrayFireTensorBaseTest -> variance" {
 
     var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
-    var axes = std.ArrayList(i32).init(allocator);
-    defer axes.deinit();
 
-    var aVarTensor = try variance(allocator, a, axes, false, false);
+    var aVarTensor = try variance(allocator, a, &.{}, false, false);
     defer aVarTensor.deinit();
     var aVarScalar = try aVarTensor.scalar(allocator, f32);
     try std.testing.expect(
@@ -1345,8 +1324,7 @@ test "ArrayFireTensorBaseTest -> variance" {
         )) == aVarScalar,
     );
 
-    try axes.append(0);
-    var aVarTensor2 = try variance(allocator, a, axes, false, false);
+    var aVarTensor2 = try variance(allocator, a, &.{0}, false, false);
     defer aVarTensor2.deinit();
     var aVarArr = try af.ops.varV2(allocator, try toArray(allocator, a), bias_mode, 0);
     defer aVarArr.deinit();
@@ -1365,8 +1343,7 @@ test "ArrayFireTensorBaseTest -> variance" {
         1e-5,
     ));
 
-    axes.items[0] = 1;
-    var aVarTensor3 = try variance(allocator, a, axes, false, false);
+    var aVarTensor3 = try variance(allocator, a, &.{1}, false, false);
     defer aVarTensor3.deinit();
     var aVarArr2 = try af.ops.varV2(
         allocator,
@@ -1397,8 +1374,7 @@ test "ArrayFireTensorBaseTest -> variance" {
             (try af.ops.varAllV2(try toArray(allocator, a), bias_mode)).real,
         ),
     );
-    try axes.insert(0, 0);
-    var biasedTensor = try variance(allocator, a, axes, true, false);
+    var biasedTensor = try variance(allocator, a, &.{ 0, 1 }, true, false);
     defer biasedTensor.deinit();
     var biasedScalar = try biasedTensor.scalar(allocator, f32);
     try std.testing.expectEqual(
@@ -1421,10 +1397,7 @@ test "ArrayFireTensorBaseTest -> stdev" {
     var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
 
-    var axes = std.ArrayList(i32).init(allocator);
-    defer axes.deinit();
-    try axes.append(0);
-    var tensor_res_1 = try stdev(allocator, a, axes, true);
+    var tensor_res_1 = try stdev(allocator, a, &.{0}, true);
     defer tensor_res_1.deinit();
     var arr_res_1 = try af.ops.stdevV2(
         allocator,
@@ -1440,8 +1413,7 @@ test "ArrayFireTensorBaseTest -> stdev" {
         1e-5,
     ));
 
-    axes.items[0] = 1;
-    var tensor_res_2 = try stdev(allocator, a, axes, true);
+    var tensor_res_2 = try stdev(allocator, a, &.{1}, true);
     defer tensor_res_2.deinit();
     var arr_res_2 = try af.ops.stdevV2(
         allocator,
@@ -1457,8 +1429,7 @@ test "ArrayFireTensorBaseTest -> stdev" {
         1e-5,
     ));
 
-    try axes.insert(0, 0);
-    var tensor_res_3 = try stdev(allocator, a, axes, false);
+    var tensor_res_3 = try stdev(allocator, a, &.{ 0, 1 }, false);
     defer tensor_res_3.deinit();
     var tensor_res_3_scalar = try tensor_res_3.scalar(allocator, f32);
     var expected = @sqrt((try af.ops.varAllV2(try toArray(allocator, a), .Population)).real);
@@ -1474,8 +1445,7 @@ test "ArrayFireTensorBaseTest -> norm" {
     var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
 
-    var axes = std.ArrayList(i32).init(allocator);
-    var res_tensor = try norm(allocator, a, axes, 2, false);
+    var res_tensor = try norm(allocator, a, &.{}, 2, false);
     defer res_tensor.deinit();
 
     var arr_norm = try af.ops.norm(try toArray(allocator, a), af.NormType.Vector2, 1, 1);

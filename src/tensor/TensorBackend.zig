@@ -91,22 +91,22 @@ pub const TensorBackend = struct {
         sign: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         tril: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         triu: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
-        amin: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
-        amax: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
+        amin: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
+        amax: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
         min: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) anyerror!ValIdxRes,
         max: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) anyerror!ValIdxRes,
-        sum: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
+        sum: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
         cumsum: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: u32) anyerror!Tensor,
         argmax: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) anyerror!Tensor,
         argmin: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) anyerror!Tensor,
-        mean: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
-        median: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
-        variance: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), bias: bool, keep_dims: bool) anyerror!Tensor,
-        stdev: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
-        norm: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), p: f64, keep_dims: bool) anyerror!Tensor,
-        countNonzero: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
-        any: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
-        all: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) anyerror!Tensor,
+        mean: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
+        median: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
+        variance: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, bias: bool, keep_dims: bool) anyerror!Tensor,
+        stdev: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
+        norm: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, p: f64, keep_dims: bool) anyerror!Tensor,
+        countNonzero: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
+        any: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
+        all: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
         assign: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!void,
         getIndexAssignShape: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, target: Tensor, indices: []const Index) anyerror![]Dim, // util used to create constant from numeric literal for index assign
         indexAssign: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) anyerror!void,
@@ -477,11 +477,11 @@ pub const TensorBackend = struct {
         return self.vtable.triu(self.ptr, allocator, tensor);
     }
 
-    pub fn amin(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn amin(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         return self.vtable.amin(self.ptr, allocator, input, axes, keep_dims);
     }
 
-    pub fn amax(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn amax(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         return self.vtable.amax(self.ptr, allocator, input, axes, keep_dims);
     }
 
@@ -493,7 +493,7 @@ pub const TensorBackend = struct {
         return self.vtable.max(self.ptr, allocator, input, axis, keep_dims);
     }
 
-    pub fn sum(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn sum(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         return self.vtable.sum(self.ptr, allocator, input, axes, keep_dims);
     }
 
@@ -509,35 +509,35 @@ pub const TensorBackend = struct {
         return self.vtable.argmin(self.ptr, allocator, input, axis, keep_dims);
     }
 
-    pub fn mean(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn mean(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         return self.vtable.mean(self.ptr, allocator, input, axes, keep_dims);
     }
 
-    pub fn median(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn median(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         return self.vtable.median(self.ptr, allocator, input, axes, keep_dims);
     }
 
-    pub fn variance(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), bias: bool, keep_dims: bool) !Tensor {
+    pub fn variance(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, bias: bool, keep_dims: bool) !Tensor {
         return self.vtable.variance(self.ptr, allocator, input, axes, bias, keep_dims);
     }
 
-    pub fn stdev(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn stdev(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         return self.vtable.stdev(self.ptr, allocator, input, axes, keep_dims);
     }
 
-    pub fn norm(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), p: f64, keep_dims: bool) !Tensor {
+    pub fn norm(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, p: f64, keep_dims: bool) !Tensor {
         return self.vtable.norm(self.ptr, allocator, input, axes, p, keep_dims);
     }
 
-    pub fn countNonzero(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn countNonzero(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         return self.vtable.countNonzero(self.ptr, allocator, input, axes, keep_dims);
     }
 
-    pub fn any(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn any(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         return self.vtable.any(self.ptr, allocator, input, axes, keep_dims);
     }
 
-    pub fn all(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn all(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         return self.vtable.all(self.ptr, allocator, input, axes, keep_dims);
     }
 
@@ -899,12 +899,12 @@ pub const TensorBackend = struct {
                 return self.triu(allocator, tensor);
             }
 
-            fn amin(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+            fn amin(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.amin(allocator, input, axes, keep_dims);
             }
 
-            fn amax(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+            fn amax(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.amax(allocator, input, axes, keep_dims);
             }
@@ -919,7 +919,7 @@ pub const TensorBackend = struct {
                 return self.max(allocator, input, axis, keep_dims);
             }
 
-            fn sum(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+            fn sum(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.sum(allocator, input, axes, keep_dims);
             }
@@ -939,42 +939,42 @@ pub const TensorBackend = struct {
                 return self.argmin(allocator, input, axis, keep_dims);
             }
 
-            fn mean(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+            fn mean(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.mean(allocator, input, axes, keep_dims);
             }
 
-            fn median(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+            fn median(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.median(allocator, input, axes, keep_dims);
             }
 
-            fn variance(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), bias: bool, keep_dims: bool) !Tensor {
+            fn variance(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, bias: bool, keep_dims: bool) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.variance(allocator, input, axes, bias, keep_dims);
             }
 
-            fn stdev(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+            fn stdev(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.stdev(allocator, input, axes, keep_dims);
             }
 
-            fn norm(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), p: f64, keep_dims: bool) !Tensor {
+            fn norm(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, p: f64, keep_dims: bool) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.norm(allocator, input, axes, p, keep_dims);
             }
 
-            fn countNonzero(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+            fn countNonzero(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.countNonzero(allocator, input, axes, keep_dims);
             }
 
-            fn any(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+            fn any(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.any(allocator, input, axes, keep_dims);
             }
 
-            fn all(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+            fn all(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.all(allocator, input, axes, keep_dims);
             }

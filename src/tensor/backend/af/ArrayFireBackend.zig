@@ -1109,7 +1109,7 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn amin(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn amin(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         if (try isAllAxisReduction(allocator, input, axes)) {
             // Reduce along all axes returning a singleton tensor
             var arr = try af.ops.minAllArray(allocator, try toArray(allocator, input));
@@ -1133,7 +1133,7 @@ pub const ArrayFireBackend = struct {
                 af.ops.min,
                 keep_dims,
             );
-            var numDims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            var numDims = getReducedNumDims(usize, try input.ndim(allocator), axes.len, keep_dims);
             return Tensor.init(
                 TensorAdapterBase.init(
                     try ArrayFireTensor.initFromArray(
@@ -1146,7 +1146,7 @@ pub const ArrayFireBackend = struct {
         }
     }
 
-    pub fn amax(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn amax(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         if (try isAllAxisReduction(allocator, input, axes)) {
             // Reduce along all axes returning a singleton tensor
             var arr = try af.ops.maxAllArray(allocator, try toArray(allocator, input));
@@ -1170,7 +1170,7 @@ pub const ArrayFireBackend = struct {
                 af.ops.max,
                 keep_dims,
             );
-            var numDims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            var numDims = getReducedNumDims(usize, try input.ndim(allocator), axes.len, keep_dims);
             return Tensor.init(
                 TensorAdapterBase.init(
                     try ArrayFireTensor.initFromArray(
@@ -1237,7 +1237,7 @@ pub const ArrayFireBackend = struct {
         return .{ .values = values, .indices = indices };
     }
 
-    pub fn sum(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn sum(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         if (try isAllAxisReduction(allocator, input, axes)) {
             // std.debug.print("isAllAxisReduction = true\n", .{});
             var arr = try af.ops.sumAllArray(allocator, try toArray(allocator, input));
@@ -1262,7 +1262,7 @@ pub const ArrayFireBackend = struct {
                 af.ops.sum,
                 keep_dims,
             );
-            var numDims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            var numDims = getReducedNumDims(usize, try input.ndim(allocator), axes.len, keep_dims);
             return Tensor.init(
                 TensorAdapterBase.init(
                     try ArrayFireTensor.initFromArray(
@@ -1320,7 +1320,7 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn mean(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn mean(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         if (try isAllAxisReduction(allocator, input, axes)) {
             var arr = try toArray(allocator, input);
             for (0..@intCast(af.AF_MAX_DIMS)) |i| {
@@ -1348,7 +1348,7 @@ pub const ArrayFireBackend = struct {
                 af.ops.mean,
                 keep_dims,
             );
-            var numDims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            var numDims = getReducedNumDims(usize, try input.ndim(allocator), axes.len, keep_dims);
             return Tensor.init(
                 TensorAdapterBase.init(
                     try ArrayFireTensor.initFromArray(
@@ -1361,7 +1361,7 @@ pub const ArrayFireBackend = struct {
         }
     }
 
-    pub fn median(self: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn median(self: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         if (try isAllAxisReduction(allocator, input, axes)) {
             // Reduce along all axes returning a singleton tensor
             // TODO: modify this to `medianAllArray` to take advantage of the
@@ -1377,7 +1377,7 @@ pub const ArrayFireBackend = struct {
                 af.ops.median,
                 keep_dims,
             );
-            var numDims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            var numDims = getReducedNumDims(usize, try input.ndim(allocator), axes.len, keep_dims);
             return Tensor.init(
                 TensorAdapterBase.init(
                     try ArrayFireTensor.initFromArray(
@@ -1390,7 +1390,7 @@ pub const ArrayFireBackend = struct {
         }
     }
 
-    pub fn variance(self: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), bias: bool, keep_dims: bool) !Tensor {
+    pub fn variance(self: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, bias: bool, keep_dims: bool) !Tensor {
         var bias_mode: af.VarBias = if (bias) .Sample else .Population;
         // Use ArrayFire default for one dimension which may be optimized
         var arr = try toArray(allocator, input);
@@ -1400,11 +1400,11 @@ pub const ArrayFireBackend = struct {
         if (try isAllAxisReduction(allocator, input, axes)) {
             var out = try af.ops.varAllV2(arr, bias_mode);
             return self.fromScalar(allocator, out.real, .f32);
-        } else if (axes.items.len == 1) {
-            var var_arr = try af.ops.varV2(allocator, arr, bias_mode, @intCast(axes.items[0]));
+        } else if (axes.len == 1) {
+            var var_arr = try af.ops.varV2(allocator, arr, bias_mode, @intCast(axes[0]));
             var res = try condenseIndices(allocator, var_arr, keep_dims, null, false);
             defer if (res.modified) var_arr.deinit();
-            var num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            var num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.len, keep_dims);
             return Tensor.init(
                 TensorAdapterBase.init(
                     try ArrayFireTensor.initFromArray(
@@ -1426,7 +1426,7 @@ pub const ArrayFireBackend = struct {
 
             var denominator: i64 = 1;
             var dims = try arr.getDims();
-            for (axes.items) |dim| {
+            for (axes) |dim| {
                 denominator *= @intCast(dims.dims[@intCast(dim)]);
             }
             if (bias) denominator -= 1;
@@ -1441,7 +1441,7 @@ pub const ArrayFireBackend = struct {
             var div_arr = try af.ops.div(allocator, x_reduced, rhs_arr, false);
             var res = try condenseIndices(allocator, div_arr, keep_dims, null, false);
             defer if (res.modified) div_arr.deinit();
-            var num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            var num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.len, keep_dims);
             return Tensor.init(
                 TensorAdapterBase.init(
                     try ArrayFireTensor.initFromArray(
@@ -1454,20 +1454,20 @@ pub const ArrayFireBackend = struct {
         }
     }
 
-    pub fn stdev(self: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn stdev(self: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         const bias = false; // TODO: make this configurable
         const bias_mode: af.VarBias = if (bias) .Sample else .Population;
         if (try isAllAxisReduction(allocator, input, axes)) {
             // TODO: update to af.af_std_dev_all_array_v2 once specialization is available
             var out = try af.ops.stdevAllV2(try toArray(allocator, input), bias_mode);
             return self.fromScalar(allocator, out.real, .f32);
-        } else if (axes.items.len == 1) {
+        } else if (axes.len == 1) {
             // Use arrayfire default for one dimension which may be optimized
             // TODO: update this? stddev is deprecated.
-            var arr = try af.ops.stdevV2(allocator, try toArray(allocator, input), bias_mode, @intCast(axes.items[0]));
+            var arr = try af.ops.stdevV2(allocator, try toArray(allocator, input), bias_mode, @intCast(axes[0]));
             var cond_arr = try condenseIndices(allocator, arr, keep_dims, null, false);
             defer if (cond_arr.modified) arr.deinit();
-            var num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            var num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.len, keep_dims);
             return Tensor.init(
                 TensorAdapterBase.init(
                     try ArrayFireTensor.initFromArray(
@@ -1483,7 +1483,7 @@ pub const ArrayFireBackend = struct {
         return self.sqrt(allocator, var_tensor);
     }
 
-    pub fn norm(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), p: f64, keep_dims: bool) !Tensor {
+    pub fn norm(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, p: f64, keep_dims: bool) !Tensor {
         if (try isAllAxisReduction(allocator, input, axes)) {
             // TODO: update to af_norm_all_array if device-side specialization is
             // available. Either that or use the all-axis specializations with the below
@@ -1529,14 +1529,14 @@ pub const ArrayFireBackend = struct {
                     try ArrayFireTensor.initFromArray(
                         allocator,
                         res,
-                        getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims),
+                        getReducedNumDims(usize, try input.ndim(allocator), axes.len, keep_dims),
                     ),
                 ),
             );
         }
     }
 
-    pub fn countNonzero(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn countNonzero(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         var arr = try toArray(allocator, input);
         var num_dims: usize = undefined;
         var out: *af.Array = undefined;
@@ -1548,17 +1548,14 @@ pub const ArrayFireBackend = struct {
             defer if (condensed.modified) sum_arr.deinit();
             out = condensed.arr;
             num_dims = 0;
-        } else if (axes.items.len == 1) {
-            out = try af.ops.count(allocator, arr, axes.items[0]);
-            num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+        } else if (axes.len == 1) {
+            out = try af.ops.count(allocator, arr, @intCast(axes[0]));
+            num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.len, keep_dims);
         } else {
-            var count_arr = try af.ops.count(allocator, arr, axes.items[0]);
+            var count_arr = try af.ops.count(allocator, arr, @intCast(axes[0]));
             defer count_arr.deinit();
-            var used_axes = std.ArrayList(i32).init(allocator);
-            defer used_axes.deinit();
-            try used_axes.appendSlice(axes.items[1..]);
-            out = try afReduceAxes(allocator, count_arr, used_axes, reduceFunc_t, af.ops.sum, keep_dims);
-            num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.items.len, keep_dims);
+            out = try afReduceAxes(allocator, count_arr, axes[1..], reduceFunc_t, af.ops.sum, keep_dims);
+            num_dims = getReducedNumDims(usize, try input.ndim(allocator), axes.len, keep_dims);
         }
         var condensed = try condenseIndices(allocator, out, keep_dims, null, false);
         defer if (condensed.modified) out.deinit();
@@ -1573,7 +1570,7 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn any(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn any(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         if (try isAllAxisReduction(allocator, input, axes)) {
             // Reduce along all axes returning a singleton tensor
             var arr = try af.ops.anyTrueAllArray(allocator, try toArray(allocator, input));
@@ -1605,7 +1602,7 @@ pub const ArrayFireBackend = struct {
                         getReducedNumDims(
                             usize,
                             try input.ndim(allocator),
-                            axes.items.len,
+                            axes.len,
                             keep_dims,
                         ),
                     ),
@@ -1614,7 +1611,7 @@ pub const ArrayFireBackend = struct {
         }
     }
 
-    pub fn all(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+    pub fn all(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
         if (try isAllAxisReduction(allocator, input, axes)) {
             // Reduce along all axes returning a singleton tensor
             var arr = try af.ops.allTrueAllArray(allocator, try toArray(allocator, input));
@@ -1646,7 +1643,7 @@ pub const ArrayFireBackend = struct {
                         getReducedNumDims(
                             usize,
                             try input.ndim(allocator),
-                            axes.items.len,
+                            axes.len,
                             keep_dims,
                         ),
                     ),

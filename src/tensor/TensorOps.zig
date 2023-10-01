@@ -1012,11 +1012,11 @@ pub fn matmul(allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, lhs_prop: 
 
 //************************** Reductions ***************************//
 
-pub fn amin(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+pub fn amin(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
     return (try input.backend(allocator)).amin(allocator, input, axes, keep_dims);
 }
 
-pub fn amax(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+pub fn amax(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
     return (try input.backend(allocator)).amax(allocator, input, axes, keep_dims);
 }
 
@@ -1028,7 +1028,7 @@ pub fn max(allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bo
     return (try input.backend(allocator)).max(allocator, input, axis, keep_dims);
 }
 
-pub fn sum(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+pub fn sum(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
     return (try input.backend(allocator)).sum(allocator, input, axes, keep_dims);
 }
 
@@ -1044,11 +1044,11 @@ pub fn argmin(allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims:
     return (try input.backend(allocator)).argmin(allocator, input, axis, keep_dims);
 }
 
-pub fn mean(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+pub fn mean(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
     return (try input.backend(allocator)).mean(allocator, input, axes, keep_dims);
 }
 
-pub fn median(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+pub fn median(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
     return (try input.backend(allocator)).median(allocator, input, axes, keep_dims);
 }
 
@@ -1056,27 +1056,27 @@ pub fn median(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i
 /// variance along all axes.
 ///
 /// Returns a Tensor containing the variance(s).
-pub fn variance(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), bias: bool, keep_dims: bool) !Tensor {
+pub fn variance(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, bias: bool, keep_dims: bool) !Tensor {
     return (try input.backend(allocator)).variance(allocator, input, axes, bias, keep_dims);
 }
 
-pub fn stdev(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+pub fn stdev(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
     return (try input.backend(allocator)).stdev(allocator, input, axes, keep_dims);
 }
 
-pub fn norm(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), p: f64, keep_dims: bool) !Tensor {
+pub fn norm(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, p: f64, keep_dims: bool) !Tensor {
     return (try input.backend(allocator)).norm(allocator, input, axes, p, keep_dims);
 }
 
-pub fn countNonzero(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+pub fn countNonzero(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
     return (try input.backend(allocator)).countNonzero(allocator, input, axes, keep_dims);
 }
 
-pub fn any(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+pub fn any(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
     return (try input.backend(allocator)).any(allocator, input, axes, keep_dims);
 }
 
-pub fn all(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32), keep_dims: bool) !Tensor {
+pub fn all(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
     return (try input.backend(allocator)).all(allocator, input, axes, keep_dims);
 }
 
@@ -1102,9 +1102,7 @@ pub fn allClose(allocator: std.mem.Allocator, a: Tensor, b: Tensor, abs_toleranc
     defer r1.deinit();
     var r2 = try abs(allocator, r1);
     defer r2.deinit();
-    var axes = std.ArrayList(i32).init(allocator);
-    defer axes.deinit();
-    var r3 = try amax(allocator, r2, axes, false);
+    var r3 = try amax(allocator, r2, &.{}, false);
     defer r3.deinit();
     var r4 = try r3.astype(allocator, .f64);
     defer r4.deinit();
@@ -1126,9 +1124,7 @@ pub fn allEqual(allocator: std.mem.Allocator, a: Tensor, b: Tensor) !bool {
     defer r1.deinit();
     var r2 = try abs(allocator, r1);
     defer r2.deinit();
-    var axes = std.ArrayList(i32).init(allocator);
-    defer axes.deinit();
-    var r3 = try amax(allocator, r2, axes, false);
+    var r3 = try amax(allocator, r2, &.{}, false);
     defer r3.deinit();
     var r4 = try r3.astype(allocator, .f64);
     defer r4.deinit();

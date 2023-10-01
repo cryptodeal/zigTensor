@@ -12,13 +12,13 @@ const condenseIndices = @import("Utils.zig").condenseIndices;
 pub fn afReduceAxes(
     allocator: std.mem.Allocator,
     input: *af.Array,
-    axes: std.ArrayList(i32),
+    axes: []const i64,
     comptime T: type,
     func: T,
     keep_dims: bool,
 ) !*af.Array {
     var arr = input;
-    for (axes.items, 0..) |dim, i| {
+    for (axes, 0..) |dim, i| {
         var og_arr: *af.Array = arr;
         defer if (i != 0) og_arr.deinit();
         arr = try func(allocator, arr, @intCast(dim));
@@ -40,23 +40,23 @@ pub fn getReducedNumDims(comptime T: type, in_size: T, axis_size: T, keep_dims: 
     }
 }
 
-fn lessThan(_: void, a: i32, b: i32) bool {
+fn lessThan(_: void, a: i64, b: i64) bool {
     return a < b;
 }
 
-pub fn isAllAxisReduction(allocator: std.mem.Allocator, input: Tensor, axes: std.ArrayList(i32)) !bool {
+pub fn isAllAxisReduction(allocator: std.mem.Allocator, input: Tensor, axes: []const i64) !bool {
     const inputNumDims = try input.ndim(allocator);
-    if (inputNumDims == 0 or axes.items.len == 0) {
+    if (inputNumDims == 0 or axes.len == 0) {
         return true;
     }
-    if (inputNumDims != axes.items.len) {
+    if (inputNumDims != axes.len) {
         return false;
     }
     // Check that all dims are present
-    var _axes = axes;
-    std.mem.sort(i32, _axes.items, {}, lessThan);
-    for (0.._axes.items.len) |i| {
-        if (_axes.items[i] != @as(i32, @intCast(i))) {
+    var _axes: []i64 = @constCast(axes);
+    std.mem.sort(i64, _axes, {}, lessThan);
+    for (0.._axes.len) |i| {
+        if (_axes[i] != @as(i64, @intCast(i))) {
             return false;
         }
     }
