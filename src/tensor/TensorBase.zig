@@ -1,11 +1,11 @@
 const std = @import("std");
 const tensor = @import("tensor.zig");
 
-const Dim = tensor.Dim;
+const Dim = tensor.shape.Dim;
 const DType = tensor.DType;
 const dtypeTraits = tensor.dtypeTraits;
 const Index = tensor.Index;
-const Shape = tensor.Shape;
+const Shape = tensor.shape.Shape;
 const Stream = @import("../runtime/Stream.zig");
 const TensorAdapterBase = tensor.TensorAdapterBase;
 const TensorBackend = tensor.TensorBackend;
@@ -80,18 +80,15 @@ pub const Tensor = struct {
     }
 
     pub fn elements(self: *const Tensor, allocator: std.mem.Allocator) !Dim {
-        var shape_ = try self.shape(allocator);
-        return shape_.elements();
+        return tensor.shape.elements(try self.shape(allocator));
     }
 
     pub fn dim(self: *const Tensor, allocator: std.mem.Allocator, dimension: usize) !Dim {
-        var shape_ = try self.shape(allocator);
-        return shape_.dim(dimension);
+        return tensor.shape.dim(try self.shape(allocator), dimension);
     }
 
     pub fn ndim(self: *const Tensor, allocator: std.mem.Allocator) !usize {
-        var shape_ = try self.shape(allocator);
-        return shape_.ndim();
+        return tensor.shape.ndim(try self.shape(allocator));
     }
 
     pub fn isEmpty(self: *const Tensor, allocator: std.mem.Allocator) !bool {
@@ -218,8 +215,7 @@ pub const Tensor = struct {
         if (T == Tensor) {
             rhsTensor = rhs;
         } else {
-            var used_shape = try self.shape(allocator);
-            rhsTensor = try bknd.full(allocator, &used_shape, T, rhs, try self.dtype(allocator));
+            rhsTensor = try bknd.full(allocator, try self.shape(allocator), T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
         var check = [_]Tensor{ self.*, rhsTensor };
@@ -261,7 +257,7 @@ pub const Tensor = struct {
             rhsTensor = rhs;
         } else {
             var used_shape = try self.shape(allocator);
-            rhsTensor = try bknd.full(allocator, &used_shape, T, rhs, try self.dtype(allocator));
+            rhsTensor = try bknd.full(allocator, used_shape, T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
         var check = [_]Tensor{ self.*, rhsTensor };
@@ -278,7 +274,7 @@ pub const Tensor = struct {
             rhsTensor = rhs;
         } else {
             var used_shape = try self.shape(allocator);
-            rhsTensor = try bknd.full(allocator, &used_shape, T, rhs, try self.dtype(allocator));
+            rhsTensor = try bknd.full(allocator, used_shape, T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
         var check = [_]Tensor{ self.*, rhsTensor };
@@ -295,7 +291,7 @@ pub const Tensor = struct {
             rhsTensor = rhs;
         } else {
             var used_shape = try self.shape(allocator);
-            rhsTensor = try bknd.full(allocator, &used_shape, T, rhs, try self.dtype(allocator));
+            rhsTensor = try bknd.full(allocator, used_shape, T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
         var check = [_]Tensor{ self.*, rhsTensor };
@@ -312,7 +308,7 @@ pub const Tensor = struct {
             rhsTensor = rhs;
         } else {
             var used_shape = try self.shape(allocator);
-            rhsTensor = try bknd.full(allocator, &used_shape, T, rhs, try self.dtype(allocator));
+            rhsTensor = try bknd.full(allocator, used_shape, T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
         var check = [_]Tensor{ self.*, rhsTensor };

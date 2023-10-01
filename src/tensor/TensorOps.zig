@@ -2,11 +2,11 @@ const std = @import("std");
 const tensor_ = @import("tensor.zig");
 
 const defaultTensorBackend = tensor_.defaultTensorBackend;
-const Dim = tensor_.Dim;
+const Dim = tensor_.shape.Dim;
 const DType = tensor_.DType;
 const MatrixProperty = tensor_.MatrixProperty;
 const PadType = tensor_.PadType;
-const Shape = tensor_.Shape;
+const Shape = tensor_.shape.Shape;
 const SortIndexRes = tensor_.SortIndexRes;
 const SortMode = tensor_.SortMode;
 const Tensor = tensor_.Tensor;
@@ -38,7 +38,7 @@ pub fn fromScalar(allocator: std.mem.Allocator, comptime T: type, value: T, dtyp
     return (try defaultTensorBackend(allocator)).fromScalar(allocator, T, value, dtype);
 }
 
-pub fn full(allocator: std.mem.Allocator, shape: *const Shape, comptime T: type, value: T, dtype: DType) !Tensor {
+pub fn full(allocator: std.mem.Allocator, shape: Shape, comptime T: type, value: T, dtype: DType) !Tensor {
     return (try defaultTensorBackend(allocator)).full(allocator, shape, T, value, dtype);
 }
 
@@ -46,25 +46,25 @@ pub fn identity(allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
     return (try defaultTensorBackend(allocator)).identity(allocator, dim, dtype);
 }
 
-pub fn arange(allocator: std.mem.Allocator, shape: *const Shape, seq_dim: Dim, dtype: DType) !Tensor {
+pub fn arange(allocator: std.mem.Allocator, shape: Shape, seq_dim: Dim, dtype: DType) !Tensor {
     return (try defaultTensorBackend(allocator)).arange(allocator, shape, seq_dim, dtype);
 }
 
-pub fn iota(allocator: std.mem.Allocator, shape: *const Shape, tile_dims: *const Shape, dtype: DType) !Tensor {
+pub fn iota(allocator: std.mem.Allocator, shape: Shape, tile_dims: Shape, dtype: DType) !Tensor {
     return (try defaultTensorBackend(allocator)).iota(allocator, shape, tile_dims, dtype);
 }
 
 //************************ Shaping and Indexing *************************//
 
-pub fn reshape(allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
+pub fn reshape(allocator: std.mem.Allocator, tensor: Tensor, shape: Shape) !Tensor {
     return (try tensor.backend(allocator)).reshape(allocator, tensor, shape);
 }
 
-pub fn transpose(allocator: std.mem.Allocator, tensor: Tensor, axes: *const Shape) !Tensor {
+pub fn transpose(allocator: std.mem.Allocator, tensor: Tensor, axes: Shape) !Tensor {
     return (try tensor.backend(allocator)).transpose(allocator, tensor, axes);
 }
 
-pub fn tile(allocator: std.mem.Allocator, tensor: Tensor, shape: *const Shape) !Tensor {
+pub fn tile(allocator: std.mem.Allocator, tensor: Tensor, shape: Shape) !Tensor {
     return (try tensor.backend(allocator)).tile(allocator, tensor, shape);
 }
 
@@ -295,7 +295,7 @@ pub fn add(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -303,7 +303,7 @@ pub fn add(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -329,7 +329,7 @@ pub fn sub(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -337,7 +337,7 @@ pub fn sub(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -363,7 +363,7 @@ pub fn mul(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -371,7 +371,7 @@ pub fn mul(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -397,7 +397,7 @@ pub fn div(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -405,7 +405,7 @@ pub fn div(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -431,7 +431,7 @@ pub fn eq(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compti
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -439,7 +439,7 @@ pub fn eq(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compti
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -465,7 +465,7 @@ pub fn neq(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -473,7 +473,7 @@ pub fn neq(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -499,7 +499,7 @@ pub fn lessThan(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, 
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -507,7 +507,7 @@ pub fn lessThan(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, 
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -533,7 +533,7 @@ pub fn lessThanEqual(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lh
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -541,7 +541,7 @@ pub fn lessThanEqual(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lh
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -567,7 +567,7 @@ pub fn greaterThan(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -575,7 +575,7 @@ pub fn greaterThan(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -601,7 +601,7 @@ pub fn greaterThanEqual(allocator: std.mem.Allocator, comptime lhs_T: type, lhs:
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -609,7 +609,7 @@ pub fn greaterThanEqual(allocator: std.mem.Allocator, comptime lhs_T: type, lhs:
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -635,7 +635,7 @@ pub fn logicalOr(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T,
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -643,7 +643,7 @@ pub fn logicalOr(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T,
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -669,7 +669,7 @@ pub fn logicalAnd(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -677,7 +677,7 @@ pub fn logicalAnd(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -703,7 +703,7 @@ pub fn mod(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -711,7 +711,7 @@ pub fn mod(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -737,7 +737,7 @@ pub fn bitwiseAnd(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -745,7 +745,7 @@ pub fn bitwiseAnd(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -771,7 +771,7 @@ pub fn bitwiseOr(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T,
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -779,7 +779,7 @@ pub fn bitwiseOr(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T,
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -805,7 +805,7 @@ pub fn bitwiseXor(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -813,7 +813,7 @@ pub fn bitwiseXor(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -839,7 +839,7 @@ pub fn lShift(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, co
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -847,7 +847,7 @@ pub fn lShift(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, co
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -873,7 +873,7 @@ pub fn rShift(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, co
     } else {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, lhs_T, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, lhs_T, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     }
 
@@ -881,7 +881,7 @@ pub fn rShift(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, co
         rhsTensor = rhs;
     } else {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, rhs_T, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
     var check = [_]Tensor{ lhsTensor, rhsTensor };
@@ -907,7 +907,7 @@ pub fn minimum(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, c
     } else if (lhs_T == f64) {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, .f32, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, .f32, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     } else {
         @compileError("minimum: lhs must be a Tensor or f64");
@@ -917,7 +917,7 @@ pub fn minimum(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, c
         rhsTensor = rhs;
     } else if (rhs_T == f64) {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, .f32, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, .f32, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     } else {
         @compileError("minimum: rhs must be a Tensor or f64");
@@ -945,7 +945,7 @@ pub fn maximum(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, c
     } else if (lhs_T == f64) {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, .f32, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, .f32, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     } else {
         @compileError("maximum: lhs must be a Tensor or f64");
@@ -955,7 +955,7 @@ pub fn maximum(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, c
         rhsTensor = rhs;
     } else if (rhs_T == f64) {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, .f32, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, .f32, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     } else {
         @compileError("maximum: rhs must be a Tensor or f64");
@@ -983,7 +983,7 @@ pub fn power(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, com
     } else if (lhs_T == f64) {
         var shape = try rhs.shape(allocator);
         backend = try rhs.backend(allocator);
-        lhsTensor = try backend.full(allocator, &shape, .f32, lhs, try rhs.dtype(allocator));
+        lhsTensor = try backend.full(allocator, shape, .f32, lhs, try rhs.dtype(allocator));
         lhsTensorInit = true;
     } else {
         @compileError("power: lhs must be a Tensor or f64");
@@ -993,7 +993,7 @@ pub fn power(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, com
         rhsTensor = rhs;
     } else if (rhs_T == f64) {
         var shape = try lhs.shape(allocator);
-        rhsTensor = try backend.full(allocator, &shape, .f32, rhs, try lhs.dtype(allocator));
+        rhsTensor = try backend.full(allocator, shape, .f32, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     } else {
         @compileError("power: rhs must be a Tensor or f64");
@@ -1090,9 +1090,8 @@ pub fn allClose(allocator: std.mem.Allocator, a: Tensor, b: Tensor, abs_toleranc
         std.debug.print("DType mismatch: a.dtype: {s} vs b.dtype: {s}\n", .{ @tagName(try a.dtype(allocator)), @tagName(try b.dtype(allocator)) });
         return false;
     }
-    var a_shape = try a.shape(allocator);
-    var b_shape = try b.shape(allocator);
-    if (!a_shape.eql(&b_shape)) {
+
+    if (!tensor_.shape.eql(try a.shape(allocator), try b.shape(allocator))) {
         std.debug.print("Shape mismatch: a.shape: {any}, b.dtype: {any}\n", .{ try a.shape(allocator), try b.shape(allocator) });
         return false;
     }
@@ -1117,9 +1116,7 @@ pub fn allEqual(allocator: std.mem.Allocator, a: Tensor, b: Tensor) !bool {
     if (try a.dtype(allocator) != try b.dtype(allocator)) {
         return false;
     }
-    var a_shape = try a.shape(allocator);
-    var b_shape = try b.shape(allocator);
-    if (!a_shape.eql(&b_shape)) {
+    if (!tensor_.shape.eql(try a.shape(allocator), try b.shape(allocator))) {
         return false;
     }
     if (try a.elements(allocator) == 0 and try b.elements(allocator) == 0) {
@@ -1147,12 +1144,9 @@ test "TensorBase -> assign" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var a_dims = [_]Dim{ 5, 5 };
-    var a_shape = try Shape.init(std.testing.allocator, &a_dims);
-    defer a_shape.deinit();
-    var a = try full(allocator, &a_shape, f64, 2, .f32);
+    var a = try full(allocator, &.{ 5, 5 }, f64, 2, .f32);
     defer a.deinit();
-    var b = try rand(allocator, &a_shape, .f32);
+    var b = try rand(allocator, &.{ 5, 5 }, .f32);
     defer b.deinit();
 
     // a = b;
@@ -1162,7 +1156,7 @@ test "TensorBase -> assign" {
     // a = 2;
     try a.assign(allocator, f64, 10);
 
-    var expected = try full(allocator, &a_shape, f64, 10, .f32);
+    var expected = try full(allocator, &.{ 5, 5 }, f64, 10, .f32);
     defer expected.deinit();
     try std.testing.expect(try allEqual(allocator, a, expected));
 
@@ -1174,14 +1168,11 @@ test "TensorBase -> inPlaceAdd" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var a_dims = [_]Dim{ 5, 5 };
-    var a_shape = try Shape.init(std.testing.allocator, &a_dims);
-    defer a_shape.deinit();
-    var a = try full(allocator, &a_shape, f64, 2, .f32);
+    var a = try full(allocator, &.{ 5, 5 }, f64, 2, .f32);
     defer a.deinit();
     try a.inPlaceAdd(allocator, f64, 2);
 
-    var expected = try full(allocator, &a_shape, f64, 4, .f32);
+    var expected = try full(allocator, &.{ 5, 5 }, f64, 4, .f32);
     defer expected.deinit();
     try std.testing.expect(try allEqual(allocator, a, expected));
 
@@ -1193,14 +1184,11 @@ test "TensorBase -> inPlaceSub" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var a_dims = [_]Dim{ 5, 5 };
-    var a_shape = try Shape.init(std.testing.allocator, &a_dims);
-    defer a_shape.deinit();
-    var a = try full(allocator, &a_shape, f64, 6, .f32);
+    var a = try full(allocator, &.{ 5, 5 }, f64, 6, .f32);
     defer a.deinit();
     try a.inPlaceSub(allocator, f64, 3);
 
-    var expected = try full(allocator, &a_shape, f64, 3, .f32);
+    var expected = try full(allocator, &.{ 5, 5 }, f64, 3, .f32);
     defer expected.deinit();
     try std.testing.expect(try allEqual(allocator, a, expected));
 
@@ -1212,14 +1200,11 @@ test "TensorBase -> inPlaceMul" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var a_dims = [_]Dim{ 5, 5 };
-    var a_shape = try Shape.init(std.testing.allocator, &a_dims);
-    defer a_shape.deinit();
-    var a = try full(allocator, &a_shape, f64, 5, .f32);
+    var a = try full(allocator, &.{ 5, 5 }, f64, 5, .f32);
     defer a.deinit();
     try a.inPlaceMul(allocator, f64, 2);
 
-    var expected = try full(allocator, &a_shape, f64, 10, .f32);
+    var expected = try full(allocator, &.{ 5, 5 }, f64, 10, .f32);
     defer expected.deinit();
     try std.testing.expect(try allEqual(allocator, a, expected));
 
@@ -1231,14 +1216,11 @@ test "TensorBase -> inPlaceDiv" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var a_dims = [_]Dim{ 5, 5 };
-    var a_shape = try Shape.init(std.testing.allocator, &a_dims);
-    defer a_shape.deinit();
-    var a = try full(allocator, &a_shape, f64, 10, .f32);
+    var a = try full(allocator, &.{ 5, 5 }, f64, 10, .f32);
     defer a.deinit();
     try a.inPlaceDiv(allocator, f64, 2);
 
-    var expected = try full(allocator, &a_shape, f64, 5, .f32);
+    var expected = try full(allocator, &.{ 5, 5 }, f64, 5, .f32);
     defer expected.deinit();
     try std.testing.expect(try allEqual(allocator, a, expected));
 
@@ -1251,10 +1233,7 @@ test "TensorBase -> sign" {
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
-    var dims = [_]Dim{ 5, 5 };
-    var shape = try Shape.init(allocator, &dims);
-    defer shape.deinit();
-    var init_rand = try rand(allocator, &shape, .f32);
+    var init_rand = try rand(allocator, &.{ 5, 5 }, .f32);
     defer init_rand.deinit();
     var vals = try sub(allocator, Tensor, init_rand, f32, 0.5);
     defer vals.deinit();

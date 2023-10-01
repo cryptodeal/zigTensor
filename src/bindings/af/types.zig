@@ -672,34 +672,31 @@ pub const Dim4 = struct {
         return @intCast(self.dims[0] * self.dims[1] * self.dims[2] * self.dims[3]);
     }
 
-    pub fn toZtShapeRaw(self: *const Dim4, num_dims: usize, s: *Shape) !void {
+    pub fn dimsToOwnedShape(self: *const af.Dim4, allocator: std.mem.Allocator) ![]Dim {
+        var out_shape = std.ArrayList(Dim).init(allocator);
+        var num_dims = self.ndims();
         if (num_dims > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug("afToZtDims: num_dims ({d}) > af.AF_MAX_DIMS ({d} )", .{ num_dims, af.AF_MAX_DIMS });
+            return error.ExceedsArrayFireMaxDims;
         }
-        var storage = s.get();
 
         // num_dims constraint is enforced by the internal API per condenseDims
         if (num_dims == 1 and self.elements() == 0) {
             // Empty tensor
-            try storage.resize(1);
-            s.dims_.items[0] = 0;
-            return;
+            try out_shape.resize(1);
+            out_shape.items[0] = 0;
+            return out_shape.toOwnedSlice();
         }
 
         // num_dims == 0 --> scalar tensor
         if (num_dims == 0) {
-            try storage.resize(0);
-            return;
+            try out_shape.resize(0);
+            return out_shape.toOwnedSlice();
         }
 
-        try storage.resize(num_dims);
-        for (0..num_dims) |i| storage.items[i] = @intCast(self.dims[i]);
-    }
-
-    pub fn toZtShape(self: *const Dim4, allocator: std.mem.Allocator, num_dims: usize) !Shape {
-        var shape = Shape.initRaw(allocator);
-        try self.toZtShapeRaw(num_dims, &shape);
-        return shape;
+        try out_shape.resize(num_dims);
+        for (0..num_dims) |i| out_shape.items[i] = @intCast(self.dims[i]);
+        return out_shape.toOwnedSlice();
     }
 
     /// Formats Shape for printing to writer.
@@ -726,32 +723,4 @@ test "AfDtype.toZtType" {
     try std.testing.expect(try Dtype.u16.toZtDType() == DType.u16);
     try std.testing.expect(try Dtype.u32.toZtDType() == DType.u32);
     try std.testing.expect(try Dtype.u64.toZtDType() == DType.u64);
-}
-
-test "afToZtDims" {
-    const allocator = std.testing.allocator;
-
-    var dims1 = Dim4.init([_]af.dim_t{ 2, 1, 1, 1 });
-    var shape = try dims1.toZtShape(allocator, 1);
-    var exp1 = [_]Dim{2};
-    try std.testing.expectEqualSlices(Dim, &exp1, shape.dims_.items);
-    shape.deinit();
-
-    var dims2 = Dim4.init([_]af.dim_t{ 2, 3, 1, 1 });
-    shape = try dims2.toZtShape(allocator, 2);
-    var exp2 = [_]Dim{ 2, 3 };
-    try std.testing.expectEqualSlices(Dim, &exp2, shape.dims_.items);
-    shape.deinit();
-
-    var dims3 = Dim4.init([_]af.dim_t{ 2, 3, 4, 1 });
-    shape = try dims3.toZtShape(allocator, 3);
-    var exp3 = [_]Dim{ 2, 3, 4 };
-    try std.testing.expectEqualSlices(Dim, &exp3, shape.dims_.items);
-    shape.deinit();
-
-    var dims4 = Dim4.init([_]af.dim_t{ 2, 3, 4, 5 });
-    shape = try dims4.toZtShape(allocator, 4);
-    var exp4 = [_]Dim{ 2, 3, 4, 5 };
-    try std.testing.expectEqualSlices(Dim, &exp4, shape.dims_.items);
-    shape.deinit();
 }

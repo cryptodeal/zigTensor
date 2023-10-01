@@ -29,13 +29,13 @@ pub inline fn getFNSD(comptime T: type, comptime dimT: type, dim: dimT, dims: af
     return fNSD;
 }
 
-pub fn ztToAfDims(shape: *const Shape) !af.Dim4 {
-    if (shape.ndim() > 4) {
+pub fn ztToAfDims(shape: Shape) !af.Dim4 {
+    if (zt_shape.ndim(shape) > 4) {
         std.log.debug("ztToAfDims: ArrayFire shapes can't be more than 4 dimensions\n", .{});
         return error.ArrayFireCannotExceed4Dimensions;
     }
-    var af_Dim4 = af.Dim4.init(null);
-    for (0..shape.ndim()) |i| af_Dim4.dims[i] = @intCast(try shape.dim(i));
+    var af_Dim4 = af.Dim4{};
+    for (0..zt_shape.ndim(shape)) |i| af_Dim4.dims[i] = @intCast(shape[i]);
     return af_Dim4;
 }
 
@@ -541,34 +541,23 @@ test "ztToAfMatrixProperty" {
 
 test "ztToAfDims" {
     const allocator = std.testing.allocator;
+    _ = allocator;
 
-    var dims1 = [_]Dim{2};
-    var shape = try Shape.init(allocator, &dims1);
-    var res1 = try ztToAfDims(&shape);
+    var res1 = try ztToAfDims(&.{2});
     var exp1 = [_]c_longlong{ 2, 1, 1, 1 };
     try std.testing.expectEqualSlices(c_longlong, &exp1, &res1.dims);
-    shape.deinit();
 
-    var dims2 = [_]Dim{ 2, 3 };
-    shape = try Shape.init(allocator, &dims2);
-    var res2 = try ztToAfDims(&shape);
+    var res2 = try ztToAfDims(&.{ 2, 3 });
     var exp2 = [_]c_longlong{ 2, 3, 1, 1 };
     try std.testing.expectEqualSlices(c_longlong, &exp2, &res2.dims);
-    shape.deinit();
 
-    var dims3 = [_]Dim{ 2, 3, 4 };
-    shape = try Shape.init(allocator, &dims3);
-    var res3 = try ztToAfDims(&shape);
+    var res3 = try ztToAfDims(&.{ 2, 3, 4 });
     var exp3 = [_]c_longlong{ 2, 3, 4, 1 };
     try std.testing.expectEqualSlices(c_longlong, &exp3, &res3.dims);
-    shape.deinit();
 
-    var Dim4 = [_]Dim{ 2, 3, 4, 5 };
-    shape = try Shape.init(allocator, &Dim4);
-    var res4 = try ztToAfDims(&shape);
+    var res4 = try ztToAfDims(&.{ 2, 3, 4, 5 });
     var exp4 = [_]c_longlong{ 2, 3, 4, 5 };
     try std.testing.expectEqualSlices(c_longlong, &exp4, &res4.dims);
-    shape.deinit();
 }
 
 test "ztToAfType" {
