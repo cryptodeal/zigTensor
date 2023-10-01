@@ -1532,11 +1532,9 @@ test "ArrayFireTensorBaseTest -> concatenate" {
     const concatenate = @import("../../tensor.zig").concatenate;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
-    var tensors = try std.ArrayList(Tensor).initCapacity(allocator, 11);
-    defer tensors.deinit();
     try std.testing.expectError(
         error.ConcatFailedZeroTensors,
-        concatenate(allocator, tensors, 0),
+        concatenate(allocator, &.{}, 0),
     );
 }
 

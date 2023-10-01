@@ -65,9 +65,9 @@ pub const TensorBackend = struct {
         reshape: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shape: Shape) anyerror!Tensor,
         transpose: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, axes: Shape) anyerror!Tensor,
         tile: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shape: Shape) anyerror!Tensor,
-        concatenate: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensors: std.ArrayList(Tensor), axis: u32) anyerror!Tensor,
+        concatenate: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensors: []const Tensor, axis: u32) anyerror!Tensor,
         nonzero: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
-        pad: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) anyerror!Tensor,
+        pad: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, pad_widths: []const [2]i64, pad_type: PadType) anyerror!Tensor,
         exp: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         log: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         negative: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
@@ -373,7 +373,7 @@ pub const TensorBackend = struct {
         return self.vtable.tile(self.ptr, allocator, tensor, shape);
     }
 
-    pub fn concatenate(self: *const Self, allocator: std.mem.Allocator, tensors: std.ArrayList(Tensor), axis: u32) !Tensor {
+    pub fn concatenate(self: *const Self, allocator: std.mem.Allocator, tensors: []const Tensor, axis: u32) !Tensor {
         return self.vtable.concatenate(self.ptr, allocator, tensors, axis);
     }
 
@@ -381,7 +381,7 @@ pub const TensorBackend = struct {
         return self.vtable.nonzero(self.ptr, allocator, tensor);
     }
 
-    pub fn pad(self: *const Self, allocator: std.mem.Allocator, input: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) !Tensor {
+    pub fn pad(self: *const Self, allocator: std.mem.Allocator, input: Tensor, pad_widths: []const [2]i64, pad_type: PadType) !Tensor {
         return self.vtable.pad(self.ptr, allocator, input, pad_widths, pad_type);
     }
 
@@ -769,7 +769,7 @@ pub const TensorBackend = struct {
                 return self.tile(allocator, tensor, shape);
             }
 
-            fn concatenate(ctx: *anyopaque, allocator: std.mem.Allocator, tensors: std.ArrayList(Tensor), axis: u32) !Tensor {
+            fn concatenate(ctx: *anyopaque, allocator: std.mem.Allocator, tensors: []const Tensor, axis: u32) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.concatenate(allocator, tensors, axis);
             }
@@ -779,7 +779,7 @@ pub const TensorBackend = struct {
                 return self.nonzero(allocator, tensor);
             }
 
-            fn pad(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) !Tensor {
+            fn pad(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, pad_widths: []const [2]i64, pad_type: PadType) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.pad(allocator, input, pad_widths, pad_type);
             }

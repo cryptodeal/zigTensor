@@ -68,30 +68,28 @@ pub fn tile(allocator: std.mem.Allocator, tensor: Tensor, shape: Shape) !Tensor 
     return (try tensor.backend(allocator)).tile(allocator, tensor, shape);
 }
 
-pub fn concatenate(allocator: std.mem.Allocator, tensors: std.ArrayList(Tensor), axis: u32) !Tensor {
-    if (tensors.items.len == 0) {
+pub fn concatenate(allocator: std.mem.Allocator, tensors: []const Tensor, axis: u32) !Tensor {
+    if (tensors.len == 0) {
         std.log.debug("concatenate: called on empty set of tensors\n", .{});
         return error.ConcatFailedZeroTensors;
     }
 
     // ensure that all tensors have the same backend
-    const b: TensorBackendType = tensors.items[0].backendType();
-    var matches = true;
-    for (tensors.items) |t| {
-        if (t.backendType() != b) matches = false;
+    const b: TensorBackendType = tensors[0].backendType();
+    for (tensors) |t| {
+        if (t.backendType() != b) {
+            std.log.debug("concatenate: tried to concatenate tensors of different backends\n", .{});
+            return error.ConcatFailedBackendMismatch;
+        }
     }
-    if (!matches) {
-        std.log.debug("concatenate: tried to concatenate tensors of different backends\n", .{});
-        return error.ConcatFailedBackendMismatch;
-    }
-    return (try tensors.items[0].backend(allocator)).concatenate(allocator, tensors, axis);
+    return (try tensors[0].backend(allocator)).concatenate(allocator, tensors, axis);
 }
 
 pub fn nonzero(allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
     return (try tensor.backend(allocator)).nonzero(allocator, tensor);
 }
 
-pub fn pad(allocator: std.mem.Allocator, tensor: Tensor, pad_widths: *const std.ArrayList([2]i32), pad_type: PadType) !Tensor {
+pub fn pad(allocator: std.mem.Allocator, tensor: Tensor, pad_widths: []const [2]i64, pad_type: PadType) !Tensor {
     return (try tensor.backend(allocator)).pad(allocator, tensor, pad_widths, pad_type);
 }
 

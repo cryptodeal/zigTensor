@@ -672,17 +672,17 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn concatenate(_: *const ArrayFireBackend, allocator: std.mem.Allocator, tensors: std.ArrayList(Tensor), axis: u32) !Tensor {
-        var arrays = try allocator.alloc(af.af_array, tensors.items.len);
+    pub fn concatenate(_: *const ArrayFireBackend, allocator: std.mem.Allocator, tensors: []const Tensor, axis: u32) !Tensor {
+        var arrays = try allocator.alloc(af.af_array, tensors.len);
         defer allocator.free(arrays);
-        for (tensors.items, 0..) |t, i| {
+        for (tensors, 0..) |t, i| {
             var arr = try toArray(allocator, t);
             arrays[i] = arr.array_;
         }
         var afArray: af.af_array = undefined;
         try af.AF_CHECK(af.af_join_many(&afArray, @intCast(axis), @intCast(arrays.len), arrays.ptr), @src());
         var arr = try af.Array.init(allocator, afArray);
-        var numDims = try tensors.items[0].ndim(allocator);
+        var numDims = try tensors[0].ndim(allocator);
         if (axis > @max(@as(u32, @intCast(numDims - 1)), @as(u32, 0))) {
             numDims = @intCast(axis + 1);
         }
@@ -716,10 +716,10 @@ pub const ArrayFireBackend = struct {
         _: *const ArrayFireBackend,
         allocator: std.mem.Allocator,
         input: Tensor,
-        pad_widths: *const std.ArrayList([2]i32),
+        pad_widths: []const [2]i64,
         pad_type: PadType,
     ) !Tensor {
-        if (pad_widths.items.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
+        if (pad_widths.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug("ArrayFireBackend::pad - given padWidths for more than 4 dimensions\n", .{});
             return error.ArrayFirePadFailed;
         }
@@ -728,7 +728,7 @@ pub const ArrayFireBackend = struct {
         // begin_k), (end_1, ..., end_k)) for ArrayFire
         var beginPadding = af.Dim4{};
         var endPadding = af.Dim4{};
-        for (pad_widths.items, 0..) |w, i| {
+        for (pad_widths, 0..) |w, i| {
             beginPadding.dims[i] = @intCast(w[0]);
             endPadding.dims[i] = @intCast(w[1]);
         }
@@ -736,9 +736,9 @@ pub const ArrayFireBackend = struct {
         var arr = try af.ops.pad(
             allocator,
             try toArray(allocator, input),
-            @intCast(pad_widths.items.len),
+            @intCast(pad_widths.len),
             beginPadding,
-            @intCast(pad_widths.items.len),
+            @intCast(pad_widths.len),
             endPadding,
             af.ops.ztToAfBorderType(pad_type),
         );
@@ -747,7 +747,7 @@ pub const ArrayFireBackend = struct {
                 try ArrayFireTensor.initFromArray(
                     allocator,
                     arr,
-                    @max(try input.ndim(allocator), pad_widths.items.len), // TODO: check
+                    @max(try input.ndim(allocator), pad_widths.len), // TODO: check
                 ),
             ),
         );
