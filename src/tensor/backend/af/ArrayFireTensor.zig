@@ -493,7 +493,7 @@ pub const ArrayFireTensor = struct {
         return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, convertedArr, self.numDims())));
     }
 
-    pub fn index(self: *ArrayFireTensor, allocator: std.mem.Allocator, indices: []Index) !Tensor {
+    pub fn index(self: *ArrayFireTensor, allocator: std.mem.Allocator, indices: []const Index) !Tensor {
         if (indices.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug(
                 "ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n",

@@ -1663,7 +1663,7 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn getIndexAssignShape(_: *const ArrayFireBackend, allocator: std.mem.Allocator, target: Tensor, indices: []Index) ![]Dim {
+    pub fn getIndexAssignShape(_: *const ArrayFireBackend, allocator: std.mem.Allocator, target: Tensor, indices: []const Index) ![]Dim {
         if (indices.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug(
                 "ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n",
@@ -1949,7 +1949,7 @@ pub const ArrayFireBackend = struct {
         }
     }
 
-    pub fn indexAssign(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []Index) !void {
+    pub fn indexAssign(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) !void {
         if (indices.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug(
                 "ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n",
@@ -1989,7 +1989,7 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn indexAdd(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []Index) !void {
+    pub fn indexAdd(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) !void {
         if (indices.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug(
                 "ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n",
@@ -2030,7 +2030,7 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn indexSub(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []Index) !void {
+    pub fn indexSub(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) !void {
         if (indices.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug(
                 "ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n",
@@ -2071,7 +2071,7 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn indexMul(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []Index) !void {
+    pub fn indexMul(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) !void {
         if (indices.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug(
                 "ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n",
@@ -2112,7 +2112,7 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn indexDiv(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []Index) !void {
+    pub fn indexDiv(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) !void {
         if (indices.len > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug(
                 "ArrayFire-backed tensor was indexed with > 4 elements: ArrayFire tensors support up to 4 dimensions.\n",

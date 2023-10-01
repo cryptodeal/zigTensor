@@ -39,7 +39,7 @@ pub const TensorAdapterBase = struct {
         strides: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Shape,
         stream: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Stream,
         astype: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dType: DType) anyerror!Tensor,
-        index: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, indices: []Index) anyerror!Tensor,
+        index: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, indices: []const Index) anyerror!Tensor,
         flatten: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Tensor,
         flat: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, idx: Index) anyerror!Tensor,
         asContiguousTensor: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Tensor,
@@ -158,7 +158,7 @@ pub const TensorAdapterBase = struct {
     /// Index into a tensor with a variable number of indices.
     ///
     /// Returns an indexed Tensor.
-    pub fn index(self: *const Self, allocator: std.mem.Allocator, indices: []Index) !Tensor {
+    pub fn index(self: *const Self, allocator: std.mem.Allocator, indices: []const Index) !Tensor {
         return self.vtable.index(self.ptr, allocator, indices);
     }
 
@@ -296,7 +296,7 @@ pub const TensorAdapterBase = struct {
                 return self.astype(allocator, dType);
             }
 
-            fn index(ctx: *anyopaque, allocator: std.mem.Allocator, indices: []Index) !Tensor {
+            fn index(ctx: *anyopaque, allocator: std.mem.Allocator, indices: []const Index) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.index(allocator, indices);
             }

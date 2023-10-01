@@ -119,7 +119,7 @@ pub const Tensor = struct {
         return self.impl_.astype(allocator, new_type);
     }
 
-    pub fn index(self: *const Tensor, allocator: std.mem.Allocator, indices: []Index) !Tensor {
+    pub fn index(self: *const Tensor, allocator: std.mem.Allocator, indices: []const Index) !Tensor {
         return self.impl_.index(allocator, indices);
     }
 
@@ -223,27 +223,27 @@ pub const Tensor = struct {
         return bknd.assign(allocator, self.*, rhsTensor);
     }
 
-    pub fn indexAssign(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []Index) !void {
+    pub fn indexAssign(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []const Index) !void {
         var bknd = try self.backend(allocator);
         return bknd.indexAssign(allocator, self.*, T, rhs, indices);
     }
 
-    pub fn indexAdd(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []Index) !void {
+    pub fn indexAdd(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []const Index) !void {
         var bknd = try self.backend(allocator);
         return bknd.indexAdd(allocator, self.*, T, rhs, indices);
     }
 
-    pub fn indexSub(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []Index) !void {
+    pub fn indexSub(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []const Index) !void {
         var bknd = try self.backend(allocator);
         return bknd.indexSub(allocator, self.*, T, rhs, indices);
     }
 
-    pub fn indexMul(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []Index) !void {
+    pub fn indexMul(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []const Index) !void {
         var bknd = try self.backend(allocator);
         return bknd.indexMul(allocator, self.*, T, rhs, indices);
     }
 
-    pub fn indexDiv(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []Index) !void {
+    pub fn indexDiv(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []const Index) !void {
         var bknd = try self.backend(allocator);
         return bknd.indexDiv(allocator, self.*, T, rhs, indices);
     }
