@@ -223,6 +223,31 @@ pub const Tensor = struct {
         return bknd.assign(allocator, self.*, rhsTensor);
     }
 
+    pub fn flatAssign(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, idx: Index) !void {
+        var bknd = try self.backend(allocator);
+        return bknd.flatAssign(allocator, self.*, T, rhs, idx);
+    }
+
+    pub fn flatAdd(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, idx: Index) !void {
+        var bknd = try self.backend(allocator);
+        return bknd.flatAdd(allocator, self.*, T, rhs, idx);
+    }
+
+    pub fn flatSub(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, idx: Index) !void {
+        var bknd = try self.backend(allocator);
+        return bknd.flatSub(allocator, self.*, T, rhs, idx);
+    }
+
+    pub fn flatMul(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, idx: Index) !void {
+        var bknd = try self.backend(allocator);
+        return bknd.flatMul(allocator, self.*, T, rhs, idx);
+    }
+
+    pub fn flatDiv(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, idx: Index) !void {
+        var bknd = try self.backend(allocator);
+        return bknd.flatDiv(allocator, self.*, T, rhs, idx);
+    }
+
     pub fn indexAssign(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, rhs: T, indices: []const Index) !void {
         var bknd = try self.backend(allocator);
         return bknd.indexAssign(allocator, self.*, T, rhs, indices);

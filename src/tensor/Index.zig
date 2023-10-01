@@ -533,6 +533,7 @@ test "IndexTest -> flat" {
     const full = tensor_.full;
     const allClose = tensor_.allClose;
     const deinit = tensor_.deinit;
+    const shape = tensor_.shape;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -544,7 +545,7 @@ test "IndexTest -> flat" {
         var m_indexed = try m.index(
             allocator,
             &.{
-                Index.initDim(@intCast(@rem(i, 4))),
+                Index.initDim(@intCast(@mod(i, 4))),
                 Index.initDim(@intCast(@divTrunc(i, 4))),
             },
         );
@@ -560,7 +561,7 @@ test "IndexTest -> flat" {
         var n_indexed = try n.index(
             allocator,
             &.{
-                Index.initDim(@intCast(@rem(i, 4))),
+                Index.initDim(@intCast(@mod(i, 4))),
                 Index.initDim(@intCast(@mod(@divTrunc(i, 4), 6))),
                 Index.initDim(@intCast(@mod(@divTrunc(i, 4 * 6), 8))),
             },
@@ -578,7 +579,69 @@ test "IndexTest -> flat" {
         try std.testing.expect(try a_flat.scalar(allocator, f32) == 9);
     }
 
-    // TODO finish test w assignment
+    try a.flatAssign(allocator, f64, 5, Index.initDim(8));
+    var a_flat = try a.flat(allocator, Index.initDim(8));
+    defer a_flat.deinit();
+    try std.testing.expect(try a_flat.scalar(allocator, f32) == 5);
+
+    for (test_indices) |i| {
+        try a.flatAssign(allocator, f64, @floatFromInt(i + 1), Index.initDim(@intCast(i)));
+    }
+    for (test_indices) |i| {
+        var tmp_idx = try a.index(allocator, &.{
+            Index.initDim(@intCast(@mod(i, 5))),
+            Index.initDim(@intCast(@mod(@divTrunc(i, 5), 6))),
+            Index.initDim(@intCast(@mod(@divTrunc(i, 5 * 6), 7))),
+            Index.initDim(@intCast(@mod(@divTrunc(i, 5 * 6 * 7), 8))),
+        });
+        defer tmp_idx.deinit();
+        try std.testing.expect(try tmp_idx.scalar(allocator, f32) == @as(f32, @floatFromInt(i + 1)));
+    }
+
+    // Tensor assignment
+    var tmp_assign = try full(allocator, &.{1}, f64, 7.4, .f32);
+    defer tmp_assign.deinit();
+    try a.flatAssign(allocator, Tensor, tmp_assign, Index.initDim(32));
+    // In-place
+    try a.flatAdd(allocator, f64, 33, Index.initDim(100));
+    var a_flattened = try a.flatten(allocator);
+    defer a_flattened.deinit();
+    var a_flattened_idx = try a_flattened.index(allocator, &.{Index.initDim(100)});
+    defer a_flattened_idx.deinit();
+    var expected = try full(allocator, &.{1}, f64, 33 + 9, .f32);
+    defer expected.deinit();
+    try std.testing.expect(try allClose(allocator, a_flattened_idx, expected, 1e-5));
+
+    // TODO: Tensor indexing
+    // TODO: need to add method to init Tensor from slice
+
+    // Range flat assignment
+    var rA = try rand(allocator, &.{6}, .f32);
+    defer rA.deinit();
+    try a.flatAssign(allocator, Tensor, rA, Index.initRange(Range.init(1, .{ .dim = 7 })));
+    var a_flattened2 = try a.flatten(allocator);
+    defer a_flattened2.deinit();
+    var a_flattened2_idx = try a_flattened2.index(
+        allocator,
+        &.{Index.initRange(Range.init(1, .{ .dim = 7 }))},
+    );
+    defer a_flattened2_idx.deinit();
+    try std.testing.expect(try allClose(allocator, a_flattened2_idx, rA, 1e-5));
+
+    // With leading singleton dims
+    var b = try rand(allocator, &.{ 1, 1, 10 }, .f32);
+    defer b.deinit();
+    var b_flat = try b.flat(allocator, Index.initRange(Range.initEnd(3)));
+    defer b_flat.deinit();
+    try std.testing.expect(shape.eql(try b_flat.shape(allocator), &.{3}));
+    var b_assign = try full(allocator, &.{3}, f64, 6, .f32);
+    defer b_assign.deinit();
+    try b.flatAssign(allocator, Tensor, b_assign, Index.initRange(Range.initEnd(3)));
+    var b_flattened = try b.flatten(allocator);
+    defer b_flattened.deinit();
+    var b_flattened_idx = try b_flattened.index(allocator, &.{Index.initRange(Range.initEnd(3))});
+    defer b_flattened_idx.deinit();
+    try std.testing.expect(try allClose(allocator, b_flattened_idx, b_assign, 1e-5));
 }
 
 test "IndexTest -> TensorIndex" {

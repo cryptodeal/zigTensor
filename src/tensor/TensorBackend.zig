@@ -109,6 +109,11 @@ pub const TensorBackend = struct {
         all: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
         assign: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) anyerror!void,
         getIndexAssignShape: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, target: Tensor, indices: []const Index) anyerror![]Dim, // util used to create constant from numeric literal for index assign
+        flatAssign: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) anyerror!void,
+        flatAdd: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) anyerror!void,
+        flatSub: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) anyerror!void,
+        flatMul: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) anyerror!void,
+        flatDiv: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) anyerror!void,
         indexAssign: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) anyerror!void,
         indexAdd: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) anyerror!void,
         indexSub: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) anyerror!void,
@@ -218,6 +223,111 @@ pub const TensorBackend = struct {
             return error.FailedToModifyIndexAssignShape;
         }
         return self.reshape(allocator, tensor, target_shape);
+    }
+
+    pub fn flatAssign(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, idx: Index) !void {
+        var init_rhs_tensor = false;
+        var rhsTensor: Tensor = undefined;
+        defer if (init_rhs_tensor) rhsTensor.deinit();
+        var shape = try self.getIndexAssignShape(allocator, lhs, &.{idx});
+        defer allocator.free(shape);
+        if (T == Tensor) {
+            var rhs_shape = try rhs.shape(allocator);
+            if (tensor_.shape.eql(shape[0..1], rhs_shape)) {
+                rhsTensor = rhs;
+            } else {
+                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape[0..1]);
+                init_rhs_tensor = true;
+            }
+        } else {
+            rhsTensor = try self.full(allocator, shape[0..1], T, rhs, try lhs.dtype(allocator));
+            init_rhs_tensor = true;
+        }
+        return self.vtable.flatAssign(self.ptr, allocator, lhs, rhsTensor, idx);
+    }
+
+    pub fn flatAdd(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, idx: Index) !void {
+        var init_rhs_tensor = false;
+        var rhsTensor: Tensor = undefined;
+        defer if (init_rhs_tensor) rhsTensor.deinit();
+        var shape = try self.getIndexAssignShape(allocator, lhs, &.{idx});
+        defer allocator.free(shape);
+        if (T == Tensor) {
+            var rhs_shape = try rhs.shape(allocator);
+            if (tensor_.shape.eql(shape[0..1], rhs_shape)) {
+                rhsTensor = rhs;
+            } else {
+                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape[0..1]);
+                init_rhs_tensor = true;
+            }
+        } else {
+            rhsTensor = try self.full(allocator, shape[0..1], T, rhs, try lhs.dtype(allocator));
+            init_rhs_tensor = true;
+        }
+        return self.vtable.flatAdd(self.ptr, allocator, lhs, rhsTensor, idx);
+    }
+
+    pub fn flatSub(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, idx: Index) !void {
+        var init_rhs_tensor = false;
+        var rhsTensor: Tensor = undefined;
+        defer if (init_rhs_tensor) rhsTensor.deinit();
+        var shape = try self.getIndexAssignShape(allocator, lhs, &.{idx});
+        defer allocator.free(shape);
+        if (T == Tensor) {
+            var rhs_shape = try rhs.shape(allocator);
+            if (tensor_.shape.eql(shape[0..1], rhs_shape)) {
+                rhsTensor = rhs;
+            } else {
+                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape[0..1]);
+                init_rhs_tensor = true;
+            }
+        } else {
+            rhsTensor = try self.full(allocator, shape[0..1], T, rhs, try lhs.dtype(allocator));
+            init_rhs_tensor = true;
+        }
+        return self.vtable.flatSub(self.ptr, allocator, lhs, rhsTensor, idx);
+    }
+
+    pub fn flatMul(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, idx: Index) !void {
+        var init_rhs_tensor = false;
+        var rhsTensor: Tensor = undefined;
+        defer if (init_rhs_tensor) rhsTensor.deinit();
+        var shape = try self.getIndexAssignShape(allocator, lhs, &.{idx});
+        defer allocator.free(shape);
+        if (T == Tensor) {
+            var rhs_shape = try rhs.shape(allocator);
+            if (tensor_.shape.eql(shape[0..1], rhs_shape)) {
+                rhsTensor = rhs;
+            } else {
+                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape[0..1]);
+                init_rhs_tensor = true;
+            }
+        } else {
+            rhsTensor = try self.full(allocator, shape[0..1], T, rhs, try lhs.dtype(allocator));
+            init_rhs_tensor = true;
+        }
+        return self.vtable.flatMul(self.ptr, allocator, lhs, rhsTensor, idx);
+    }
+
+    pub fn flatDiv(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, idx: Index) !void {
+        var init_rhs_tensor = false;
+        var rhsTensor: Tensor = undefined;
+        defer if (init_rhs_tensor) rhsTensor.deinit();
+        var shape = try self.getIndexAssignShape(allocator, lhs, &.{idx});
+        defer allocator.free(shape);
+        if (T == Tensor) {
+            var rhs_shape = try rhs.shape(allocator);
+            if (tensor_.shape.eql(shape[0..1], rhs_shape)) {
+                rhsTensor = rhs;
+            } else {
+                rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape[0..1]);
+                init_rhs_tensor = true;
+            }
+        } else {
+            rhsTensor = try self.full(allocator, shape[0..1], T, rhs, try lhs.dtype(allocator));
+            init_rhs_tensor = true;
+        }
+        return self.vtable.flatDiv(self.ptr, allocator, lhs, rhsTensor, idx);
     }
 
     pub fn indexAssign(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []const Index) !void {
@@ -989,6 +1099,31 @@ pub const TensorBackend = struct {
                 return self.getIndexAssignShape(allocator, target, indices);
             }
 
+            fn flatAssign(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.flatAssign(allocator, lhs, rhs, idx);
+            }
+
+            fn flatAdd(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.flatAdd(allocator, lhs, rhs, idx);
+            }
+
+            fn flatSub(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.flatSub(allocator, lhs, rhs, idx);
+            }
+
+            fn flatMul(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.flatMul(allocator, lhs, rhs, idx);
+            }
+
+            fn flatDiv(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) !void {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.flatDiv(allocator, lhs, rhs, idx);
+            }
+
             fn indexAssign(ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.indexAssign(allocator, lhs, rhs, indices);
@@ -1216,6 +1351,11 @@ pub const TensorBackend = struct {
                 .all = impl.all,
                 .assign = impl.assign,
                 .getIndexAssignShape = impl.getIndexAssignShape,
+                .flatAssign = impl.flatAssign,
+                .flatAdd = impl.flatAdd,
+                .flatSub = impl.flatSub,
+                .flatMul = impl.flatMul,
+                .flatDiv = impl.flatDiv,
                 .indexAssign = impl.indexAssign,
                 .indexAdd = impl.indexAdd,
                 .indexSub = impl.indexSub,

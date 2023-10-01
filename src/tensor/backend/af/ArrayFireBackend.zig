@@ -1698,6 +1698,240 @@ pub const ArrayFireBackend = struct {
         return dims.dimsToOwnedShape(allocator);
     }
 
+    fn flatOpAssign(_: *const ArrayFireBackend, impl: *af.Array, other: *af.Array, indices: []af.af_index_t, comptime op: []const u8) !void {
+        var nd: u32 = 1;
+        var this_dims = try impl.getDims();
+        var other_dims = try other.getDims();
+        var dim = gForDim(indices);
+        var other_arr = other.get();
+
+        var batch_assign = false;
+        var is_reordered = false;
+        if (dim >= 0) {
+            // FIXME: Figure out a faster, cleaner way to do this
+            var out_dims = try seqToDims(indices, this_dims, false);
+
+            batch_assign = true;
+            for (0..@intCast(af.AF_MAX_DIMS)) |i| {
+                if (indices[i].isBatch) {
+                    var tmp_batch_assign = @intFromBool(batch_assign);
+                    tmp_batch_assign &= @intFromBool(other_dims.dims[i] == 1);
+                    batch_assign = tmp_batch_assign != 0;
+                } else {
+                    var tmp_batch_assign = @intFromBool(batch_assign);
+                    tmp_batch_assign &= @intFromBool(other_dims.dims[i] == out_dims.dims[i]);
+                    batch_assign = tmp_batch_assign != 0;
+                }
+            }
+
+            if (batch_assign) {
+                var out: af.af_array = undefined;
+                try af.AF_CHECK(
+                    af.af_tile(
+                        &out,
+                        other_arr,
+                        @intCast(@divTrunc(out_dims.dims[0], other_dims.dims[0])),
+                        @intCast(@divTrunc(out_dims.dims[1], other_dims.dims[1])),
+                        @intCast(@divTrunc(out_dims.dims[2], other_dims.dims[2])),
+                        @intCast(@divTrunc(out_dims.dims[3], other_dims.dims[3])),
+                    ),
+                    @src(),
+                );
+                other_arr = out;
+            } else if (!std.mem.eql(af.dim_t, &out_dims.dims, &other_dims.dims)) {
+                // HACK: This is a quick check to see if other has been reordered
+                // inside gfor
+                // TODO: Figure out if this breaks and implement a cleaner
+                // method
+                other_arr = try gForReorder(other_arr, @intCast(dim));
+                is_reordered = true;
+            }
+        }
+
+        var par_arr = impl.get();
+        var tmp_lhs: af.af_array = null;
+        try af.AF_CHECK(af.af_index_gen(&tmp_lhs, par_arr, @intCast(nd), indices.ptr), @src());
+        var op_res: af.af_array = null;
+        if (comptime std.mem.eql(u8, op, "+=")) {
+            try af.AF_CHECK(af.af_add(&op_res, tmp_lhs, other_arr, false), @src());
+        } else if (comptime std.mem.eql(u8, op, "-=")) {
+            try af.AF_CHECK(af.af_sub(&op_res, tmp_lhs, other_arr, false), @src());
+        } else if (comptime std.mem.eql(u8, op, "*=")) {
+            try af.AF_CHECK(af.af_mul(&op_res, tmp_lhs, other_arr, false), @src());
+        } else if (comptime std.mem.eql(u8, op, "/=")) {
+            try af.AF_CHECK(af.af_div(&op_res, tmp_lhs, other_arr, false), @src());
+        } else {
+            @compileError("Unsupported operation passed to idxOpAssign\n");
+        }
+
+        var res: af.af_array = null;
+        try af.AF_CHECK(
+            af.af_assign_gen(
+                &res,
+                par_arr,
+                @intCast(nd),
+                indices.ptr,
+                op_res,
+            ),
+            @src(),
+        );
+        try af.AF_CHECK(af.af_release_array(tmp_lhs), @src());
+        try af.AF_CHECK(af.af_release_array(op_res), @src());
+
+        try impl.set(res);
+        if (dim >= 0 and (is_reordered or batch_assign)) {
+            if (other_arr != null) try af.AF_CHECK(af.af_release_array(other_arr), @src());
+        }
+    }
+
+    fn flatIdxAssign(_: *const ArrayFireBackend, impl: *af.Array, other: *af.Array, indices: []af.af_index_t) !void {
+        var nd: u32 = 1;
+        var this_dims = try impl.getDims();
+        var other_dims = try other.getDims();
+        var dim = gForDim(indices);
+        var other_arr = other.get();
+
+        var batch_assign = false;
+        var is_reordered = false;
+        if (dim >= 0) {
+            // FIXME: Figure out a faster, cleaner way to do this
+            var out_dims = try seqToDims(indices, this_dims, false);
+
+            batch_assign = true;
+            for (0..@intCast(af.AF_MAX_DIMS)) |i| {
+                if (indices[i].isBatch) {
+                    var tmp_batch_assign = @intFromBool(batch_assign);
+                    tmp_batch_assign &= @intFromBool(other_dims.dims[i] == 1);
+                    batch_assign = tmp_batch_assign != 0;
+                } else {
+                    var tmp_batch_assign = @intFromBool(batch_assign);
+                    tmp_batch_assign &= @intFromBool(other_dims.dims[i] == out_dims.dims[i]);
+                    batch_assign = tmp_batch_assign != 0;
+                }
+            }
+
+            if (batch_assign) {
+                var out: af.af_array = undefined;
+                try af.AF_CHECK(
+                    af.af_tile(
+                        &out,
+                        other_arr,
+                        @intCast(@divTrunc(out_dims.dims[0], other_dims.dims[0])),
+                        @intCast(@divTrunc(out_dims.dims[1], other_dims.dims[1])),
+                        @intCast(@divTrunc(out_dims.dims[2], other_dims.dims[2])),
+                        @intCast(@divTrunc(out_dims.dims[3], other_dims.dims[3])),
+                    ),
+                    @src(),
+                );
+                other_arr = out;
+            } else if (!std.mem.eql(af.dim_t, &out_dims.dims, &other_dims.dims)) {
+                // HACK: This is a quick check to see if other has been reordered
+                // inside gfor
+                // TODO: Figure out if this breaks and implement a cleaner
+                // method
+                other_arr = try gForReorder(other_arr, @intCast(dim));
+                is_reordered = true;
+            }
+        }
+
+        var par_arr = impl.get();
+        var res: af.af_array = null;
+        try af.AF_CHECK(
+            af.af_assign_gen(
+                &res,
+                par_arr,
+                @intCast(nd),
+                indices.ptr,
+                other_arr,
+            ),
+            @src(),
+        );
+
+        try impl.set(res);
+        if (dim >= 0 and (is_reordered or batch_assign)) {
+            if (other_arr != null) try af.AF_CHECK(af.af_release_array(other_arr), @src());
+        }
+    }
+
+    pub fn flatAssign(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) !void {
+        // Return a lazy indexing operation. Indexing with a single index on an
+        // ArrayFire tensor (with a type that is not an af::array) ends up doing
+        // flat indexing, so all index assignment operators will work as they are.
+        var indices = try af.ops.createIndexers();
+        indices[0] = af.ops.ztToAfIndex(idx);
+
+        try self.flatIdxAssign(
+            try toArray(allocator, lhs),
+            try toArray(allocator, rhs),
+            indices,
+        );
+        try af.ops.releaseIndexers(indices);
+    }
+
+    pub fn flatAdd(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) !void {
+        // Return a lazy indexing operation. Indexing with a single index on an
+        // ArrayFire tensor (with a type that is not an af::array) ends up doing
+        // flat indexing, so all index assignment operators will work as they are.
+        var indices = try af.ops.createIndexers();
+        indices[0] = af.ops.ztToAfIndex(idx);
+
+        try self.flatOpAssign(
+            try toArray(allocator, lhs),
+            try toArray(allocator, rhs),
+            indices,
+            "+=",
+        );
+        try af.ops.releaseIndexers(indices);
+    }
+
+    pub fn flatSub(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) !void {
+        // Return a lazy indexing operation. Indexing with a single index on an
+        // ArrayFire tensor (with a type that is not an af::array) ends up doing
+        // flat indexing, so all index assignment operators will work as they are.
+        var indices = try af.ops.createIndexers();
+        indices[0] = af.ops.ztToAfIndex(idx);
+
+        try self.flatOpAssign(
+            try toArray(allocator, lhs),
+            try toArray(allocator, rhs),
+            indices,
+            "-=",
+        );
+        try af.ops.releaseIndexers(indices);
+    }
+
+    pub fn flatMul(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) !void {
+        // Return a lazy indexing operation. Indexing with a single index on an
+        // ArrayFire tensor (with a type that is not an af::array) ends up doing
+        // flat indexing, so all index assignment operators will work as they are.
+        var indices = try af.ops.createIndexers();
+        indices[0] = af.ops.ztToAfIndex(idx);
+
+        try self.flatOpAssign(
+            try toArray(allocator, lhs),
+            try toArray(allocator, rhs),
+            indices,
+            "*=",
+        );
+        try af.ops.releaseIndexers(indices);
+    }
+
+    pub fn flatDiv(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) !void {
+        // Return a lazy indexing operation. Indexing with a single index on an
+        // ArrayFire tensor (with a type that is not an af::array) ends up doing
+        // flat indexing, so all index assignment operators will work as they are.
+        var indices = try af.ops.createIndexers();
+        indices[0] = af.ops.ztToAfIndex(idx);
+
+        try self.flatOpAssign(
+            try toArray(allocator, lhs),
+            try toArray(allocator, rhs),
+            indices,
+            "/=",
+        );
+        try af.ops.releaseIndexers(indices);
+    }
+
     fn idxOpAssign(_: *const ArrayFireBackend, impl: *af.Array, other: *af.Array, indices: []af.af_index_t, is_linear: bool, comptime op: []const u8) !void {
         var nd = try impl.getNumDims();
         var this_dims = try impl.getDims();
@@ -1978,12 +2212,13 @@ pub const ArrayFireBackend = struct {
             afIndices[i] = af.ops.ztToAfIndex(indices[i]);
         }
 
-        return self.idxAssign(
+        try self.idxAssign(
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
             afIndices,
             completeTensorIndex, // verify this is correct
         );
+        try af.ops.releaseIndexers(afIndices);
     }
 
     pub fn indexAdd(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) !void {
@@ -2018,13 +2253,14 @@ pub const ArrayFireBackend = struct {
             afIndices[i] = af.ops.ztToAfIndex(indices[i]);
         }
 
-        return self.idxOpAssign(
+        try self.idxOpAssign(
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
             afIndices,
             indices.len == 1 and indices[0].idxType() != .Tensor and try lhs.ndim(allocator) == 1, // verify this is correct
             "+=",
         );
+        try af.ops.releaseIndexers(afIndices);
     }
 
     pub fn indexSub(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) !void {
@@ -2059,13 +2295,14 @@ pub const ArrayFireBackend = struct {
             afIndices[i] = af.ops.ztToAfIndex(indices[i]);
         }
 
-        return self.idxOpAssign(
+        try self.idxOpAssign(
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
             afIndices,
             indices.len == 1 and indices[0].idxType() != .Tensor and try lhs.ndim(allocator) == 1, // verify this is correct
             "-=",
         );
+        try af.ops.releaseIndexers(afIndices);
     }
 
     pub fn indexMul(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) !void {
@@ -2100,13 +2337,14 @@ pub const ArrayFireBackend = struct {
             afIndices[i] = af.ops.ztToAfIndex(indices[i]);
         }
 
-        return self.idxOpAssign(
+        try self.idxOpAssign(
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
             afIndices,
             indices.len == 1 and indices[0].idxType() != .Tensor and try lhs.ndim(allocator) == 1, // verify this is correct
             "*=",
         );
+        try af.ops.releaseIndexers(afIndices);
     }
 
     pub fn indexDiv(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) !void {
@@ -2141,13 +2379,14 @@ pub const ArrayFireBackend = struct {
             afIndices[i] = af.ops.ztToAfIndex(indices[i]);
         }
 
-        return self.idxOpAssign(
+        try self.idxOpAssign(
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
             afIndices,
             indices.len == 1 and indices[0].idxType() != .Tensor and try lhs.ndim(allocator) == 1, // verify this is correct
             "/=",
         );
+        try af.ops.releaseIndexers(afIndices);
     }
 
     pub fn add(_: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
