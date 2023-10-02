@@ -612,8 +612,27 @@ test "IndexTest -> flat" {
     defer expected.deinit();
     try std.testing.expect(try allClose(allocator, a_flattened_idx, expected, 1e-5));
 
-    // TODO: Tensor indexing
-    // TODO: need to add method to init Tensor from slice
+    // Tensor indexing
+    var indexer = try Tensor.fromSlice(allocator, &.{test_indices.len}, i32, &.{ 0, 1, 4, 11, 62, 104, 288 }, .s32);
+    defer indexer.deinit();
+    var ref = try a.flat(allocator, Index.initTensor(indexer));
+    defer ref.deinit();
+    try std.testing.expect(shape.eql(try ref.shape(allocator), &.{@as(Dim, @intCast(try indexer.elements(allocator)))}));
+    try a.flatSub(allocator, f64, 10, Index.initTensor(indexer));
+    var a_flat1 = try a.flat(allocator, Index.initTensor(indexer));
+    defer a_flat1.deinit();
+    try ref.inPlaceSub(allocator, f64, 10);
+    try std.testing.expect(try allClose(allocator, a_flat1, ref, 1e-5));
+    for (test_indices) |i| {
+        var tmp_idx = try a.index(allocator, &.{
+            Index.initDim(@intCast(@mod(i, 5))),
+            Index.initDim(@intCast(@mod(@divTrunc(i, 5), 6))),
+            Index.initDim(@intCast(@mod(@divTrunc(i, 5 * 6), 7))),
+            Index.initDim(@intCast(@mod(@divTrunc(i, 5 * 6 * 7), 8))),
+        });
+        defer tmp_idx.deinit();
+        try std.testing.expect(try tmp_idx.scalar(allocator, f32) == @as(f32, @floatFromInt(i + 1 - 10)));
+    }
 
     // Range flat assignment
     var rA = try rand(allocator, &.{6}, .f32);

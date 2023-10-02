@@ -52,6 +52,7 @@ pub const TensorBackend = struct {
         randn: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: Shape, dtype: DType) anyerror!Tensor,
         rand: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: Shape, dtype: DType) anyerror!Tensor,
         fromScalar: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, value: f64, dtype: DType) anyerror!Tensor,
+        fromSlice: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, s: Shape, data: ?*anyopaque, dtype: DType) anyerror!Tensor,
         full: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: Shape, value: f64, dtype: DType) anyerror!Tensor,
         identity: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dim: Dim, dtype: DType) anyerror!Tensor,
         arange: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: Shape, seq_dim: Dim, dtype: DType) anyerror!Tensor,
@@ -191,6 +192,10 @@ pub const TensorBackend = struct {
             else => return error.InvalidTypePassedToFromScalar,
         }
         return self.vtable.fromScalar(self.ptr, allocator, f, dtype);
+    }
+
+    pub fn fromSlice(self: *const Self, allocator: std.mem.Allocator, s: Shape, data: ?*anyopaque, dtype: DType) !Tensor {
+        return self.vtable.fromSlice(self.ptr, allocator, s, data, dtype);
     }
 
     pub fn full(self: *const Self, allocator: std.mem.Allocator, shape: Shape, comptime T: type, value: T, dtype: DType) !Tensor {
@@ -814,6 +819,11 @@ pub const TensorBackend = struct {
                 return self.fromScalar(allocator, value, dtype);
             }
 
+            fn fromSlice(ctx: *anyopaque, allocator: std.mem.Allocator, s: Shape, data: ?*anyopaque, dtype: DType) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.fromSlice(allocator, s, data, dtype);
+            }
+
             fn full(ctx: *anyopaque, allocator: std.mem.Allocator, shape: Shape, value: f64, dtype: DType) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.full(allocator, shape, value, dtype);
@@ -1294,6 +1304,7 @@ pub const TensorBackend = struct {
                 .randn = impl.randn,
                 .rand = impl.rand,
                 .fromScalar = impl.fromScalar,
+                .fromSlice = impl.fromSlice,
                 .full = impl.full,
                 .identity = impl.identity,
                 .arange = impl.arange,

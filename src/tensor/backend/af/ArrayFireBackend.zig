@@ -300,6 +300,25 @@ pub const ArrayFireBackend = struct {
         );
     }
 
+    pub fn fromSlice(_: *const ArrayFireBackend, allocator: std.mem.Allocator, s: Shape, data: ?*anyopaque, dtype: DType) !Tensor {
+        var arr: *af.Array = try af.ops.createArray(
+            allocator,
+            data,
+            @intCast(zt_shape.ndim(s)),
+            try af.ops.ztToAfDims(s),
+            af.ops.ztToAfType(dtype),
+        );
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    zt_shape.ndim(s),
+                ),
+            ),
+        );
+    }
+
     pub fn full(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: Shape, value: f64, dtype: DType) !Tensor {
         var arr: *af.Array = try af.Array.constant(
             allocator,

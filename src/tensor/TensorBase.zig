@@ -3,6 +3,7 @@ const tensor = @import("tensor.zig");
 
 const Dim = tensor.shape.Dim;
 const DType = tensor.DType;
+const defaultTensorBackend = tensor.defaultTensorBackend;
 const dtypeTraits = tensor.dtypeTraits;
 const Index = tensor.Index;
 const Shape = tensor.shape.Shape;
@@ -57,6 +58,22 @@ pub const Tensor = struct {
 
     pub fn init(impl: TensorAdapterBase) Tensor {
         return Tensor{ .impl_ = impl };
+    }
+
+    pub fn fromSlice(allocator: std.mem.Allocator, s: Shape, comptime T: type, data: []const T, data_type: DType) !Tensor {
+        var backend_ = try defaultTensorBackend(allocator);
+        return switch (T) {
+            // TODO: handle more types
+            // TODO: use `@ptrCast` to coerce to c types???
+            f16, f32, f64 => backend_.fromSlice(allocator, s, data.ptr, data_type),
+            i16 => backend_.fromSlice(allocator, s, @as([*]c_short, @ptrCast(@alignCast(@constCast(data.ptr)))), data_type),
+            u16 => backend_.fromSlice(allocator, s, @as([*]c_ushort, @ptrCast(@alignCast(@constCast(data.ptr)))), data_type),
+            i32 => backend_.fromSlice(allocator, s, @as([*]c_int, @ptrCast(@alignCast(@constCast(data.ptr)))), data_type),
+            u32 => backend_.fromSlice(allocator, s, @as([*]c_uint, @ptrCast(@alignCast(@constCast(data.ptr)))), data_type),
+            i64 => backend_.fromSlice(allocator, s, @as([*]c_longlong, @ptrCast(@alignCast(@constCast(data.ptr)))), data_type),
+            u64 => backend_.fromSlice(allocator, s, @as([*]c_ulonglong, @ptrCast(@alignCast(@constCast(data.ptr)))), data_type),
+            else => @compileError("Unsupported type passed to fromSlice"),
+        };
     }
 
     pub fn deinit(self: *const Tensor) void {
