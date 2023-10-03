@@ -763,4 +763,35 @@ test "IndexTest -> TensorIndex" {
     try std.testing.expect(shape.eql(try c_idx.shape(allocator), &.{ 5, 10, 10 }));
 }
 
-// TODO: test "IndexTest -> ExpressionIndex" {}
+test "IndexTest -> ExpressionIndex" {
+    const lessThan = tensor_.lessThan;
+    const allClose = tensor_.allClose;
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a = try Tensor.fromSlice(
+        allocator,
+        &.{ 2, 5 },
+        i32,
+        &.{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 },
+        .s32,
+    );
+    defer a.deinit();
+
+    var lt1 = try lessThan(allocator, Tensor, a, f64, 5);
+    defer lt1.deinit();
+    var res1 = try a.index(allocator, &.{Index.initTensor(lt1)});
+    defer res1.deinit();
+    var exp1 = try Tensor.fromSlice(allocator, &.{5}, i32, &.{ 0, 1, 2, 3, 4 }, .s32);
+    defer exp1.deinit();
+    try std.testing.expect(try allClose(allocator, res1, exp1, 1e-5));
+
+    var lt2 = try lessThan(allocator, Tensor, a, f64, 7);
+    defer lt2.deinit();
+    var res2 = try a.index(allocator, &.{Index.initTensor(lt2)});
+    defer res2.deinit();
+    var exp2 = try Tensor.fromSlice(allocator, &.{7}, i32, &.{ 0, 1, 2, 3, 4, 5, 6 }, .s32);
+    defer exp2.deinit();
+    try std.testing.expect(try allClose(allocator, res2, exp2, 1e-5));
+}

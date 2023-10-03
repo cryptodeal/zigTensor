@@ -57,15 +57,16 @@ pub const ArrayFireTensor = struct {
         pub fn get(self: *const IndexedArrayComponent, allocator: std.mem.Allocator, inst: *ArrayFireTensor) !*af.Array {
             var arr = inst.arrayHandle_.value.*;
             var n_dims: i64 = if (!self.isFlat_) @intCast(try arr.getNumDims()) else 1;
-            // TODO: hacky workaround for flat indexing w bool tensor
-            var tmp_array: af.af_array = null;
-            if (self.isFlat_ and !inst.indices_.?[0].isSeq) {
-                var curr_arr = inst.indices_.?[0].idx.arr;
-                var arr_type: af.af_dtype = undefined;
-                try af.AF_CHECK(af.af_get_type(&arr_type, curr_arr), @src());
-                if (arr_type == af.b8) {
-                    try af.AF_CHECK(af.af_flat(&tmp_array, curr_arr), @src());
-                    inst.indices_.?[0].idx.arr = tmp_array;
+            var tmp_arrs = [_]af.af_array{null} ** 4;
+            // if idx == bool type array, use where to get indices
+            for (inst.indices_.?, 0..) |v, i| {
+                if (self.isFlat_ and i > 0) break;
+                if (v.isSeq) continue;
+                var idx_type: af.af_dtype = undefined;
+                try af.AF_CHECK(af.af_get_type(&idx_type, v.idx.arr), @src());
+                if (idx_type == af.b8) {
+                    try af.AF_CHECK(af.af_where(&tmp_arrs[i], v.idx.arr), @src());
+                    inst.indices_.?[i].idx.arr = tmp_arrs[i];
                 }
             }
             var res = try af.ops.indexGen(
@@ -74,7 +75,7 @@ pub const ArrayFireTensor = struct {
                 n_dims,
                 inst.indices_.?,
             );
-            if (tmp_array != null) try af.AF_CHECK(af.af_release_array(tmp_array), @src());
+            for (tmp_arrs) |v| if (v != null) try af.AF_CHECK(af.af_release_array(v), @src());
             return res;
         }
     };

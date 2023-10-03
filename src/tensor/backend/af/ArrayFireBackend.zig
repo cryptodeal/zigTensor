@@ -1724,6 +1724,16 @@ pub const ArrayFireBackend = struct {
         var dim = gForDim(indices);
         var other_arr = other.get();
 
+        var tmp_idx: af.af_array = null;
+        if (!indices[0].isSeq) {
+            var idx_type: af.af_dtype = undefined;
+            try af.AF_CHECK(af.af_get_type(&idx_type, indices[0].idx.arr), @src());
+            if (idx_type == af.b8) {
+                try af.AF_CHECK(af.af_where(&tmp_idx, indices[0].idx.arr), @src());
+                indices[0].idx.arr = tmp_idx;
+            }
+        }
+
         var batch_assign = false;
         var is_reordered = false;
         if (dim >= 0) {
@@ -1801,6 +1811,7 @@ pub const ArrayFireBackend = struct {
         if (dim >= 0 and (is_reordered or batch_assign)) {
             if (other_arr != null) try af.AF_CHECK(af.af_release_array(other_arr), @src());
         }
+        if (tmp_idx != null) try af.AF_CHECK(af.af_release_array(tmp_idx), @src());
     }
 
     fn flatIdxAssign(_: *const ArrayFireBackend, impl: *af.Array, other: *af.Array, indices: []af.af_index_t) !void {
@@ -1809,6 +1820,16 @@ pub const ArrayFireBackend = struct {
         var other_dims = try other.getDims();
         var dim = gForDim(indices);
         var other_arr = other.get();
+
+        var tmp_idx: af.af_array = null;
+        if (!indices[0].isSeq) {
+            var idx_type: af.af_dtype = undefined;
+            try af.AF_CHECK(af.af_get_type(&idx_type, indices[0].idx.arr), @src());
+            if (idx_type == af.b8) {
+                try af.AF_CHECK(af.af_where(&tmp_idx, indices[0].idx.arr), @src());
+                indices[0].idx.arr = tmp_idx;
+            }
+        }
 
         var batch_assign = false;
         var is_reordered = false;
@@ -1870,6 +1891,7 @@ pub const ArrayFireBackend = struct {
         if (dim >= 0 and (is_reordered or batch_assign)) {
             if (other_arr != null) try af.AF_CHECK(af.af_release_array(other_arr), @src());
         }
+        if (tmp_idx != null) try af.AF_CHECK(af.af_release_array(tmp_idx), @src());
     }
 
     pub fn flatAssign(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, idx: Index) !void {
@@ -1957,6 +1979,18 @@ pub const ArrayFireBackend = struct {
         var other_dims = try other.getDims();
         var dim = gForDim(indices);
         var other_arr = other.get();
+
+        var tmp_arrs = [_]af.af_array{null} ** 4;
+        // if idx == bool type array, use where to get indices
+        for (indices, 0..) |v, i| {
+            if (v.isSeq) continue;
+            var idx_type: af.af_dtype = undefined;
+            try af.AF_CHECK(af.af_get_type(&idx_type, v.idx.arr), @src());
+            if (idx_type == af.b8) {
+                try af.AF_CHECK(af.af_where(&tmp_arrs[i], v.idx.arr), @src());
+                indices[i].idx.arr = tmp_arrs[i];
+            }
+        }
 
         var batch_assign = false;
         var is_reordered = false;
@@ -2082,6 +2116,7 @@ pub const ArrayFireBackend = struct {
         if (dim >= 0 and (is_reordered or batch_assign)) {
             if (other_arr != null) try af.AF_CHECK(af.af_release_array(other_arr), @src());
         }
+        for (tmp_arrs) |v| if (v != null) try af.AF_CHECK(af.af_release_array(v), @src());
     }
 
     fn idxAssign(_: *const ArrayFireBackend, impl: *af.Array, other: *af.Array, indices: []af.af_index_t, is_linear: bool) !void {
@@ -2090,6 +2125,18 @@ pub const ArrayFireBackend = struct {
         var other_dims = try other.getDims();
         var dim = gForDim(indices);
         var other_arr = other.get();
+
+        var tmp_arrs = [_]af.af_array{null} ** 4;
+        // if idx == bool type array, use where to get indices
+        for (indices, 0..) |v, i| {
+            if (v.isSeq) continue;
+            var idx_type: af.af_dtype = undefined;
+            try af.AF_CHECK(af.af_get_type(&idx_type, v.idx.arr), @src());
+            if (idx_type == af.b8) {
+                try af.AF_CHECK(af.af_where(&tmp_arrs[i], v.idx.arr), @src());
+                indices[i].idx.arr = tmp_arrs[i];
+            }
+        }
 
         var batch_assign = false;
         var is_reordered = false;
@@ -2197,6 +2244,7 @@ pub const ArrayFireBackend = struct {
         if (dim >= 0 and (is_reordered or batch_assign)) {
             if (other_arr != null) try af.AF_CHECK(af.af_release_array(other_arr), @src());
         }
+        for (tmp_arrs) |v| if (v != null) try af.AF_CHECK(af.af_release_array(v), @src());
     }
 
     pub fn indexAssign(self: *const ArrayFireBackend, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, indices: []const Index) !void {
