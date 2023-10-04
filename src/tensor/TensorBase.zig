@@ -530,6 +530,7 @@ test "TensorBLASTest -> matmulShapes" {
     var res13 = try tensor.matmul(allocator, rand10, rand15, .None, .None);
     defer res13.deinit();
     try std.testing.expect(tensor.shape.eql(try res13.shape(allocator), &.{ M, N, b2, b3 }));
+
     // Batch matrix multiply with transpose
     var rand16 = try tensor.rand(allocator, &.{ K, M }, .f32);
     defer rand16.deinit();
@@ -542,5 +543,70 @@ test "TensorBLASTest -> matmulShapes" {
     var res15 = try tensor.matmul(allocator, rand10, rand17, .None, .Transpose);
     defer res15.deinit();
     try std.testing.expect(tensor.shape.eql(try res15.shape(allocator), &.{ M, N }));
-    // TODO: b2 transpose
+
+    // b2 transpose
+    var rand18 = try tensor.rand(allocator, &.{ K, M, b2 }, .f32);
+    defer rand18.deinit();
+    var res16 = try tensor.matmul(allocator, rand18, rand11, .Transpose, .None);
+    defer res16.deinit();
+    try std.testing.expect(tensor.shape.eql(try res16.shape(allocator), &.{ M, N, b2 }));
+
+    var res17 = try tensor.matmul(allocator, rand12, rand17, .None, .Transpose);
+    defer res17.deinit();
+    try std.testing.expect(tensor.shape.eql(try res17.shape(allocator), &.{ M, N, b2 }));
+
+    var res18 = try tensor.matmul(allocator, rand16, rand13, .Transpose, .None);
+    defer res18.deinit();
+    try std.testing.expect(tensor.shape.eql(try res18.shape(allocator), &.{ M, N, b2 }));
+
+    var rand19 = try tensor.rand(allocator, &.{ N, K, b2 }, .f32);
+    defer rand19.deinit();
+    var res19 = try tensor.matmul(allocator, rand10, rand19, .None, .Transpose);
+    defer res19.deinit();
+    try std.testing.expect(tensor.shape.eql(try res19.shape(allocator), &.{ M, N, b2 }));
+
+    var res20 = try tensor.matmul(allocator, rand18, rand13, .Transpose, .None);
+    defer res20.deinit();
+    try std.testing.expect(tensor.shape.eql(try res20.shape(allocator), &.{ M, N, b2 }));
+
+    var res21 = try tensor.matmul(allocator, rand12, rand19, .None, .Transpose);
+    defer res21.deinit();
+    try std.testing.expect(tensor.shape.eql(try res21.shape(allocator), &.{ M, N, b2 }));
+
+    // TODO: b2, b3 transpose
+    var rand20 = try tensor.rand(allocator, &.{ K, M, b2, b3 }, .f32);
+    defer rand20.deinit();
+    var res22 = try tensor.matmul(allocator, rand20, rand11, .Transpose, .None);
+    defer res22.deinit();
+    try std.testing.expect(tensor.shape.eql(try res22.shape(allocator), &.{ M, N, b2, b3 }));
+
+    var res23 = try tensor.matmul(allocator, rand14, rand17, .None, .Transpose);
+    defer res23.deinit();
+    try std.testing.expect(tensor.shape.eql(try res23.shape(allocator), &.{ M, N, b2, b3 }));
+
+    var res24 = try tensor.matmul(allocator, rand16, rand15, .Transpose, .None);
+    defer res24.deinit();
+    try std.testing.expect(tensor.shape.eql(try res24.shape(allocator), &.{ M, N, b2, b3 }));
+
+    var rand21 = try tensor.rand(allocator, &.{ N, K, b2, b3 }, .f32);
+    defer rand21.deinit();
+    var res25 = try tensor.matmul(allocator, rand10, rand21, .None, .Transpose);
+    defer res25.deinit();
+    try std.testing.expect(tensor.shape.eql(try res25.shape(allocator), &.{ M, N, b2, b3 }));
+
+    var res26 = try tensor.matmul(allocator, rand20, rand15, .Transpose, .None);
+    defer res26.deinit();
+    try std.testing.expect(tensor.shape.eql(try res26.shape(allocator), &.{ M, N, b2, b3 }));
+
+    var res27 = try tensor.matmul(allocator, rand14, rand21, .None, .Transpose);
+    defer res27.deinit();
+    try std.testing.expect(tensor.shape.eql(try res27.shape(allocator), &.{ M, N, b2, b3 }));
+
+    var rand22 = try tensor.rand(allocator, &.{ 256, 200, 2 }, .f32);
+    defer rand22.deinit();
+    var rand23 = try tensor.rand(allocator, &.{ 256, 200, 2 }, .f32);
+    defer rand23.deinit();
+    var res28 = try tensor.matmul(allocator, rand22, rand23, .None, .Transpose);
+    defer res28.deinit();
+    try std.testing.expect(tensor.shape.eql(try res28.shape(allocator), &.{ 256, 256, 2 }));
 }
