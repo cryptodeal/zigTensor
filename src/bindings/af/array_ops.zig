@@ -2998,18 +2998,30 @@ pub fn getDeviceId(arr: *const af.Array) !i32 {
 /// If a valid `af.Array` is passed as C, the operation will be performed on that `af.Array` itself.
 /// The C af_array must be the correct type and shape; otherwise, an error will be thrown.
 pub fn gemm(
+    allocator: std.mem.Allocator,
     comptime T: type,
-    C: *af.Array,
     opA: af.MatProp,
     opB: af.MatProp,
     alpha: T,
     A: *const af.Array,
     B: *const af.Array,
     beta: T,
-) !void {
+) !*af.Array {
+    var lhs_dims = try A.getDims();
+    var rhs_dims = try B.getDims();
+    var M = lhs_dims.dims[if (opA == .None) 0 else 1];
+    var N = rhs_dims.dims[if (opB == .None) 1 else 0];
+    const d2 = @max(lhs_dims.dims[2], rhs_dims.dims[2]);
+    const d3 = @max(lhs_dims.dims[3], rhs_dims.dims[3]);
+    var tmp_dims = [4]af.dim_t{ M, N, d2, d3 };
+    var o_dims = af.Dim4.init(tmp_dims);
+    var res: af.af_array = undefined;
+    var dtype: af.af_dtype = undefined;
+    try af.AF_CHECK(af.af_get_type(&dtype, A.array_), @src());
+    try af.AF_CHECK(af.af_create_handle(&res, @intCast(o_dims.ndims()), &o_dims.dims, dtype), @src());
     try af.AF_CHECK(
         af.af_gemm(
-            C,
+            &res,
             opA.value(),
             opB.value(),
             &alpha,
@@ -3019,6 +3031,7 @@ pub fn gemm(
         ),
         @src(),
     );
+    return af.Array.init(allocator, res);
 }
 
 /// Performs a matrix multiplication on two `af.Array`s (lhs, rhs).

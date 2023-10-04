@@ -532,10 +532,8 @@ pub const ArrayFireBackend = struct {
     ) !Tensor {
         var lhsProp = lhs_prop;
         var rhsProp = rhs_prop;
-        var lhsNumDims = try lhs.ndim(allocator);
-        var rhsNumDims = try rhs.ndim(allocator);
-        var numDims = @max(lhsNumDims, rhsNumDims);
-        if ((lhsNumDims == 1 or rhsNumDims == 1) and numDims > 1) {
+        var numDims = @max(try lhs.ndim(allocator), try rhs.ndim(allocator));
+        if ((try lhs.ndim(allocator) == 1 or try rhs.ndim(allocator) == 1) and numDims > 1) {
             numDims -= 1;
         }
 
@@ -546,7 +544,7 @@ pub const ArrayFireBackend = struct {
         var modRhsArray = false;
         defer if (modRhsArray) rhsArray.deinit();
 
-        if (lhsNumDims == 1 and rhsNumDims == 1) {
+        if (try lhs.ndim(allocator) == 1 and try rhs.ndim(allocator) == 1) {
             // Simulate a dot product by transposing the lhs:
             // (1, k) x (k, 1) --> (1, 1) --> reshape to (1)
             // Ignore other transposes since 1D tensors are the transpose of themselves.
@@ -556,27 +554,36 @@ pub const ArrayFireBackend = struct {
             rhsProp = .None;
             numDims = 1;
         } else {
-            if (rhsNumDims == 1) {
+            if (try rhs.ndim(allocator) == 1) {
                 var dims = af.Dim4{};
                 dims.dims[0] = @intCast(try rhs.dim(allocator, 0));
                 rhsArray = try af.ops.moddims(allocator, rhsArray, 2, dims);
                 modRhsArray = true;
             }
-            if (lhsNumDims == 1) {
+            if (try lhs.ndim(allocator) == 1) {
                 var dims = af.Dim4{};
-                dims.dims[0] = @intCast(try lhs.dim(allocator, 0));
+                dims.dims[1] = @intCast(try lhs.dim(allocator, 0));
                 lhsArray = try af.ops.moddims(allocator, lhsArray, 2, dims);
                 modLhsArray = true;
             }
         }
 
-        var arr = try af.ops.matmul(
+        var res = try af.ops.matmul(
             allocator,
             lhsArray,
             rhsArray,
             af.ops.ztToAfMatrixProperty(lhsProp),
             af.ops.ztToAfMatrixProperty(rhsProp),
         );
+
+        var arr = res;
+        if (try lhs.ndim(allocator) == 1 and try rhs.ndim(allocator) == 2) {
+            var current_dims = try res.getDims();
+            var new_dims = af.Dim4{};
+            new_dims.dims[0] = current_dims.dims[1];
+            arr = try af.ops.moddims(allocator, res, 1, new_dims);
+            res.deinit();
+        }
 
         return Tensor.init(
             TensorAdapterBase.init(
@@ -1080,12 +1087,15 @@ pub const ArrayFireBackend = struct {
         var zero_arr = try af.ops.constant(allocator, 0, flat_num_dims, flat_dims, flat_type);
         defer zero_arr.deinit();
         // test equality
-        var flat_idx_arr = try af.ops.eq(allocator, arr, zero_arr, false);
-        defer flat_idx_arr.deinit();
+        var idx_arr = try af.ops.eq(allocator, arr, zero_arr, false);
+        defer idx_arr.deinit();
+        // get indices of matching values (1) using `where`
+        var idx_indices = try af.ops.where(allocator, idx_arr);
+        defer idx_indices.deinit();
         // create indexers
         var indices = try af.ops.createIndexers();
         defer af.ops.releaseIndexers(indices) catch unreachable;
-        try af.ops.setArrayIndexer(indices, flat_idx_arr, 0);
+        try af.ops.setArrayIndexer(indices, idx_indices, 0);
         // the resulting array (flat)
         var flat_res = try af.ops.assignGen(allocator, sub_res, 1, indices, zero_arr);
         defer flat_res.deinit();

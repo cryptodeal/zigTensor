@@ -185,6 +185,8 @@ pub const Index = struct {
     }
 };
 
+// Unit tests
+
 test "IndexTest -> Range" {
     var s1 = Range.initEnd(3);
     try std.testing.expect(s1.start() == 0);
