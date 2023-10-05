@@ -770,6 +770,81 @@ test "TensorBaseTest -> reshape" {
     var exp = try tensor.reshape(allocator, b, &.{ 4, 4 });
     defer exp.deinit();
     try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
-    // TODO: fix below; throws, but leaks
-    // try std.testing.expectError(error.ArrayFireError, tensor.reshape(allocator, a, &.{}));
+    try std.testing.expectError(error.ArrayFireError, tensor.reshape(allocator, a, &.{}));
+}
+
+test "TensorBaseTest -> transpose" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    // TODO: expand to check els
+    var og = try tensor.full(allocator, &.{ 3, 4 }, f64, 3, .f32);
+    var exp = try tensor.full(allocator, &.{ 4, 3 }, f64, 3, .f32);
+    var res = try tensor.transpose(allocator, og, &.{});
+    og.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, res, exp, 1e-5));
+    exp.deinit();
+    res.deinit();
+
+    og = try tensor.full(allocator, &.{ 4, 5, 6, 7 }, f64, 3, .f32);
+    exp = try tensor.full(allocator, &.{ 6, 4, 5, 7 }, f64, 3, .f32);
+    res = try tensor.transpose(allocator, og, &.{ 2, 0, 1, 3 });
+    og.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, res, exp, 1e-5));
+    exp.deinit();
+    res.deinit();
+
+    og = try tensor.rand(allocator, &.{ 3, 4, 5 }, .f32);
+    try std.testing.expectError(
+        error.ArrayFireTransposeFailed,
+        tensor.transpose(allocator, og, &.{ 0, 1 }),
+    );
+    og.deinit();
+
+    og = try tensor.rand(allocator, &.{ 2, 4, 6, 8 }, .f32);
+    try std.testing.expectError(
+        error.ArrayFireTransposeFailed,
+        tensor.transpose(allocator, og, &.{ 1, 0, 2 }),
+    );
+    og.deinit();
+
+    og = try tensor.rand(allocator, &.{ 2, 4, 6, 8 }, .f32);
+    try std.testing.expectError(
+        error.ArrayFireTransposeFailed,
+        tensor.transpose(allocator, og, &.{ 1, 0, 2, 4 }),
+    );
+    og.deinit();
+
+    og = try tensor.rand(allocator, &.{4}, .f32);
+    try std.testing.expect(try tensor.allClose(
+        allocator,
+        try tensor.transpose(allocator, og, &.{}), // 1D tensor returns itself (no new alloc)
+        og,
+        1e-5,
+    ));
+    og.deinit();
+
+    og = try tensor.rand(allocator, &.{ 5, 6, 7 }, .f32);
+    res = try tensor.transpose(allocator, og, &.{});
+    og.deinit();
+    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 7, 6, 5 }));
+    res.deinit();
+
+    og = try tensor.rand(allocator, &.{ 5, 6, 1, 7 }, .f32);
+    res = try tensor.transpose(allocator, og, &.{});
+    og.deinit();
+    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 7, 1, 6, 5 }));
+    res.deinit();
+
+    og = try tensor.rand(allocator, &.{ 1, 1 }, .f32);
+    res = try tensor.transpose(allocator, og, &.{});
+    og.deinit();
+    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 1, 1 }));
+    res.deinit();
+
+    og = try tensor.rand(allocator, &.{ 7, 2, 1, 3 }, .f32);
+    res = try tensor.transpose(allocator, og, &.{ 0, 2, 1, 3 });
+    og.deinit();
+    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 7, 1, 2, 3 }));
+    res.deinit();
 }

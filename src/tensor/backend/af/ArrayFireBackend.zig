@@ -594,11 +594,12 @@ pub const ArrayFireBackend = struct {
     }
 
     pub fn reshape(_: *const ArrayFireBackend, allocator: std.mem.Allocator, tensor: Tensor, shape: Shape) !Tensor {
+        var af_dims = try af.ops.ztToAfDims(shape);
         var arr = try af.ops.moddims(
             allocator,
             try toArray(allocator, tensor),
-            @intCast(zt_shape.ndim(shape)),
-            try af.ops.ztToAfDims(shape),
+            @intCast(af_dims.ndims()),
+            af_dims,
         );
         return Tensor.init(
             TensorAdapterBase.init(
