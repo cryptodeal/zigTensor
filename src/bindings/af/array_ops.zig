@@ -3013,8 +3013,7 @@ pub fn gemm(
     var N = rhs_dims.dims[if (opB == .None) 1 else 0];
     const d2 = @max(lhs_dims.dims[2], rhs_dims.dims[2]);
     const d3 = @max(lhs_dims.dims[3], rhs_dims.dims[3]);
-    var tmp_dims = [4]af.dim_t{ M, N, d2, d3 };
-    var o_dims = af.Dim4.init(tmp_dims);
+    var o_dims = af.Dim4.init(&.{ M, N, d2, d3 });
     var res: af.af_array = undefined;
     var dtype: af.af_dtype = undefined;
     try af.AF_CHECK(af.af_get_type(&dtype, A.array_), @src());
@@ -6020,8 +6019,7 @@ test "createArray" {
 
 test "constant" {
     const allocator = std.testing.allocator;
-    var d = [4]af.dim_t{ 100, 1, 1, 1 };
-    var dims = af.Dim4.init(d);
+    var dims = af.Dim4.init(&.{ 100, 1, 1, 1 });
     var arr = try constant(allocator, 5, 4, dims, .s32);
     defer arr.deinit();
 

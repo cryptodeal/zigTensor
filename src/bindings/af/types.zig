@@ -630,11 +630,9 @@ pub const ConvGradientType = enum(af.af_conv_gradient_type) {
 pub const Dim4 = struct {
     dims: [4]af.dim_t = [_]af.dim_t{1} ** 4,
 
-    pub fn init(dims: ?[4]af.dim_t) Dim4 {
+    pub fn init(dims: []const af.dim_t) Dim4 {
         var self: Dim4 = .{};
-        if (dims != null) {
-            self.dims = dims.?;
-        }
+        @memcpy(self.dims[0..dims.len], dims);
         return self;
     }
 

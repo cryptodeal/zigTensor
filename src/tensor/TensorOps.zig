@@ -29,7 +29,7 @@ pub inline fn ztTensorBackendsMatch(fn_name: []const u8, tensors: []Tensor) !voi
 }
 
 pub fn initAssign(allocator: std.mem.Allocator, rhs: Tensor) !Tensor {
-    var new_tensor = Tensor.init(TensorAdapterBase.init(try DefaultTensorType_t.initRaw(allocator)));
+    var new_tensor = Tensor.init(TensorAdapterBase.init(try DefaultTensorType_t.initEmpty(allocator)));
     try (try defaultTensorBackend(allocator)).assign(allocator, new_tensor, rhs);
     return new_tensor;
 }

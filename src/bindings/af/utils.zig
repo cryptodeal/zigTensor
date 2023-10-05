@@ -540,9 +540,6 @@ test "ztToAfMatrixProperty" {
 }
 
 test "ztToAfDims" {
-    const allocator = std.testing.allocator;
-    _ = allocator;
-
     var res1 = try ztToAfDims(&.{2});
     var exp1 = [_]c_longlong{ 2, 1, 1, 1 };
     try std.testing.expectEqualSlices(c_longlong, &exp1, &res1.dims);

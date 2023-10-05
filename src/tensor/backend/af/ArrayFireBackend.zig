@@ -339,7 +339,7 @@ pub const ArrayFireBackend = struct {
     }
 
     pub fn identity(_: *const ArrayFireBackend, allocator: std.mem.Allocator, dim: Dim, dtype: DType) !Tensor {
-        const dims = af.Dim4{ .dims = [_]af.dim_t{ @intCast(dim), @intCast(dim), 1, 1 } };
+        const dims = af.Dim4.init(&.{ @as(af.dim_t, @intCast(dim)), @as(af.dim_t, @intCast(dim)) });
         var arr = try af.ops.identity(allocator, 2, dims, af.ops.ztToAfType(dtype));
         return Tensor.init(
             TensorAdapterBase.init(
@@ -555,14 +555,12 @@ pub const ArrayFireBackend = struct {
             numDims = 1;
         } else {
             if (try rhs.ndim(allocator) == 1) {
-                var dims = af.Dim4{};
-                dims.dims[0] = @intCast(try rhs.dim(allocator, 0));
+                var dims = af.Dim4.init(&.{@as(af.dim_t, @intCast(try rhs.dim(allocator, 0)))});
                 rhsArray = try af.ops.moddims(allocator, rhsArray, 2, dims);
                 modRhsArray = true;
             }
             if (try lhs.ndim(allocator) == 1) {
-                var dims = af.Dim4{};
-                dims.dims[1] = @intCast(try lhs.dim(allocator, 0));
+                var dims = af.Dim4.init(&.{ 1, @as(af.dim_t, @intCast(try lhs.dim(allocator, 0))) });
                 lhsArray = try af.ops.moddims(allocator, lhsArray, 2, dims);
                 modLhsArray = true;
             }
@@ -579,8 +577,7 @@ pub const ArrayFireBackend = struct {
         var arr = res;
         if (try lhs.ndim(allocator) == 1 and try rhs.ndim(allocator) == 2) {
             var current_dims = try res.getDims();
-            var new_dims = af.Dim4{};
-            new_dims.dims[0] = current_dims.dims[1];
+            var new_dims = af.Dim4.init(&.{current_dims.dims[1]});
             arr = try af.ops.moddims(allocator, res, 1, new_dims);
             res.deinit();
         }
@@ -1720,8 +1717,7 @@ pub const ArrayFireBackend = struct {
         var target_array = try toArray(allocator, target);
         var p_dims = try target_array.getDims();
         if (completeTensorIndex) {
-            p_dims = af.Dim4{};
-            p_dims.dims[0] = @intCast(p_dims.elements());
+            p_dims = af.Dim4.init(&.{@as(af.dim_t, @intCast(p_dims.elements()))});
         }
         var dims = try seqToDims(afIndices, p_dims, true);
         return dims.dimsToOwnedShape(allocator);

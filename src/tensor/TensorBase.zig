@@ -4,6 +4,7 @@ const tensor = @import("tensor.zig");
 const Dim = tensor.shape.Dim;
 const DType = tensor.DType;
 const defaultTensorBackend = tensor.defaultTensorBackend;
+const DefaultTensorType_t = tensor.DefaultTensorType_t;
 const dtypeTraits = tensor.dtypeTraits;
 const Index = tensor.Index;
 const Shape = tensor.shape.Shape;
@@ -60,12 +61,16 @@ pub const Tensor = struct {
         return Tensor{ .impl_ = impl };
     }
 
+    pub fn initEmpty(allocator: std.mem.Allocator) !Tensor {
+        return Tensor.init(TensorAdapterBase.init(try DefaultTensorType_t.initEmpty(allocator)));
+    }
+
     pub fn fromSlice(allocator: std.mem.Allocator, s: Shape, comptime T: type, data: []const T, data_type: DType) !Tensor {
         var backend_ = try defaultTensorBackend(allocator);
         return switch (T) {
             // TODO: handle more types
             // TODO: use `@ptrCast` to coerce to c types???
-            f16, f32, f64 => backend_.fromSlice(allocator, s, data.ptr, data_type),
+            f16, f32, f64 => backend_.fromSlice(allocator, s, @constCast(data.ptr), data_type),
             i16 => backend_.fromSlice(allocator, s, @as([*]c_short, @ptrCast(@alignCast(@constCast(data.ptr)))), data_type),
             u16 => backend_.fromSlice(allocator, s, @as([*]c_ushort, @ptrCast(@alignCast(@constCast(data.ptr)))), data_type),
             i32 => backend_.fromSlice(allocator, s, @as([*]c_int, @ptrCast(@alignCast(@constCast(data.ptr)))), data_type),
@@ -609,4 +614,162 @@ test "TensorBLASTest -> matmulShapes" {
     var res28 = try tensor.matmul(allocator, rand22, rand23, .None, .Transpose);
     defer res28.deinit();
     try std.testing.expect(tensor.shape.eql(try res28.shape(allocator), &.{ 256, 256, 2 }));
+}
+
+test "TensorBaseTest -> Metadata" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+    const s: Dim = 9;
+    var t = try tensor.rand(allocator, &.{ s, s }, .f32);
+    defer t.deinit();
+    try std.testing.expect(try t.elements(allocator) == s * s);
+    try std.testing.expect(!try t.isEmpty(allocator));
+    try std.testing.expect(try t.bytes(allocator) == s * s * @sizeOf(f32));
+
+    var e = try Tensor.initEmpty(allocator);
+    defer e.deinit();
+    try std.testing.expect(try e.elements(allocator) == 0);
+    try std.testing.expect(try e.isEmpty(allocator));
+    try std.testing.expect(!try e.isSparse(allocator));
+    try std.testing.expect(!try e.isLocked(allocator));
+}
+
+// TODO: test "TensorBaseTest -> hasAdapter" {}
+
+test "TensorBaseTest -> fromScalar" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+    var a = try tensor.fromScalar(allocator, f32, 3.14, .f32);
+    defer a.deinit();
+    try std.testing.expect(try a.elements(allocator) == 1);
+    try std.testing.expect(try a.ndim(allocator) == 0);
+    try std.testing.expect(!try a.isEmpty(allocator));
+    try std.testing.expect(tensor.shape.eql(try a.shape(allocator), &.{}));
+}
+
+// TODO: test "TensorBaseTest -> string" {}
+
+test "TensorBaseTest -> AssignmentOperators" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    // TODO: add support to evaluate as comptime string?
+    // e.g. try zt.eval("a += b", .{ a, b });
+
+    var a = try tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
+    defer a.deinit();
+    try a.inPlaceAdd(allocator, f64, 2);
+    var exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 3, .f32);
+    // no call to deinit; we'll manually do so w/o defer to allow reuse of var
+    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    exp.deinit();
+
+    try a.inPlaceSub(allocator, f64, 1);
+    exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 2, .f32);
+    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    exp.deinit();
+
+    try a.inPlaceMul(allocator, f64, 8);
+    exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 16, .f32);
+    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    exp.deinit();
+
+    try a.inPlaceDiv(allocator, f64, 4);
+    exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 4, .f32);
+    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    exp.deinit();
+
+    exp = try tensor.full(allocator, &.{ 4, 4 }, f64, 7, .f32);
+    try a.assign(allocator, Tensor, exp);
+    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+
+    var b = try tensor.initAssign(allocator, a);
+    defer b.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, b, exp, 1e-5));
+    exp.deinit();
+
+    try a.assign(allocator, f64, 6);
+    exp = try tensor.full(allocator, &.{ 4, 4 }, f64, 6, .f32);
+    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    exp.deinit();
+
+    exp = try tensor.full(allocator, &.{ 5, 6, 7 }, f64, 8, .f32);
+    defer exp.deinit();
+    try a.assign(allocator, Tensor, exp);
+    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+}
+
+test "TensorBaseTest -> CopyOperators" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var a = try tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
+    defer a.deinit();
+    var b = try tensor.initAssign(allocator, a);
+    defer b.deinit();
+    try a.inPlaceAdd(allocator, f32, 1);
+
+    var exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
+    try std.testing.expect(try tensor.allClose(allocator, b, exp, 1e-5));
+    exp.deinit();
+    exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 2, .f32);
+    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+
+    var c = try a.copy(allocator);
+    defer c.deinit();
+    try a.inPlaceAdd(allocator, f32, 1);
+    try std.testing.expect(try tensor.allClose(allocator, c, exp, 1e-5));
+    exp.deinit();
+    exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 3, .f32);
+    defer exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+}
+
+test "TensorBaseTest -> ConstructFromData" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    const val: f32 = 3;
+    var vec = [_]f32{val} ** 100;
+    var s: Shape = &.{ 10, 10 };
+
+    var a = try Tensor.fromSlice(allocator, s, f32, &vec, .f32);
+    defer a.deinit();
+    var exp = try tensor.full(allocator, s, f64, val, .f32);
+    defer exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+
+    var ascending: []const f32 = &.{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+    var t = try Tensor.fromSlice(allocator, &.{ 3, 4 }, f32, ascending, .f32);
+    defer t.deinit();
+    try std.testing.expect(try t.dtype(allocator) == .f32);
+    for (ascending, 0..) |v, i| {
+        var t_idx = try t.index(allocator, &.{
+            Index.initDim(@intCast(@mod(i, 3))),
+            Index.initDim(@intCast(@divTrunc(i, 3))),
+        });
+        defer t_idx.deinit();
+        try std.testing.expect(try t_idx.scalar(allocator, f32) == v);
+    }
+
+    // TODO: add fixtures/check stuff
+    var intV = try Tensor.fromSlice(allocator, &.{3}, i32, &.{ 1, 2, 3 }, .s32);
+    defer intV.deinit();
+    try std.testing.expect(try intV.dtype(allocator) == .s32);
+}
+
+test "TensorBaseTest -> reshape" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var a = try tensor.full(allocator, &.{ 4, 4 }, f64, 3, .f32);
+    defer a.deinit();
+    var b = try tensor.reshape(allocator, a, &.{ 8, 2 });
+    defer b.deinit();
+    try std.testing.expect(tensor.shape.eql(try b.shape(allocator), &.{ 8, 2 }));
+    var exp = try tensor.reshape(allocator, b, &.{ 4, 4 });
+    defer exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    // TODO: fix below; throws, but leaks
+    // try std.testing.expectError(error.ArrayFireError, tensor.reshape(allocator, a, &.{}));
 }
