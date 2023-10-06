@@ -7,12 +7,10 @@ const DType = tensor_.DType;
 const MatrixProperty = tensor_.MatrixProperty;
 const PadType = tensor_.PadType;
 const Shape = tensor_.shape.Shape;
-const SortIndexRes = tensor_.SortIndexRes;
 const SortMode = tensor_.SortMode;
 const Tensor = tensor_.Tensor;
 const TensorBackend = tensor_.TensorBackend;
 const TensorBackendType = tensor_.TensorBackendType;
-const ValIdxRes = tensor_.ValIdxRes;
 const DefaultTensorType_t = tensor_.DefaultTensorType_t;
 const TensorAdapterBase = tensor_.TensorAdapterBase;
 
@@ -258,16 +256,12 @@ pub fn where(
     return backend.where(allocator, condition, xTensor, yTensor);
 }
 
-pub fn topk(allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !ValIdxRes {
-    return (try input.backend(allocator)).topk(allocator, input, k, axis, sort_mode);
+pub fn topk(allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !void {
+    return (try input.backend(allocator)).topk(allocator, values, indices, input, k, axis, sort_mode);
 }
 
-pub fn sort(allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
-    return (try input.backend(allocator)).sort(allocator, input, axis, sort_mode);
-}
-
-pub fn sortIndex(allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !SortIndexRes {
-    return (try input.backend(allocator)).sortIndex(allocator, input, axis, sort_mode);
+pub fn sort(allocator: std.mem.Allocator, values: Tensor, indices: ?Tensor, input: Tensor, axis: Dim, sort_mode: SortMode) !void {
+    return (try input.backend(allocator)).sort(allocator, values, indices, input, axis, sort_mode);
 }
 
 pub fn argsort(allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
@@ -1018,12 +1012,12 @@ pub fn amax(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep
     return (try input.backend(allocator)).amax(allocator, input, axes, keep_dims);
 }
 
-pub fn min(allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) !ValIdxRes {
-    return (try input.backend(allocator)).min(allocator, input, axis, keep_dims);
+pub fn min(allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, axis: u32, keep_dims: bool) !void {
+    return (try input.backend(allocator)).min(allocator, values, indices, input, axis, keep_dims);
 }
 
-pub fn max(allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) !ValIdxRes {
-    return (try input.backend(allocator)).max(allocator, input, axis, keep_dims);
+pub fn max(allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, axis: u32, keep_dims: bool) !void {
+    return (try input.backend(allocator)).max(allocator, values, indices, input, axis, keep_dims);
 }
 
 pub fn sum(allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {

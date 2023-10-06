@@ -29,8 +29,6 @@ pub const TensorAdapterBase = @import("TensorAdapter.zig").TensorAdapterBase;
 
 // TensorBackend.zig exports
 pub const areBackendsEqual = tensor_backend.areBackendsEqual;
-pub const ValIdxRes = tensor_backend.ValIdxRes;
-pub const SortIndexRes = tensor_backend.SortIndexRes;
 pub const TensorBackend = tensor_backend.TensorBackend;
 
 // TensorBase.zig exports

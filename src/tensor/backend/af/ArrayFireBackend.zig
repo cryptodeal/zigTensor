@@ -22,8 +22,6 @@ const inPlaceBatchFunc = af.inPlaceBatchFunc;
 const Index = zt_index.Index;
 const IndexType = zt_index.IndexType;
 const deinit = @import("../../Init.zig").deinit;
-const ValIdxRes = zt_backend.ValIdxRes;
-const SortIndexRes = zt_backend.SortIndexRes;
 const condenseIndices = af_utils.condenseIndices;
 const gForDim = af_utils.gForDim;
 const seqToDims = af_utils.seqToDims;
@@ -404,11 +402,13 @@ pub const ArrayFireBackend = struct {
     pub fn topk(
         _: *const ArrayFireBackend,
         allocator: std.mem.Allocator,
+        values: Tensor,
+        indices: Tensor,
         input: Tensor,
         k: u32,
         axis: Dim,
         sort_mode: SortMode,
-    ) !ValIdxRes {
+    ) !void {
         var output = try af.ops.topk(
             allocator,
             try toArray(allocator, input),
@@ -416,55 +416,31 @@ pub const ArrayFireBackend = struct {
             @intCast(axis),
             af.ops.ztToAfTopKSortMode(sort_mode),
         );
-        return .{
-            .values = Tensor.init(
-                TensorAdapterBase.init(
-                    try ArrayFireTensor.initFromArray(
-                        allocator,
-                        output.values,
-                        try input.ndim(allocator),
-                    ),
-                ),
-            ),
-            .indices = Tensor.init(
-                TensorAdapterBase.init(
-                    try ArrayFireTensor.initFromArray(
-                        allocator,
-                        output.indices,
-                        try input.ndim(allocator),
-                    ),
-                ),
-            ),
-        };
-    }
-
-    pub fn sort(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
-        if (sort_mode != .Descending and sort_mode != .Ascending) {
-            std.log.debug(
-                "Cannot sort ArrayFire tensor with given SortMode: only Descending and Ascending supported.\n",
-                .{},
-            );
-            return error.UnsupportedSortMode;
-        }
-        var arr = try af.ops.sort(allocator, try toArray(allocator, input), @intCast(axis), sort_mode == .Ascending);
-        return Tensor.init(
+        var tmp_vals = Tensor.init(
             TensorAdapterBase.init(
                 try ArrayFireTensor.initFromArray(
                     allocator,
-                    arr,
+                    output.values,
                     try input.ndim(allocator),
                 ),
             ),
         );
+        defer tmp_vals.deinit();
+        try values.assign(allocator, Tensor, tmp_vals);
+        var tmp_indices = Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    output.indices,
+                    try input.ndim(allocator),
+                ),
+            ),
+        );
+        defer tmp_indices.deinit();
+        try indices.assign(allocator, Tensor, tmp_indices);
     }
 
-    pub fn sortIndex(
-        _: *const ArrayFireBackend,
-        allocator: std.mem.Allocator,
-        input: Tensor,
-        axis: Dim,
-        sort_mode: SortMode,
-    ) !SortIndexRes {
+    pub fn sort(_: *const ArrayFireBackend, allocator: std.mem.Allocator, values: Tensor, indices: ?Tensor, input: Tensor, axis: Dim, sort_mode: SortMode) !void {
         if (sort_mode != .Descending and sort_mode != .Ascending) {
             std.log.debug(
                 "Cannot sort ArrayFire tensor with given SortMode: only Descending and Ascending supported.\n",
@@ -472,9 +448,22 @@ pub const ArrayFireBackend = struct {
             );
             return error.UnsupportedSortMode;
         }
-        var output = try af.ops.sortIndex(allocator, try toArray(allocator, input), @intCast(axis), sort_mode == .Ascending);
-        return .{
-            .out = Tensor.init(
+        if (indices == null) {
+            var arr = try af.ops.sort(allocator, try toArray(allocator, input), @intCast(axis), sort_mode == .Ascending);
+            var tmp_values = Tensor.init(
+                TensorAdapterBase.init(
+                    try ArrayFireTensor.initFromArray(
+                        allocator,
+                        arr,
+                        try input.ndim(allocator),
+                    ),
+                ),
+            );
+            defer tmp_values.deinit();
+            try values.assign(allocator, Tensor, tmp_values);
+        } else {
+            var output = try af.ops.sortIndex(allocator, try toArray(allocator, input), @intCast(axis), sort_mode == .Ascending);
+            var tmp_vals = Tensor.init(
                 TensorAdapterBase.init(
                     try ArrayFireTensor.initFromArray(
                         allocator,
@@ -482,8 +471,10 @@ pub const ArrayFireBackend = struct {
                         try input.ndim(allocator),
                     ),
                 ),
-            ),
-            .idx = Tensor.init(
+            );
+            defer tmp_vals.deinit();
+            try values.assign(allocator, Tensor, tmp_vals);
+            var tmp_indices = Tensor.init(
                 TensorAdapterBase.init(
                     try ArrayFireTensor.initFromArray(
                         allocator,
@@ -491,8 +482,10 @@ pub const ArrayFireBackend = struct {
                         try input.ndim(allocator),
                     ),
                 ),
-            ),
-        };
+            );
+            defer tmp_indices.deinit();
+            try indices.?.assign(allocator, Tensor, tmp_indices);
+        }
     }
 
     pub fn argsort(
@@ -1210,13 +1203,13 @@ pub const ArrayFireBackend = struct {
         }
     }
 
-    pub fn min(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) !ValIdxRes {
+    pub fn min(_: *const ArrayFireBackend, allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, axis: u32, keep_dims: bool) !void {
         var res = try af.ops.imin(allocator, try toArray(allocator, input), @intCast(axis));
         var cond_vals = try condenseIndices(allocator, res.out, keep_dims, null, false);
         defer if (cond_vals.modified) res.out.deinit();
         var cond_idx = try condenseIndices(allocator, res.idx, keep_dims, null, false);
         defer if (cond_idx.modified) res.idx.deinit();
-        var values = Tensor.init(
+        var tmp_vals = Tensor.init(
             TensorAdapterBase.init(
                 try ArrayFireTensor.initFromArray(
                     allocator,
@@ -1225,7 +1218,9 @@ pub const ArrayFireBackend = struct {
                 ),
             ),
         );
-        var indices = Tensor.init(
+        defer tmp_vals.deinit();
+        try values.assign(allocator, Tensor, tmp_vals);
+        var tmp_indices = Tensor.init(
             TensorAdapterBase.init(
                 try ArrayFireTensor.initFromArray(
                     allocator,
@@ -1234,16 +1229,17 @@ pub const ArrayFireBackend = struct {
                 ),
             ),
         );
-        return .{ .values = values, .indices = indices };
+        defer tmp_indices.deinit();
+        try indices.assign(allocator, Tensor, tmp_indices);
     }
 
-    pub fn max(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) !ValIdxRes {
+    pub fn max(_: *const ArrayFireBackend, allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, axis: u32, keep_dims: bool) !void {
         var res = try af.ops.imax(allocator, try toArray(allocator, input), @intCast(axis));
         var cond_vals = try condenseIndices(allocator, res.out, keep_dims, null, false);
         defer if (cond_vals.modified) res.out.deinit();
         var cond_idx = try condenseIndices(allocator, res.idx, keep_dims, null, false);
         defer if (cond_idx.modified) res.idx.deinit();
-        var values = Tensor.init(
+        var tmp_vals = Tensor.init(
             TensorAdapterBase.init(
                 try ArrayFireTensor.initFromArray(
                     allocator,
@@ -1252,7 +1248,9 @@ pub const ArrayFireBackend = struct {
                 ),
             ),
         );
-        var indices = Tensor.init(
+        defer tmp_vals.deinit();
+        try values.assign(allocator, Tensor, tmp_vals);
+        var tmp_indices = Tensor.init(
             TensorAdapterBase.init(
                 try ArrayFireTensor.initFromArray(
                     allocator,
@@ -1261,7 +1259,8 @@ pub const ArrayFireBackend = struct {
                 ),
             ),
         );
-        return .{ .values = values, .indices = indices };
+        defer tmp_indices.deinit();
+        try indices.assign(allocator, Tensor, tmp_indices);
     }
 
     pub fn sum(_: *const ArrayFireBackend, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {

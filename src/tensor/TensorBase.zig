@@ -65,6 +65,10 @@ pub const Tensor = struct {
         return Tensor.init(TensorAdapterBase.init(try DefaultTensorType_t.initEmpty(allocator)));
     }
 
+    pub fn initHandle(allocator: std.mem.Allocator, s: Shape, data_type: DType) !Tensor {
+        return Tensor.init(TensorAdapterBase.init(try DefaultTensorType_t.initHandle(allocator, s, data_type)));
+    }
+
     pub fn fromSlice(allocator: std.mem.Allocator, s: Shape, comptime T: type, data: []const T, data_type: DType) !Tensor {
         var backend_ = try defaultTensorBackend(allocator);
         return switch (T) {
@@ -1054,7 +1058,7 @@ test "TensorBaseTest -> astype" {
 
 // TODO: need to fix `idxAssign`/`idxOpAssign` so that when `is_linear` is true,
 // the assignment value matches the dims of the indices array
-// TODO: test "TensorBaseTest -> where" {}
+// test "TensorBaseTest -> where" {}
 
 test "TensorBaseTest -> topk" {
     const allocator = std.testing.allocator;
@@ -1062,21 +1066,96 @@ test "TensorBaseTest -> topk" {
 
     var a = try tensor.arange(allocator, &.{ 10, 2 }, 0, .f32);
     defer a.deinit();
-    var res = try tensor.topk(allocator, a, 3, 0, .Descending);
-    var values = res.values;
+    var values = try Tensor.initEmpty(allocator);
     defer values.deinit();
-    var indices = res.indices;
+    var indices = try Tensor.initEmpty(allocator);
     defer indices.deinit();
+    try tensor.topk(allocator, values, indices, a, 3, 0, .Descending);
     var exp = try Tensor.fromSlice(allocator, &.{ 3, 2 }, f32, &.{ 9, 8, 7, 9, 8, 7 }, .f32);
     defer exp.deinit();
     try std.testing.expect(try tensor.allClose(allocator, values, exp, 1e-5));
 
-    var res2 = try tensor.topk(allocator, a, 4, 0, .Ascending);
-    var values2 = res2.values;
+    var values2 = try Tensor.initEmpty(allocator);
     defer values2.deinit();
-    var indices2 = res2.indices;
+    var indices2 = try Tensor.initEmpty(allocator);
     defer indices2.deinit();
+    try tensor.topk(allocator, values2, indices2, a, 4, 0, .Ascending);
     var exp2 = try Tensor.fromSlice(allocator, &.{ 4, 2 }, f32, &.{ 0, 1, 2, 3, 0, 1, 2, 3 }, .f32);
     defer exp2.deinit();
     try std.testing.expect(try tensor.allClose(allocator, values2, exp2, 1e-5));
+}
+
+test "TensorBaseTest -> sort" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var dims: Shape = &.{ 10, 2 };
+    var a = try tensor.arange(allocator, dims, 0, .f32);
+    defer a.deinit();
+    var sorted = try Tensor.initEmpty(allocator);
+    defer sorted.deinit();
+    try tensor.sort(allocator, sorted, null, a, 0, .Descending);
+    var expected = try Tensor.initHandle(allocator, &.{dims[0]}, try a.dtype(allocator));
+    defer expected.deinit();
+    for (0..@intCast(dims[0])) |i| {
+        try expected.indexAssign(allocator, i64, dims[0] - @as(i64, @intCast(i)) - 1, &.{Index.initDim(@intCast(i))});
+    }
+    var tiled = try tensor.tile(allocator, expected, &.{ 1, 2 });
+    defer tiled.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, sorted, tiled, 1e-5));
+
+    var sorted2 = try Tensor.initEmpty(allocator);
+    defer sorted2.deinit();
+    try tensor.sort(allocator, sorted2, null, tiled, 0, .Ascending);
+    try std.testing.expect(try tensor.allClose(allocator, a, sorted2, 1e-5));
+
+    var b = try tensor.rand(allocator, &.{10}, .f32);
+    defer b.deinit();
+    var values = try Tensor.initEmpty(allocator);
+    defer values.deinit();
+    var indices = try Tensor.initEmpty(allocator);
+    defer indices.deinit();
+    try tensor.sort(allocator, values, indices, b, 0, .Descending);
+    var sorted3 = try Tensor.initEmpty(allocator);
+    defer sorted3.deinit();
+    try tensor.sort(allocator, sorted3, null, b, 0, .Descending);
+    try std.testing.expect(try tensor.allClose(allocator, values, sorted3, 1e-5));
+    var indices_exp = try tensor.argsort(allocator, b, 0, .Descending);
+    defer indices_exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, indices, indices_exp, 1e-5));
+}
+
+test "TensorBaseTest -> argsort" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var dims: Shape = &.{ 10, 2 };
+    var a = try tensor.arange(allocator, dims, 0, .f32);
+    defer a.deinit();
+    var sorted = try tensor.argsort(allocator, a, 0, .Descending);
+    defer sorted.deinit();
+
+    var expected = try Tensor.initHandle(allocator, &.{dims[0]}, .u32);
+    defer expected.deinit();
+    for (0..@intCast(dims[0])) |i| {
+        try expected.indexAssign(allocator, i64, dims[0] - @as(i64, @intCast(i)) - 1, &.{Index.initDim(@intCast(i))});
+    }
+    var tiled = try tensor.tile(allocator, expected, &.{ 1, 2 });
+    defer tiled.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, sorted, tiled, 1e-5));
+
+    var sorted2 = try tensor.argsort(allocator, tiled, 0, .Ascending);
+    defer sorted2.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, tiled, sorted2, 1e-5));
+}
+
+// TODO: test "TensorBaseTest -> scalar" {}
+
+test "TensorBaseTest -> isContiguous" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var a = try tensor.rand(allocator, &.{ 10, 10 }, .f32);
+    defer a.deinit();
+    try std.testing.expect(try a.isContiguous(allocator));
 }

@@ -289,6 +289,12 @@ pub const ArrayFireTensor = struct {
         return self;
     }
 
+    pub fn initHandle(allocator: std.mem.Allocator, _shape: Shape, data_type: DType) !*ArrayFireTensor {
+        var af_dims = try af.ops.ztToAfDims(_shape);
+        var arr = try af.Array.initHandle(allocator, @intCast(af_dims.ndims()), af_dims, af.ops.ztToAfType(data_type));
+        return ArrayFireTensor.initFromArray(allocator, arr, zt_shape.ndim(_shape));
+    }
+
     pub fn initEmpty(allocator: std.mem.Allocator) !*ArrayFireTensor {
         var af_dims = af.Dim4.init(&.{0});
         var arr = try af.Array.initHandle(allocator, @intCast(af.AF_MAX_DIMS), af_dims, af.Dtype.f32);

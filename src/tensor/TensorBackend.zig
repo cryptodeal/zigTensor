@@ -18,10 +18,6 @@ pub fn areBackendsEqual(self: TensorBackend, other: TensorBackend) bool {
     return self.backendType() == other.backendType();
 }
 
-pub const ValIdxRes = struct { values: Tensor, indices: Tensor };
-
-pub const SortIndexRes = struct { out: Tensor, idx: Tensor };
-
 /// A Tensor backend that can be used to store global state associated with a
 /// particular tensor implementation.
 ///
@@ -58,9 +54,8 @@ pub const TensorBackend = struct {
         arange: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: Shape, seq_dim: Dim, dtype: DType) anyerror!Tensor,
         iota: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dims: Shape, tile_dims: Shape, dtype: DType) anyerror!Tensor,
         where: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, condition: Tensor, x: Tensor, y: Tensor) anyerror!Tensor,
-        topk: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) anyerror!ValIdxRes,
-        sort: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) anyerror!Tensor,
-        sortIndex: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) anyerror!SortIndexRes,
+        topk: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) anyerror!void,
+        sort: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, values: Tensor, indices: ?Tensor, input: Tensor, axis: Dim, sort_mode: SortMode) anyerror!void,
         argsort: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) anyerror!Tensor,
         matmul: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, lhs_prop: MatrixProperty, rhs_prop: MatrixProperty) anyerror!Tensor,
         reshape: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor, shape: Shape) anyerror!Tensor,
@@ -94,8 +89,8 @@ pub const TensorBackend = struct {
         triu: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!Tensor,
         amin: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
         amax: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
-        min: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) anyerror!ValIdxRes,
-        max: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) anyerror!ValIdxRes,
+        min: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, axis: u32, keep_dims: bool) anyerror!void,
+        max: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, axis: u32, keep_dims: bool) anyerror!void,
         sum: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) anyerror!Tensor,
         cumsum: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: u32) anyerror!Tensor,
         argmax: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) anyerror!Tensor,
@@ -452,20 +447,16 @@ pub const TensorBackend = struct {
         return self.vtable.iota(self.ptr, allocator, dims, tile_dims, dtype);
     }
 
-    pub fn topk(self: *const Self, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !ValIdxRes {
-        return self.vtable.topk(self.ptr, allocator, input, k, axis, sort_mode);
+    pub fn topk(self: *const Self, allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !void {
+        return self.vtable.topk(self.ptr, allocator, values, indices, input, k, axis, sort_mode);
     }
 
     pub fn where(self: *const Self, allocator: std.mem.Allocator, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
         return self.vtable.where(self.ptr, allocator, condition, x, y);
     }
 
-    pub fn sort(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
-        return self.vtable.sort(self.ptr, allocator, input, axis, sort_mode);
-    }
-
-    pub fn sortIndex(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !SortIndexRes {
-        return self.vtable.sortIndex(self.ptr, allocator, input, axis, sort_mode);
+    pub fn sort(self: *const Self, allocator: std.mem.Allocator, values: Tensor, indices: ?Tensor, input: Tensor, axis: Dim, sort_mode: SortMode) !void {
+        return self.vtable.sort(self.ptr, allocator, values, indices, input, axis, sort_mode);
     }
 
     pub fn argsort(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
@@ -600,12 +591,12 @@ pub const TensorBackend = struct {
         return self.vtable.amax(self.ptr, allocator, input, axes, keep_dims);
     }
 
-    pub fn min(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) !ValIdxRes {
-        return self.vtable.min(self.ptr, allocator, input, axis, keep_dims);
+    pub fn min(self: *const Self, allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, axis: u32, keep_dims: bool) !void {
+        return self.vtable.min(self.ptr, allocator, values, indices, input, axis, keep_dims);
     }
 
-    pub fn max(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) !ValIdxRes {
-        return self.vtable.max(self.ptr, allocator, input, axis, keep_dims);
+    pub fn max(self: *const Self, allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, axis: u32, keep_dims: bool) !void {
+        return self.vtable.max(self.ptr, allocator, values, indices, input, axis, keep_dims);
     }
 
     pub fn sum(self: *const Self, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
@@ -849,19 +840,14 @@ pub const TensorBackend = struct {
                 return self.where(allocator, condition, x, y);
             }
 
-            fn topk(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !ValIdxRes {
+            fn topk(ctx: *anyopaque, allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, k: u32, axis: Dim, sort_mode: SortMode) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.topk(allocator, input, k, axis, sort_mode);
+                return self.topk(allocator, values, indices, input, k, axis, sort_mode);
             }
 
-            fn sort(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
+            fn sort(ctx: *anyopaque, allocator: std.mem.Allocator, values: Tensor, indices: ?Tensor, input: Tensor, axis: Dim, sort_mode: SortMode) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.sort(allocator, input, axis, sort_mode);
-            }
-
-            fn sortIndex(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !SortIndexRes {
-                const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.sortIndex(allocator, input, axis, sort_mode);
+                return self.sort(allocator, values, indices, input, axis, sort_mode);
             }
 
             fn argsort(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: Dim, sort_mode: SortMode) !Tensor {
@@ -1029,14 +1015,14 @@ pub const TensorBackend = struct {
                 return self.amax(allocator, input, axes, keep_dims);
             }
 
-            fn min(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) !ValIdxRes {
+            fn min(ctx: *anyopaque, allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, axis: u32, keep_dims: bool) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.min(allocator, input, axis, keep_dims);
+                return self.min(allocator, values, indices, input, axis, keep_dims);
             }
 
-            fn max(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axis: u32, keep_dims: bool) !ValIdxRes {
+            fn max(ctx: *anyopaque, allocator: std.mem.Allocator, values: Tensor, indices: Tensor, input: Tensor, axis: u32, keep_dims: bool) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.max(allocator, input, axis, keep_dims);
+                return self.max(allocator, values, indices, input, axis, keep_dims);
             }
 
             fn sum(ctx: *anyopaque, allocator: std.mem.Allocator, input: Tensor, axes: []const i64, keep_dims: bool) !Tensor {
@@ -1312,7 +1298,6 @@ pub const TensorBackend = struct {
                 .where = impl.where,
                 .topk = impl.topk,
                 .sort = impl.sort,
-                .sortIndex = impl.sortIndex,
                 .argsort = impl.argsort,
                 .matmul = impl.matmul,
                 .reshape = impl.reshape,
