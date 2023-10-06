@@ -118,7 +118,7 @@ pub const Index = struct {
     /// Underlying data referred to by the index.
     index_: IndexVariant,
 
-    fn initTensor(tensor: Tensor) Index {
+    pub fn initTensor(tensor: Tensor) Index {
         return .{
             .type_ = .Tensor,
             .index_ = .{ .Tensor = tensor },

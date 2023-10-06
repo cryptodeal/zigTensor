@@ -848,3 +848,235 @@ test "TensorBaseTest -> transpose" {
     try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 7, 1, 2, 3 }));
     res.deinit();
 }
+
+test "TensorBaseTest -> tile" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var a = try tensor.full(allocator, &.{ 4, 4 }, f64, 3, .f32);
+    defer a.deinit();
+    var tiled = try tensor.tile(allocator, a, &.{ 2, 2 });
+    defer tiled.deinit();
+    try std.testing.expect(tensor.shape.eql(try tiled.shape(allocator), &.{ 8, 8 }));
+    var exp = try tensor.full(allocator, &.{ 8, 8 }, f64, 3, .f32);
+    defer exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, tiled, exp, 1e-5));
+
+    var tiled2 = try tensor.tile(allocator, a, &.{});
+    defer tiled2.deinit();
+    try std.testing.expect(tensor.shape.eql(try tiled2.shape(allocator), try a.shape(allocator)));
+
+    var s = try tensor.fromScalar(allocator, f64, 3.14, .f32);
+    defer s.deinit();
+    var tiled3 = try tensor.tile(allocator, s, &.{ 3, 3 });
+    defer tiled3.deinit();
+    try std.testing.expect(tensor.shape.eql(try tiled3.shape(allocator), &.{ 3, 3 }));
+    var tiled4 = try tensor.tile(allocator, s, &.{});
+    defer tiled4.deinit();
+    try std.testing.expect(tensor.shape.eql(try tiled4.shape(allocator), try s.shape(allocator)));
+}
+
+test "TensorBaseTest -> concatenate" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var a = try tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
+    defer a.deinit();
+    var b = try tensor.full(allocator, &.{ 3, 3 }, f64, 2, .f32);
+    defer b.deinit();
+    var c = try tensor.full(allocator, &.{ 3, 3 }, f64, 3, .f32);
+    defer c.deinit();
+
+    var res = try tensor.concatenate(allocator, &.{ a, b, c }, 0);
+    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 9, 3 }));
+    res.deinit();
+
+    // Empty tensors
+    var empty1 = try Tensor.initEmpty(allocator);
+    defer empty1.deinit();
+    var empty2 = try Tensor.initEmpty(allocator);
+    defer empty2.deinit();
+    res = try tensor.concatenate(allocator, &.{ empty1, empty2 }, 0);
+    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{0}));
+    res.deinit();
+    res = try tensor.concatenate(allocator, &.{ empty1, empty2 }, 2);
+    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 0, 1, 1 }));
+    res.deinit();
+    var d = try tensor.rand(allocator, &.{ 5, 5 }, .f32);
+    defer d.deinit();
+    res = try tensor.concatenate(allocator, &.{ d, empty1 }, 1);
+    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 5, 5 }));
+    res.deinit();
+
+    // More tensors
+    // TODO{zt.Tensor}{concat} just concat everything once we enforce
+    // arbitrarily-many tensors (10 is upper limit for ArrayFire Backend)
+    const val: f32 = 3;
+    const axis: u32 = 0;
+    var e = try tensor.full(allocator, &.{ 4, 2 }, f64, val, .f32);
+    defer e.deinit();
+    var tmp = try tensor.concatenate(allocator, &.{ e, e, e }, axis);
+    defer tmp.deinit();
+    var t = try tensor.concatenate(allocator, &.{ e, e, e, tmp }, axis);
+    defer t.deinit();
+    try std.testing.expect(tensor.shape.eql(try t.shape(allocator), &.{ 24, 2 }));
+    var exp = try tensor.full(allocator, &.{ 24, 2 }, f64, val, .f32);
+    defer exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, t, exp, 1e-5));
+}
+
+test "TensorBaseTest -> nonzero" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var idxs: []const Dim = &.{ 0, 1, 4, 9, 11, 23, 55, 82, 91 };
+    var a = try tensor.full(allocator, &.{ 10, 10 }, f64, 1, .u32);
+    defer a.deinit();
+    for (idxs) |idx| {
+        try a.indexAssign(
+            allocator,
+            f64,
+            0,
+            &.{
+                Index.initDim(@divTrunc(idx, 10)),
+                Index.initDim(@mod(idx, 10)),
+            },
+        );
+    }
+
+    var indices = try tensor.nonzero(allocator, a);
+    defer indices.deinit();
+    var nnz = try a.elements(allocator) - @as(i64, @intCast(idxs.len));
+    try std.testing.expect(tensor.shape.eql(try indices.shape(allocator), &.{nnz}));
+    var flat_a = try a.flatten(allocator);
+    defer flat_a.deinit();
+    var res = try flat_a.index(allocator, &.{Index.initTensor(indices)});
+    defer res.deinit();
+    var exp = try tensor.full(allocator, &.{nnz}, f64, 1, .u32);
+    defer exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, res, exp, 1e-5));
+}
+
+test "TensorBaseTest -> flatten" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    const s: Dim = 6;
+    var a = try tensor.full(allocator, &.{ s, s, s }, f64, 2, .f32);
+    defer a.deinit();
+    var flat = try a.flatten(allocator);
+    defer flat.deinit();
+    try std.testing.expect(tensor.shape.eql(try flat.shape(allocator), &.{s * s * s}));
+    var exp = try tensor.full(allocator, &.{s * s * s}, f64, 2, .f32);
+    defer exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, flat, exp, 1e-5));
+}
+
+test "TensorBaseTest -> pad" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var t = try tensor.rand(allocator, &.{ 5, 2 }, .f32);
+    defer t.deinit();
+    var zero_padded = try tensor.pad(
+        allocator,
+        t,
+        &.{ [2]Dim{ 1, 2 }, [2]Dim{ 3, 4 } },
+        .Constant,
+    );
+    defer zero_padded.deinit();
+
+    var a = try tensor.full(allocator, &.{ 8, 3 }, f64, 0, .f32);
+    var b = try tensor.full(allocator, &.{ 1, 2 }, f64, 0, .f32);
+    var c = try tensor.full(allocator, &.{ 2, 2 }, f64, 0, .f32);
+    var d = try tensor.full(allocator, &.{ 8, 4 }, f64, 0, .f32);
+    var e = try tensor.concatenate(allocator, &.{ b, t, c }, 0);
+    b.deinit();
+    c.deinit();
+
+    var zero_test = try tensor.concatenate(allocator, &.{ a, e, d }, 1);
+    defer zero_test.deinit();
+    a.deinit();
+    d.deinit();
+    e.deinit();
+
+    try std.testing.expect(try tensor.allClose(allocator, zero_padded, zero_test, 1e-5));
+
+    var edge_padded = try tensor.pad(
+        allocator,
+        t,
+        &.{ [2]Dim{ 1, 1 }, [2]Dim{ 2, 2 } },
+        .Edge,
+    );
+    defer edge_padded.deinit();
+    a = try t.index(allocator, &.{ Index.initDim(0), Index.initRange(tensor.span) });
+    b = try tensor.reshape(allocator, a, &.{ 1, 2 });
+    a.deinit();
+    a = try t.index(allocator, &.{ Index.initDim(try t.dim(allocator, 0) - 1), Index.initRange(tensor.span) });
+    c = try tensor.reshape(allocator, a, &.{ 1, 2 });
+    a.deinit();
+    a = try tensor.concatenate(allocator, &.{ b, t, c }, 0);
+    b.deinit();
+    c.deinit();
+    var v_tiled0 = try a.index(allocator, &.{ Index.initRange(tensor.span), Index.initDim(0) });
+    defer v_tiled0.deinit();
+    var v_tiled1 = try a.index(allocator, &.{ Index.initRange(tensor.span), Index.initDim(1) });
+    defer v_tiled1.deinit();
+    a.deinit();
+    a = try tensor.tile(allocator, v_tiled0, &.{ 1, 3 });
+    b = try tensor.tile(allocator, v_tiled1, &.{ 1, 3 });
+    c = try tensor.concatenate(allocator, &.{ a, b }, 1);
+    a.deinit();
+    b.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, edge_padded, c, 1e-5));
+    c.deinit();
+
+    var symmetric_padded = try tensor.pad(allocator, t, &.{ [2]Dim{ 1, 1 }, [2]Dim{ 2, 2 } }, .Symmetric);
+    defer symmetric_padded.deinit();
+    a = try tensor.concatenate(allocator, &.{ v_tiled1, v_tiled1, v_tiled0 }, 1);
+    defer a.deinit();
+    b = try tensor.concatenate(allocator, &.{ v_tiled1, v_tiled0, v_tiled0, a }, 1);
+    defer b.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, symmetric_padded, b, 1e-5));
+}
+
+test "TensorBaseTest -> astype" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var a = try tensor.rand(allocator, &.{ 3, 3 }, .f32);
+    defer a.deinit();
+    try std.testing.expect(try a.dtype(allocator) == .f32);
+    var b = try a.astype(allocator, .f64);
+    defer b.deinit();
+    try std.testing.expect(try b.dtype(allocator) == .f64);
+}
+
+// TODO: need to fix `idxAssign`/`idxOpAssign` so that when `is_linear` is true,
+// the assignment value matches the dims of the indices array
+// TODO: test "TensorBaseTest -> where" {}
+
+test "TensorBaseTest -> topk" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var a = try tensor.arange(allocator, &.{ 10, 2 }, 0, .f32);
+    defer a.deinit();
+    var res = try tensor.topk(allocator, a, 3, 0, .Descending);
+    var values = res.values;
+    defer values.deinit();
+    var indices = res.indices;
+    defer indices.deinit();
+    var exp = try Tensor.fromSlice(allocator, &.{ 3, 2 }, f32, &.{ 9, 8, 7, 9, 8, 7 }, .f32);
+    defer exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, values, exp, 1e-5));
+
+    var res2 = try tensor.topk(allocator, a, 4, 0, .Ascending);
+    var values2 = res2.values;
+    defer values2.deinit();
+    var indices2 = res2.indices;
+    defer indices2.deinit();
+    var exp2 = try Tensor.fromSlice(allocator, &.{ 4, 2 }, f32, &.{ 0, 1, 2, 3, 0, 1, 2, 3 }, .f32);
+    defer exp2.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, values2, exp2, 1e-5));
+}

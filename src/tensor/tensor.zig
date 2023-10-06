@@ -13,6 +13,7 @@ pub const defaultTensorBackend = default_tensor_type.defaultTensorBackend;
 // Index.zig exports
 pub const end_t = index.end_t;
 pub const end = index.end;
+pub const span = index.span;
 pub const IndexType = index.IndexType;
 pub const RangeIdxTypeTag = index.RangeIdxTypeTag;
 pub const RangeError = index.RangeError;
