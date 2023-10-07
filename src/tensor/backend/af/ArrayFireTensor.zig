@@ -498,10 +498,10 @@ pub const ArrayFireTensor = struct {
     pub fn strides(self: *ArrayFireTensor, allocator: std.mem.Allocator) ![]Dim {
         var arr = try self.getHandle(allocator);
         var afStrides = try arr.getStrides();
-        return afStrides.dimsToOwnedShape(allocator);
+        return afStrides.getOwnedStrides(allocator, self.numDims());
     }
 
-    pub fn stream(self: *ArrayFireTensor, allocator: std.mem.Allocator) !runtime.Stream {
+    pub fn stream(self: *ArrayFireTensor, allocator: std.mem.Allocator) !*runtime.Stream {
         // TODO indexing is unlikely to change the stream associated with a tensor.
         // But if it can, we need to call `getHandle()` here.
         var bknd = try ArrayFireBackend.getInstance(allocator);

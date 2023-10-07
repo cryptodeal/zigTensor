@@ -670,9 +670,35 @@ pub const Dim4 = struct {
         return @intCast(self.dims[0] * self.dims[1] * self.dims[2] * self.dims[3]);
     }
 
-    pub fn dimsToOwnedShape(self: *const af.Dim4, allocator: std.mem.Allocator) ![]Dim {
+    pub fn getOwnedStrides(self: *const af.Dim4, allocator: std.mem.Allocator, num_dims: usize) ![]Dim {
         var out_shape = std.ArrayList(Dim).init(allocator);
+        if (num_dims > @as(usize, @intCast(af.AF_MAX_DIMS))) {
+            std.log.debug("afToZtDims: num_dims ({d}) > af.AF_MAX_DIMS ({d} )", .{ num_dims, af.AF_MAX_DIMS });
+            return error.ExceedsArrayFireMaxDims;
+        }
+
+        // num_dims constraint is enforced by the internal API per condenseDims
+        if (num_dims == 1 and self.elements() == 0) {
+            // Empty tensor
+            try out_shape.resize(1);
+            out_shape.items[0] = 0;
+            return out_shape.toOwnedSlice();
+        }
+
+        // num_dims == 0 --> scalar tensor
+        if (num_dims == 0) {
+            try out_shape.resize(0);
+            return out_shape.toOwnedSlice();
+        }
+
+        try out_shape.resize(num_dims);
+        for (0..num_dims) |i| out_shape.items[i] = @intCast(self.dims[i]);
+        return out_shape.toOwnedSlice();
+    }
+
+    pub fn dimsToOwnedShape(self: *const af.Dim4, allocator: std.mem.Allocator) ![]Dim {
         var num_dims = self.ndims();
+        var out_shape = std.ArrayList(Dim).init(allocator);
         if (num_dims > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug("afToZtDims: num_dims ({d}) > af.AF_MAX_DIMS ({d} )", .{ num_dims, af.AF_MAX_DIMS });
             return error.ExceedsArrayFireMaxDims;

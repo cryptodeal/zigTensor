@@ -8,7 +8,7 @@ const DefaultTensorType_t = tensor.DefaultTensorType_t;
 const dtypeTraits = tensor.dtypeTraits;
 const Index = tensor.Index;
 const Shape = tensor.shape.Shape;
-const Stream = @import("../runtime/Stream.zig");
+const Stream = @import("../runtime/runtime.zig").Stream;
 const TensorAdapterBase = tensor.TensorAdapterBase;
 const TensorBackend = tensor.TensorBackend;
 const ztTensorBackendsMatch = tensor.ztTensorBackendsMatch;
@@ -187,6 +187,7 @@ pub const Tensor = struct {
                 "Tensor.scalar: requested type of {s} doesn't match tensor type, which is {s}\n",
                 .{ type_trait.string, self_dtype.toString() },
             );
+            return error.ScalarFailedTypeMismatch;
         }
         return self.impl_.scalar(allocator, T);
     }
@@ -216,7 +217,7 @@ pub const Tensor = struct {
         return self.impl_.strides(allocator);
     }
 
-    pub fn stream(self: *const Tensor, allocator: std.mem.Allocator) !Stream {
+    pub fn stream(self: *const Tensor, allocator: std.mem.Allocator) !*Stream {
         return self.impl_.stream(allocator);
     }
 
@@ -1149,7 +1150,60 @@ test "TensorBaseTest -> argsort" {
     try std.testing.expect(try tensor.allClose(allocator, tiled, sorted2, 1e-5));
 }
 
-// TODO: test "TensorBaseTest -> scalar" {}
+fn assertScalarBehavior(allocator: std.mem.Allocator, comptime scalar_arg_type: type, data_type: DType) !void {
+    var scalar: scalar_arg_type = 42;
+    var one = try tensor.full(allocator, &.{1}, scalar_arg_type, scalar, data_type);
+    defer one.deinit();
+
+    var dtype_trait = comptime dtypeTraits(scalar_arg_type);
+    if (dtype_trait.zt_type != data_type) {
+        try std.testing.expectError(
+            error.ScalarFailedTypeMismatch,
+            one.scalar(allocator, scalar_arg_type),
+        );
+        return;
+    }
+    try std.testing.expectEqual(try one.scalar(allocator, scalar_arg_type), scalar);
+
+    var a = try tensor.rand(allocator, &.{ 5, 6 }, data_type);
+    defer a.deinit();
+    var actual = try tensor.full(allocator, &.{1}, scalar_arg_type, try a.scalar(allocator, scalar_arg_type), data_type);
+    defer actual.deinit();
+    var exp = try a.index(allocator, &.{ Index.initDim(0), Index.initDim(0) });
+    defer exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, actual, exp, 1e-5));
+}
+
+test "TensorBaseTest -> scalar" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+    var types: []const DType = &.{
+        DType.b8,
+        DType.u8,
+        DType.s16,
+        DType.u16,
+        DType.s32,
+        DType.u32,
+        DType.s64,
+        DType.u64,
+        DType.f16,
+        DType.f32,
+        DType.f64,
+    };
+    for (types) |data_type| {
+        try assertScalarBehavior(allocator, i8, data_type);
+        try assertScalarBehavior(allocator, u8, data_type);
+        try assertScalarBehavior(allocator, i16, data_type);
+        try assertScalarBehavior(allocator, u16, data_type);
+        try assertScalarBehavior(allocator, i32, data_type);
+        try assertScalarBehavior(allocator, u32, data_type);
+        try assertScalarBehavior(allocator, i64, data_type);
+        try assertScalarBehavior(allocator, u64, data_type);
+        try assertScalarBehavior(allocator, f16, data_type);
+        try assertScalarBehavior(allocator, f32, data_type);
+        try assertScalarBehavior(allocator, f64, data_type);
+    }
+}
 
 test "TensorBaseTest -> isContiguous" {
     const allocator = std.testing.allocator;
@@ -1159,3 +1213,66 @@ test "TensorBaseTest -> isContiguous" {
     defer a.deinit();
     try std.testing.expect(try a.isContiguous(allocator));
 }
+
+test "TensorBaseTest -> strides" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var a = try tensor.rand(allocator, &.{ 10, 10 }, .f32);
+    defer a.deinit();
+    var strides = try a.strides(allocator);
+    defer allocator.free(strides);
+    try std.testing.expect(tensor.shape.eql(strides, &.{ 1, 10 }));
+}
+
+test "TensorBaseTest -> stream" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var t1 = try tensor.rand(allocator, &.{ 10, 10 }, .f32);
+    defer t1.deinit();
+    var t2 = try tensor.negative(allocator, t1);
+    defer t2.deinit();
+    var t3 = try tensor.add(allocator, Tensor, t1, Tensor, t2);
+    defer t3.deinit();
+    try std.testing.expect(try t1.stream(allocator) == try t2.stream(allocator));
+    try std.testing.expect(try t1.stream(allocator) == try t3.stream(allocator));
+}
+
+test "TensorBaseTest -> asContiguousTensor" {
+    const Range = tensor.Range;
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var t = try tensor.rand(allocator, &.{ 5, 6, 7, 8 }, .f32);
+    defer t.deinit();
+    var indexed = try t.index(
+        allocator,
+        &.{
+            Index.initRange(Range.initWithStride(1, .{ .dim = 4 }, 2)),
+            Index.initRange(Range.initWithStride(0, .{ .dim = 6 }, 2)),
+            Index.initRange(Range.initWithStride(0, .{ .dim = 6 }, 3)),
+            Index.initRange(Range.initWithStride(0, .{ .dim = 5 }, 2)),
+        },
+    );
+    defer indexed.deinit();
+    var contiguous = try indexed.asContiguousTensor(allocator);
+    defer contiguous.deinit();
+    var strides = std.ArrayList(Dim).init(allocator);
+    defer strides.deinit();
+    var stride: Dim = 1;
+    for (0..try contiguous.ndim(allocator)) |i| {
+        try strides.append(stride);
+        stride *= try contiguous.dim(allocator, i);
+    }
+    var contig_strides = try contiguous.strides(allocator);
+    defer allocator.free(contig_strides);
+    try std.testing.expect(tensor.shape.eql(contig_strides, strides.items));
+}
+
+// TODO: test "TensorBaseTest -> host" {}
+
+// TODO: need to implement varying "overloads" for `arange`
+// TODO: test "TensorBaseTest -> arange" {}
+
+// TODO: test "TensorBaseTest -> iota" {}

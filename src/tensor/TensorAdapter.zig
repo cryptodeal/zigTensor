@@ -11,7 +11,7 @@ const Tensor = tensor.Tensor;
 const TensorBackend = tensor.TensorBackend;
 const TensorBackendType = tensor.TensorBackendType;
 // TODO: import from `../runtime/runtime.zig`
-const Stream = @import("../runtime/Stream.zig").Stream;
+const Stream = @import("../runtime/runtime.zig").Stream;
 
 pub const TensorAdapterBase = struct {
     const Self = @This();
@@ -37,7 +37,7 @@ pub const TensorAdapterBase = struct {
         isLocked: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!bool,
         isContiguous: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!bool,
         strides: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Shape,
-        stream: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Stream,
+        stream: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!*Stream,
         astype: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, dType: DType) anyerror!Tensor,
         index: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, indices: []const Index) anyerror!Tensor,
         flatten: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!Tensor,
@@ -146,7 +146,7 @@ pub const TensorAdapterBase = struct {
     /// the computation required to realize an up-to-date value for this tensor.
     /// E.g. `device()` may not yield a pointer to the up-to-date value -- to use
     /// this pointer, `Stream.sync` or `Stream.relativeSync` is required.
-    pub fn stream(self: *const Self, allocator: std.mem.Allocator) !Stream {
+    pub fn stream(self: *const Self, allocator: std.mem.Allocator) !*Stream {
         return self.vtable.stream(self.ptr, allocator);
     }
 
@@ -286,7 +286,7 @@ pub const TensorAdapterBase = struct {
                 return self.strides(allocator);
             }
 
-            fn stream(ctx: *anyopaque, allocator: std.mem.Allocator) !Stream {
+            fn stream(ctx: *anyopaque, allocator: std.mem.Allocator) !*Stream {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.stream(allocator);
             }

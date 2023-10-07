@@ -73,17 +73,17 @@ fn getOrWrapAfDeviceStream(
     afId: i32,
     nativeId: i32,
     afIdToStream: *std.AutoHashMap(i32, Arc(Stream)),
-) !Stream {
+) !*Stream {
     _ = nativeId;
     var iter = afIdToStream.get(afId);
     if (iter != null) {
-        return iter.?.value.*;
+        return iter.?.value;
     }
 
     if (ZT_ARRAYFIRE_USE_CPU) {
         var stream = try ArrayFireCPUStream.create(allocator);
         try afIdToStream.put(afId, stream);
-        return stream.value.*;
+        return stream.value;
     }
     //  else if (ZT_ARRAYFIRE_USE_CUDA) {
     //      TODO: add CUDA support
@@ -215,7 +215,7 @@ pub const ArrayFireBackend = struct {
     }
 
     /// Returns the stream from which the given array was created.
-    pub fn getStreamOfArray(self: *ArrayFireBackend, allocator: std.mem.Allocator, arr: *af.Array) !Stream {
+    pub fn getStreamOfArray(self: *ArrayFireBackend, allocator: std.mem.Allocator, arr: *af.Array) !*Stream {
         // TODO once we enforce integrate Device.setDevice into fl.setDevice, each
         // array's stream should always be wrapped already (via setDevice callback).
         const afId = try arr.getDeviceId();
@@ -324,6 +324,42 @@ pub const ArrayFireBackend = struct {
             @intCast(zt_shape.ndim(shape)),
             try af.ops.ztToAfDims(shape),
             af.ops.ztToAfType(dtype),
+        );
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    zt_shape.ndim(shape),
+                ),
+            ),
+        );
+    }
+
+    pub fn fullI64(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: Shape, value: i64) !Tensor {
+        var arr: *af.Array = try af.Array.constantI64(
+            allocator,
+            value,
+            @intCast(zt_shape.ndim(shape)),
+            try af.ops.ztToAfDims(shape),
+        );
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    zt_shape.ndim(shape),
+                ),
+            ),
+        );
+    }
+
+    pub fn fullU64(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: Shape, value: u64) !Tensor {
+        var arr: *af.Array = try af.Array.constantU64(
+            allocator,
+            value,
+            @intCast(zt_shape.ndim(shape)),
+            try af.ops.ztToAfDims(shape),
         );
         return Tensor.init(
             TensorAdapterBase.init(

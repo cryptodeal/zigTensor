@@ -74,15 +74,13 @@ pub const DType = enum(u8) {
 
 pub fn dtypeTraits(comptime T: type) struct { zt_type: DType, ctype: DType, string: []const u8 } {
     return switch (T) {
-        // TODO: handle `f16`?
+        f16 => .{ .zt_type = .f16, .ctype = .f32, .string = &(@typeName(T).*) },
         f32 => .{ .zt_type = .f32, .ctype = .f32, .string = &(@typeName(T).*) },
         f64 => .{ .zt_type = .f64, .ctype = .f32, .string = &(@typeName(T).*) },
         i32 => .{ .zt_type = .s32, .ctype = .s32, .string = &(@typeName(T).*) },
         u32 => .{ .zt_type = .u32, .ctype = .u32, .string = &(@typeName(T).*) },
-        // TODO: handle `char`?
-        // TODO: handle `unsigned char`?
-        // TODO: handle `long`?
-        // TODO: handle `unsigned long`?
+        i8 => .{ .zt_type = .b8, .ctype = .s32, .string = &(@typeName(T).*) },
+        u8 => .{ .zt_type = .u8, .ctype = .u32, .string = &(@typeName(T).*) },
         i64 => .{ .zt_type = .s64, .ctype = .s64, .string = &(@typeName(T).*) },
         u64 => .{ .zt_type = .u64, .ctype = .u64, .string = &(@typeName(T).*) },
         bool => .{ .zt_type = .b8, .ctype = .b8, .string = &(@typeName(T).*) },
