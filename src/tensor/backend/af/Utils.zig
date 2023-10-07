@@ -101,7 +101,16 @@ pub fn seqToDims(indices: []af.af_index_t, parent_dims: af.Dim4, reorder: bool) 
             odims.dims[i] = try calcDim(&indices[i].idx.seq, parent_dims.dims[i]);
         } else {
             var elems: af.dim_t = 0;
-            try af.AF_CHECK(af.af_get_elements(&elems, indices[i].idx.arr), @src());
+            var af_type: af.af_dtype = undefined;
+            try af.AF_CHECK(af.af_get_type(&af_type, indices[i].idx.arr), @src());
+            if (af_type == af.b8) {
+                var tmp_arr: af.af_array = undefined;
+                try af.AF_CHECK(af.af_where(&tmp_arr, indices[i].idx.arr), @src());
+                try af.AF_CHECK(af.af_get_elements(&elems, tmp_arr), @src());
+                try af.AF_CHECK(af.af_release_array(tmp_arr), @src());
+            } else {
+                try af.AF_CHECK(af.af_get_elements(&elems, indices[i].idx.arr), @src());
+            }
             odims.dims[i] = elems;
         }
     }

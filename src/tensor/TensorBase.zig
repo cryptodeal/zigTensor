@@ -69,6 +69,12 @@ pub const Tensor = struct {
         return Tensor.init(TensorAdapterBase.init(try DefaultTensorType_t.initHandle(allocator, s, data_type)));
     }
 
+    pub fn initAssign(allocator: std.mem.Allocator, rhs: Tensor) !Tensor {
+        var new_tensor = Tensor.init(TensorAdapterBase.init(try DefaultTensorType_t.initEmpty(allocator)));
+        try (try defaultTensorBackend(allocator)).assign(allocator, new_tensor, rhs);
+        return new_tensor;
+    }
+
     pub fn fromSlice(allocator: std.mem.Allocator, s: Shape, comptime T: type, data: []const T, data_type: DType) !Tensor {
         var backend_ = try defaultTensorBackend(allocator);
         return switch (T) {
@@ -201,6 +207,12 @@ pub const Tensor = struct {
         return res;
     }
 
+    pub fn host(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, val: []T) !void {
+        if (!try self.isEmpty(allocator)) {
+            try self.impl_.host(allocator, val.ptr);
+        }
+    }
+
     pub fn unlock(self: *const Tensor, allocator: std.mem.Allocator) !void {
         return self.impl_.unlock(allocator);
     }
@@ -245,8 +257,7 @@ pub const Tensor = struct {
             rhsTensor = try bknd.full(allocator, try self.shape(allocator), T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
-        var check = [_]Tensor{ self.*, rhsTensor };
-        try ztTensorBackendsMatch(@src().fn_name, &check);
+        try ztTensorBackendsMatch(@src().fn_name, &.{ self.*, rhsTensor });
         return bknd.assign(allocator, self.*, rhsTensor);
     }
 
@@ -312,8 +323,7 @@ pub const Tensor = struct {
             rhsTensor = try bknd.full(allocator, used_shape, T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
-        var check = [_]Tensor{ self.*, rhsTensor };
-        try ztTensorBackendsMatch(@src().fn_name, &check);
+        try ztTensorBackendsMatch(@src().fn_name, &.{ self.*, rhsTensor });
         return bknd.inPlaceAdd(allocator, self.*, rhsTensor);
     }
 
@@ -329,8 +339,7 @@ pub const Tensor = struct {
             rhsTensor = try bknd.full(allocator, used_shape, T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
-        var check = [_]Tensor{ self.*, rhsTensor };
-        try ztTensorBackendsMatch(@src().fn_name, &check);
+        try ztTensorBackendsMatch(@src().fn_name, &.{ self.*, rhsTensor });
         return bknd.inPlaceSub(allocator, self.*, rhsTensor);
     }
 
@@ -346,8 +355,7 @@ pub const Tensor = struct {
             rhsTensor = try bknd.full(allocator, used_shape, T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
-        var check = [_]Tensor{ self.*, rhsTensor };
-        try ztTensorBackendsMatch(@src().fn_name, &check);
+        try ztTensorBackendsMatch(@src().fn_name, &.{ self.*, rhsTensor });
         return bknd.inPlaceMul(allocator, self.*, rhsTensor);
     }
 
@@ -363,8 +371,7 @@ pub const Tensor = struct {
             rhsTensor = try bknd.full(allocator, used_shape, T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
-        var check = [_]Tensor{ self.*, rhsTensor };
-        try ztTensorBackendsMatch(@src().fn_name, &check);
+        try ztTensorBackendsMatch(@src().fn_name, &.{ self.*, rhsTensor });
         return bknd.inPlaceDiv(allocator, self.*, rhsTensor);
     }
 };
@@ -688,7 +695,7 @@ test "TensorBaseTest -> AssignmentOperators" {
     try a.assign(allocator, Tensor, exp);
     try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
 
-    var b = try tensor.initAssign(allocator, a);
+    var b = try Tensor.initAssign(allocator, a);
     defer b.deinit();
     try std.testing.expect(try tensor.allClose(allocator, b, exp, 1e-5));
     exp.deinit();
@@ -710,7 +717,7 @@ test "TensorBaseTest -> CopyOperators" {
 
     var a = try tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
     defer a.deinit();
-    var b = try tensor.initAssign(allocator, a);
+    var b = try Tensor.initAssign(allocator, a);
     defer b.deinit();
     try a.inPlaceAdd(allocator, f32, 1);
 
@@ -1057,9 +1064,39 @@ test "TensorBaseTest -> astype" {
     try std.testing.expect(try b.dtype(allocator) == .f64);
 }
 
-// TODO: need to fix `idxAssign`/`idxOpAssign` so that when `is_linear` is true,
-// the assignment value matches the dims of the indices array
-// test "TensorBaseTest -> where" {}
+test "TensorBaseTest -> where" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var a = try Tensor.fromSlice(allocator, &.{ 2, 5 }, i32, &.{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, .s32);
+    defer a.deinit();
+    var lt1 = try tensor.lessThan(allocator, Tensor, a, f64, 5);
+    defer lt1.deinit();
+    var tmp1 = try tensor.mul(allocator, Tensor, a, f64, 5);
+    defer tmp1.deinit();
+    var out = try tensor.where(allocator, lt1, Tensor, a, Tensor, tmp1);
+    defer out.deinit();
+    var gte1 = try tensor.greaterThanEqual(allocator, Tensor, a, f64, 5);
+    defer gte1.deinit();
+    try a.indexMul(allocator, f64, 5, &.{Index.initTensor(gte1)});
+    try std.testing.expect(try tensor.allClose(allocator, out, a, 1e-5));
+
+    var lt2 = try tensor.lessThan(allocator, Tensor, a, f64, 5);
+    defer lt2.deinit();
+    var outC = try tensor.where(allocator, lt2, Tensor, a, f64, 3);
+    defer outC.deinit();
+    var gte2 = try tensor.greaterThanEqual(allocator, Tensor, a, f64, 5);
+    defer gte2.deinit();
+    try a.indexAssign(allocator, f64, 3, &.{Index.initTensor(gte2)});
+    try std.testing.expect(try tensor.allClose(allocator, outC, a, 1e-5));
+
+    var lt3 = try tensor.lessThan(allocator, Tensor, a, f64, 5);
+    defer lt3.deinit();
+    var outC2 = try tensor.where(allocator, lt3, f64, 3, Tensor, a);
+    defer outC2.deinit();
+    try a.indexAssign(allocator, f64, 3, &.{Index.initTensor(lt3)});
+    try std.testing.expect(try tensor.allClose(allocator, outC2, a, 1e-5));
+}
 
 test "TensorBaseTest -> topk" {
     const allocator = std.testing.allocator;
@@ -1270,7 +1307,36 @@ test "TensorBaseTest -> asContiguousTensor" {
     try std.testing.expect(tensor.shape.eql(contig_strides, strides.items));
 }
 
-// TODO: test "TensorBaseTest -> host" {}
+test "TensorBaseTest -> host" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var a = try tensor.rand(allocator, &.{ 10, 10 }, .f32);
+    defer a.deinit();
+    var ptr = (try a.allocHost(allocator, f32)).?;
+    defer allocator.free(ptr);
+    for (0..@intCast(try a.elements(allocator))) |i| {
+        var tmp_flat = try a.flatten(allocator);
+        defer tmp_flat.deinit();
+        var tmp_idx = try tmp_flat.index(allocator, &.{Index.initDim(@intCast(i))});
+        defer tmp_idx.deinit();
+        try std.testing.expectEqual(try tmp_idx.scalar(allocator, f32), ptr[i]);
+    }
+
+    var existingBuffer = try allocator.alloc(f32, 100);
+    defer allocator.free(existingBuffer);
+    for (0..@intCast(try a.elements(allocator))) |i| {
+        var tmp_flat = try a.flatten(allocator);
+        defer tmp_flat.deinit();
+        var tmp_idx = try tmp_flat.index(allocator, &.{Index.initDim(@intCast(i))});
+        defer tmp_idx.deinit();
+        try std.testing.expectEqual(try tmp_idx.scalar(allocator, f32), ptr[i]);
+    }
+
+    var empty = try Tensor.initEmpty(allocator);
+    defer empty.deinit();
+    try std.testing.expect(try empty.allocHost(allocator, f32) == null);
+}
 
 // TODO: need to implement varying "overloads" for `arange`
 // TODO: test "TensorBaseTest -> arange" {}

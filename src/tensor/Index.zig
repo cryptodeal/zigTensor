@@ -341,7 +341,6 @@ test "IndexTest -> IndexAssignment" {
     const full = tensor_.full;
     const rand = tensor_.rand;
     const arange = tensor_.arange;
-    const initAssign = tensor_.initAssign;
     const allClose = tensor_.allClose;
     const deinit = tensor_.deinit;
     const allocator = std.testing.allocator;
@@ -381,7 +380,7 @@ test "IndexTest -> IndexAssignment" {
 
     var b = try full(allocator, &.{ 3, 3 }, f64, 1, .f32);
     defer b.deinit();
-    var c = try initAssign(allocator, b);
+    var c = try Tensor.initAssign(allocator, b);
     defer c.deinit();
     try b.inPlaceAdd(allocator, f64, 1);
     var b_expected = try full(allocator, &.{ 3, 3 }, f64, 2, .f32);
@@ -670,7 +669,6 @@ test "IndexTest -> TensorIndex" {
     const rand = tensor_.rand;
     const shape = tensor_.shape;
     const allClose = tensor_.allClose;
-    const initAssign = tensor_.initAssign;
     const arange = tensor_.arange;
     const add = tensor_.add;
     const deinit = tensor_.deinit;
@@ -714,7 +712,7 @@ test "IndexTest -> TensorIndex" {
     defer i.deinit();
     var b = try rand(allocator, &.{ 20, 20 }, .f32);
     defer b.deinit();
-    var ref = try initAssign(allocator, b);
+    var ref = try Tensor.initAssign(allocator, b);
     defer ref.deinit();
     var b_idx = try b.index(allocator, &.{Index.initTensor(i)});
     defer b_idx.deinit();

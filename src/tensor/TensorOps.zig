@@ -14,22 +14,15 @@ const TensorBackendType = tensor_.TensorBackendType;
 const DefaultTensorType_t = tensor_.DefaultTensorType_t;
 const TensorAdapterBase = tensor_.TensorAdapterBase;
 
-pub inline fn ztTensorBackendsMatch(fn_name: []const u8, tensors: []Tensor) !void {
+pub inline fn ztTensorBackendsMatch(fn_name: []const u8, tensors: []const Tensor) !void {
     if (tensors.len <= 1) return;
     var backend_type = tensors[0].backendType();
-    for (tensors, 1..) |t, i| {
-        _ = i;
+    for (tensors[1..]) |t| {
         if (t.backendType() != backend_type) {
             std.log.debug("{s} called with tensors of different backends.\n", .{fn_name});
             return error.TensorBackendMismatch;
         }
     }
-}
-
-pub fn initAssign(allocator: std.mem.Allocator, rhs: Tensor) !Tensor {
-    var new_tensor = Tensor.init(TensorAdapterBase.init(try DefaultTensorType_t.initEmpty(allocator)));
-    try (try defaultTensorBackend(allocator)).assign(allocator, new_tensor, rhs);
-    return new_tensor;
 }
 
 pub fn fromScalar(allocator: std.mem.Allocator, comptime T: type, value: T, dtype: DType) !Tensor {
@@ -186,8 +179,7 @@ pub fn clip(allocator: std.mem.Allocator, tensor: Tensor, comptime low_T: type, 
         highTensor = try backend.full(allocator, &shape, f64, high, .f32);
         highTensorInit = true;
     }
-    var check = [_]Tensor{ tensor, lowTensor, highTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ tensor, lowTensor, highTensor });
     return backend.clip(allocator, tensor, lowTensor, highTensor);
 }
 
@@ -229,15 +221,21 @@ pub fn where(
     var backend = try condition.backend(allocator);
     var xTensor: Tensor = undefined;
     var xTensorInit = false;
-    defer if (xTensorInit) xTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    defer if (xTensorInit) {
+        std.debug.print("deinit xTensor\n", .{});
+        xTensor.deinit(); // if initializing lhsTensor, defer freeing associated mem
+    };
     var yTensor: Tensor = undefined;
     var yTensorInit = false;
-    defer if (yTensorInit) yTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    defer if (yTensorInit) {
+        std.debug.print("deinit yTensor\n", .{});
+        yTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
+    };
     if (x_T == Tensor) {
         xTensor = x;
     } else if (x_T == f64) {
         var shape = try condition.shape(allocator);
-        xTensor = try backend.full(allocator, &shape, f64, x, .f32);
+        xTensor = try backend.full(allocator, shape, f64, x, try y.dtype(allocator));
         xTensorInit = true;
     } else {
         @compileError("where: x must be either a Tensor or f64");
@@ -246,13 +244,12 @@ pub fn where(
         yTensor = y;
     } else if (y_T == f64) {
         var shape = try condition.shape(allocator);
-        yTensor = try backend.full(allocator, &shape, f64, y, .f32);
+        yTensor = try backend.full(allocator, shape, f64, y, try x.dtype(allocator));
         yTensorInit = true;
     } else {
         @compileError("where: y must be either a Tensor or f64");
     }
-    var check = [_]Tensor{ condition, xTensor, yTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ condition, xTensor, yTensor });
     return backend.where(allocator, condition, xTensor, yTensor);
 }
 
@@ -298,8 +295,7 @@ pub fn add(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.add(allocator, lhsTensor, rhsTensor);
 }
 
@@ -332,8 +328,7 @@ pub fn sub(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.sub(allocator, lhsTensor, rhsTensor);
 }
 
@@ -366,8 +361,7 @@ pub fn mul(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.mul(allocator, lhsTensor, rhsTensor);
 }
 
@@ -400,8 +394,7 @@ pub fn div(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.div(allocator, lhsTensor, rhsTensor);
 }
 
@@ -434,8 +427,7 @@ pub fn eq(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compti
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.eq(allocator, lhsTensor, rhsTensor);
 }
 
@@ -468,8 +460,7 @@ pub fn neq(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.neq(allocator, lhsTensor, rhsTensor);
 }
 
@@ -502,8 +493,7 @@ pub fn lessThan(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, 
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.lessThan(allocator, lhsTensor, rhsTensor);
 }
 
@@ -536,8 +526,7 @@ pub fn lessThanEqual(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lh
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.lessThanEqual(allocator, lhsTensor, rhsTensor);
 }
 
@@ -570,8 +559,7 @@ pub fn greaterThan(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.greaterThan(allocator, lhsTensor, rhsTensor);
 }
 
@@ -604,8 +592,7 @@ pub fn greaterThanEqual(allocator: std.mem.Allocator, comptime lhs_T: type, lhs:
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.greaterThanEqual(allocator, lhsTensor, rhsTensor);
 }
 
@@ -638,8 +625,7 @@ pub fn logicalOr(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T,
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.logicalOr(allocator, lhsTensor, rhsTensor);
 }
 
@@ -672,8 +658,7 @@ pub fn logicalAnd(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.logicalAnd(allocator, lhsTensor, rhsTensor);
 }
 
@@ -706,8 +691,7 @@ pub fn mod(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, compt
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.mod(allocator, lhsTensor, rhsTensor);
 }
 
@@ -740,8 +724,7 @@ pub fn bitwiseAnd(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.bitwiseAnd(allocator, lhsTensor, rhsTensor);
 }
 
@@ -774,8 +757,7 @@ pub fn bitwiseOr(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T,
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.bitwiseOr(allocator, lhsTensor, rhsTensor);
 }
 
@@ -808,8 +790,7 @@ pub fn bitwiseXor(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.bitwiseXor(allocator, lhsTensor, rhsTensor);
 }
 
@@ -842,8 +823,7 @@ pub fn lShift(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, co
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.lShift(allocator, lhsTensor, rhsTensor);
 }
 
@@ -876,8 +856,7 @@ pub fn rShift(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, co
         rhsTensor = try backend.full(allocator, shape, rhs_T, rhs, try lhs.dtype(allocator));
         rhsTensorInit = true;
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.rShift(allocator, lhsTensor, rhsTensor);
 }
 
@@ -914,8 +893,7 @@ pub fn minimum(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, c
     } else {
         @compileError("minimum: rhs must be a Tensor or f64");
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.minimum(allocator, lhsTensor, rhsTensor);
 }
 
@@ -952,8 +930,7 @@ pub fn maximum(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, c
     } else {
         @compileError("maximum: rhs must be a Tensor or f64");
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.maximum(allocator, lhsTensor, rhsTensor);
 }
 
@@ -990,15 +967,13 @@ pub fn power(allocator: std.mem.Allocator, comptime lhs_T: type, lhs: lhs_T, com
     } else {
         @compileError("power: rhs must be a Tensor or f64");
     }
-    var check = [_]Tensor{ lhsTensor, rhsTensor };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhsTensor, rhsTensor });
     return backend.power(allocator, lhsTensor, rhsTensor);
 }
 
 //******************************* BLAS ********************************//
 pub fn matmul(allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor, lhs_prop: MatrixProperty, rhs_prop: MatrixProperty) !Tensor {
-    var check = [_]Tensor{ lhs, rhs };
-    try ztTensorBackendsMatch(@src().fn_name, &check);
+    try ztTensorBackendsMatch(@src().fn_name, &.{ lhs, rhs });
     return (try lhs.backend(allocator)).matmul(allocator, lhs, rhs, lhs_prop, rhs_prop);
 }
 

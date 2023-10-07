@@ -430,7 +430,7 @@ pub const ArrayFireBackend = struct {
     }
 
     pub fn where(_: *const ArrayFireBackend, allocator: std.mem.Allocator, condition: Tensor, x: Tensor, y: Tensor) !Tensor {
-        var orig: Tensor = x;
+        var orig = try Tensor.initAssign(allocator, x);
         try af.ops.replace(try toArray(allocator, orig), try toArray(allocator, condition), try toArray(allocator, y));
         return orig;
     }
@@ -2081,7 +2081,6 @@ pub const ArrayFireBackend = struct {
 
         var parent_dims = try impl.getDims();
         if (is_linear) {
-            std.debug.print("is_linear: true\n", .{});
             try af.AF_CHECK(af.af_flat(&par_arr, impl.get()), @src());
 
             // The set call will dereference the impl->parent_ array. We are doing
@@ -2133,17 +2132,18 @@ pub const ArrayFireBackend = struct {
                     &res,
                     flat_res,
                     @intCast(this_dims.ndims()),
-                    (&this_dims.dims).ptr,
+                    &this_dims.dims,
                 ),
                 @src(),
             );
+
             // Unflatten the af_array and reset the original reference
             try af.AF_CHECK(
                 af.af_moddims(
                     &unflattened,
                     par_arr,
                     @intCast(parent_dims.ndims()),
-                    (&parent_dims.dims).ptr,
+                    &parent_dims.dims,
                 ),
                 @src(),
             );
@@ -2366,7 +2366,7 @@ pub const ArrayFireBackend = struct {
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
             afIndices,
-            indices.len == 1 and indices[0].idxType() != .Tensor and try lhs.ndim(allocator) == 1, // verify this is correct
+            completeTensorIndex, // verify this is correct
             "+=",
         );
         try af.ops.releaseIndexers(afIndices);
@@ -2386,7 +2386,7 @@ pub const ArrayFireBackend = struct {
         // If indexing by a single element and it's a tensor with the same number of
         // indices as the array being indexed, do a flat index as this is probably a
         // filter-based index (for example: a(a < 5)).
-        const completeTensorIndex = indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try toArray(allocator, lhs)).getElements()));
+        const completeTensorIndex = indices.len == 1 and indices[0].idxType() == .Tensor and (try indices[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try toArray(allocator, lhs)).getElements())) or try indices[0].index_.Tensor.dtype(allocator) == .b8);
         var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
         if (completeTensorIndex) {
             // TODO: verify this is correct; needs tests
@@ -2408,7 +2408,7 @@ pub const ArrayFireBackend = struct {
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
             afIndices,
-            indices.len == 1 and indices[0].idxType() != .Tensor and try lhs.ndim(allocator) == 1, // verify this is correct
+            completeTensorIndex, // verify this is correct
             "-=",
         );
         try af.ops.releaseIndexers(afIndices);
@@ -2450,7 +2450,7 @@ pub const ArrayFireBackend = struct {
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
             afIndices,
-            indices.len == 1 and indices[0].idxType() != .Tensor and try lhs.ndim(allocator) == 1, // verify this is correct
+            completeTensorIndex, // verify this is correct
             "*=",
         );
         try af.ops.releaseIndexers(afIndices);
@@ -2492,7 +2492,7 @@ pub const ArrayFireBackend = struct {
             try toArray(allocator, lhs),
             try toArray(allocator, rhs),
             afIndices,
-            indices.len == 1 and indices[0].idxType() != .Tensor and try lhs.ndim(allocator) == 1, // verify this is correct
+            completeTensorIndex, // verify this is correct
             "/=",
         );
         try af.ops.releaseIndexers(afIndices);

@@ -828,9 +828,9 @@ test "ArrayFireTensorBaseTest -> AfRefCountModify" {
     try std.testing.expect(try getRefCount(try toArray(allocator, a), true) == 1);
     try std.testing.expect(try getRefCount(try toArray(allocator, b), true) == 1);
 
-    var res1Data = try res1.allocHost(allocator, f32);
-    defer allocator.free(res1Data.?);
-    for (res1Data.?) |v| try std.testing.expect(v == 2);
+    var res1Data = (try res1.allocHost(allocator, f32)).?;
+    defer allocator.free(res1Data);
+    for (res1Data) |v| try std.testing.expect(v == 2);
 
     var c = try full(allocator, &.{ 2, 2 }, f64, 1, .f32);
     defer c.deinit();
