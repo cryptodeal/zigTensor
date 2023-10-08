@@ -78,9 +78,9 @@ pub const Tensor = struct {
     pub fn fromSlice(allocator: std.mem.Allocator, s: Shape, comptime T: type, data: []const T, data_type: DType) !Tensor {
         var backend_ = try defaultTensorBackend(allocator);
         return switch (T) {
-            // TODO: handle more types
-            // TODO: use `@ptrCast` to coerce to c types???
+            // TODO: handle more types?
             f16, f32, f64 => backend_.fromSlice(allocator, s, @constCast(data.ptr), data_type),
+            i8, u8 => backend_.fromSlice(allocator, s, @constCast(data.ptr), data_type),
             i16 => backend_.fromSlice(allocator, s, @as([*]c_short, @ptrCast(@alignCast(@constCast(data.ptr)))), data_type),
             u16 => backend_.fromSlice(allocator, s, @as([*]c_ushort, @ptrCast(@alignCast(@constCast(data.ptr)))), data_type),
             i32 => backend_.fromSlice(allocator, s, @as([*]c_int, @ptrCast(@alignCast(@constCast(data.ptr)))), data_type),
@@ -1338,7 +1338,83 @@ test "TensorBaseTest -> host" {
     try std.testing.expect(try empty.allocHost(allocator, f32) == null);
 }
 
-// TODO: need to implement varying "overloads" for `arange`
-// TODO: test "TensorBaseTest -> arange" {}
+test "TensorBaseTest -> arange" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
 
-// TODO: test "TensorBaseTest -> iota" {}
+    // Range/step overload
+    var a = try tensor.arange2(allocator, i32, 2, 10, 2);
+    defer a.deinit();
+    var a_exp = try Tensor.fromSlice(allocator, &.{4}, i32, &.{ 2, 4, 6, 8 }, .s32);
+    defer a_exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, a, a_exp, 1e-5));
+
+    var b = try tensor.arange2(allocator, i32, 0, 6, 1);
+    defer b.deinit();
+    var b_exp = try Tensor.fromSlice(allocator, &.{6}, i32, &.{ 0, 1, 2, 3, 4, 5 }, .s32);
+    defer b_exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, b, b_exp, 1e-5));
+
+    var c = try tensor.arange2(allocator, f32, 0, 1.22, 0.25);
+    defer c.deinit();
+    var c_exp = try Tensor.fromSlice(allocator, &.{4}, f32, &.{ 0, 0.25, 0.5, 0.75 }, .f32);
+    defer c_exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, c, c_exp, 1e-5));
+
+    var d = try tensor.arange2(allocator, f32, 0, 4.1, 1);
+    defer d.deinit();
+    var d_exp = try Tensor.fromSlice(allocator, &.{4}, f32, &.{ 0, 1, 2, 3 }, .f32);
+    defer d_exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, d, d_exp, 1e-5));
+
+    // Shape overload
+    var e = try tensor.arange(allocator, &.{4}, 0, .f32);
+    defer e.deinit();
+    var e_exp = try Tensor.fromSlice(allocator, &.{4}, f32, &.{ 0, 1, 2, 3 }, .f32);
+    defer e_exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, e, e_exp, 1e-5));
+
+    var f = try tensor.arange(allocator, &.{ 4, 5 }, 0, .f32);
+    defer f.deinit();
+    var f_exp = try tensor.tile(allocator, e_exp, &.{ 1, 5 });
+    defer f_exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, f, f_exp, 1e-5));
+
+    var g = try tensor.arange(allocator, &.{ 4, 5 }, 1, .f32);
+    defer g.deinit();
+    try std.testing.expect(tensor.shape.eql(try g.shape(allocator), &.{ 4, 5 }));
+    var g_tmp = try Tensor.fromSlice(allocator, &.{5}, f32, &.{ 0, 1, 2, 3, 4 }, .f32);
+    defer g_tmp.deinit();
+    var g_tmp1 = try tensor.reshape(allocator, g_tmp, &.{ 1, 5 });
+    defer g_tmp1.deinit();
+    var g_exp = try tensor.tile(allocator, g_tmp1, &.{4});
+    defer g_exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, g, g_exp, 1e-5));
+
+    var i = try tensor.arange(allocator, &.{ 2, 6 }, 0, .f64);
+    defer i.deinit();
+    try std.testing.expect(try i.dtype(allocator) == .f64);
+}
+
+test "TensorBaseTest -> iota" {
+    const allocator = std.testing.allocator;
+    defer tensor.deinit(); // deinit global singletons
+
+    var a = try tensor.iota(allocator, &.{ 5, 3 }, &.{ 1, 2 }, .f32);
+    defer a.deinit();
+    var a_tmp = try tensor.arange(allocator, &.{15}, 0, .f32);
+    defer a_tmp.deinit();
+    var a_tmp1 = try tensor.reshape(allocator, a_tmp, &.{ 5, 3 });
+    defer a_tmp1.deinit();
+    var a_exp = try tensor.tile(allocator, a_tmp1, &.{ 1, 2 });
+    defer a_exp.deinit();
+    try std.testing.expect(try tensor.allClose(allocator, a, a_exp, 1e-5));
+
+    var b = try tensor.iota(allocator, &.{ 2, 2 }, &.{ 2, 2 }, .f64);
+    defer b.deinit();
+    try std.testing.expect(try b.dtype(allocator) == .f64);
+
+    var c = try tensor.iota(allocator, &.{ 1, 10 }, &.{5}, .f32);
+    defer c.deinit();
+    try std.testing.expect(tensor.shape.eql(try c.shape(allocator), &.{ 5, 10 }));
+}
