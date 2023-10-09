@@ -1087,56 +1087,28 @@ pub const ArrayFireBackend = struct {
         );
     }
 
-    pub fn sign(_: *const ArrayFireBackend, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
-        var arr = try toArray(allocator, tensor);
-        // flatten here to avoid unnecessary allocations
-        var flat_arr = try af.ops.flat(allocator, arr);
-        defer flat_arr.deinit();
-        var flat_num_dims = try flat_arr.getNumDims();
-        var flat_dims = try flat_arr.getDims();
-        var flat_type = try flat_arr.getType();
-        // sign operation
-        var sign_arr = try af.ops.sign(allocator, flat_arr);
-        defer sign_arr.deinit();
-        // create constant af array populated with 2 (lhs of multiplication)
-        var mul_lhs = try af.ops.constant(allocator, 2, flat_num_dims, flat_dims, flat_type);
-        defer mul_lhs.deinit();
-        // 2 * flat_array
-        var mul_res = try af.ops.mul(allocator, mul_lhs, sign_arr, false);
-        defer mul_res.deinit();
-        // create constant af array populated with 1 (lhs of subtraction)
-        var sub_lhs = try af.ops.constant(allocator, 1, flat_num_dims, flat_dims, flat_type);
-        defer sub_lhs.deinit();
-        // 1 - mul_res
-        var sub_res = try af.ops.sub(allocator, sub_lhs, mul_res, false);
-        defer sub_res.deinit();
-        // constant array populated with 0 (equality comparison)
-        var zero_arr = try af.ops.constant(allocator, 0, flat_num_dims, flat_dims, flat_type);
-        defer zero_arr.deinit();
-        // test equality
-        var idx_arr = try af.ops.eq(allocator, arr, zero_arr, false);
-        defer idx_arr.deinit();
-        // get indices of matching values (1) using `where`
-        var idx_indices = try af.ops.where(allocator, idx_arr);
-        defer idx_indices.deinit();
-        // create indexers
-        var indices = try af.ops.createIndexers();
-        defer af.ops.releaseIndexers(indices) catch unreachable;
-        try af.ops.setArrayIndexer(indices, idx_indices, 0);
-        // the resulting array (flat)
-        var flat_res = try af.ops.assignGen(allocator, sub_res, 1, indices, zero_arr);
-        defer flat_res.deinit();
-        // restore original dimensions
-        var res = try af.ops.moddims(allocator, flat_res, try arr.getNumDims(), try arr.getDims());
-        return Tensor.init(
+    pub fn sign(self: *const ArrayFireBackend, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {
+        var sign_arr = try af.ops.sign(allocator, try toArray(allocator, tensor));
+        var tmp = Tensor.init(
             TensorAdapterBase.init(
                 try ArrayFireTensor.initFromArray(
                     allocator,
-                    res,
+                    sign_arr,
                     try tensor.ndim(allocator),
                 ),
             ),
         );
+        try tmp.inPlaceMul(allocator, f64, 2);
+        var ones = try self.full(allocator, try tensor.shape(allocator), 1, try tensor.dtype(allocator));
+        var sign_tensor = try self.sub(allocator, ones, tmp);
+        tmp.deinit();
+        ones.deinit();
+        var zero_const = try self.full(allocator, try tensor.shape(allocator), 0, try tensor.dtype(allocator));
+        var eql = try self.eq(allocator, tensor, zero_const);
+        defer eql.deinit();
+        zero_const.deinit();
+        try sign_tensor.indexAssign(allocator, f64, 0, &.{Index.initTensor(eql)});
+        return sign_tensor;
     }
 
     pub fn tril(_: *const ArrayFireBackend, allocator: std.mem.Allocator, tensor: Tensor) !Tensor {

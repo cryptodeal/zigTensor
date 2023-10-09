@@ -204,6 +204,7 @@ pub const TensorBackend = struct {
         }
         var f: f64 = undefined;
         switch (@typeInfo(T)) {
+            .Bool => f = @floatFromInt(@intFromBool(value)),
             .Float => f = @floatCast(value),
             .Int => f = @floatFromInt(value),
             else => return error.InvalidTypePassedToFromScalar,

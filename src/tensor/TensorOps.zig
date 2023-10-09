@@ -173,7 +173,7 @@ pub fn flip(allocator: std.mem.Allocator, tensor: Tensor, dim: u32) !Tensor {
 }
 
 pub fn clip(allocator: std.mem.Allocator, tensor: Tensor, comptime low_T: type, low: low_T, comptime high_T: type, high: high_T) !Tensor {
-    if ((low_T != Tensor or low_T != f64) or (high_T != Tensor or high_T != f64)) {
+    if ((low_T != Tensor and low_T != f64) or (high_T != Tensor and high_T != f64)) {
         @compileError("clip: low or high must be a Tensor or f64");
     }
     var backend = try tensor.backend(allocator);
@@ -185,16 +185,16 @@ pub fn clip(allocator: std.mem.Allocator, tensor: Tensor, comptime low_T: type, 
     defer if (highTensorInit) highTensor.deinit(); // if initializing rhsTensor, defer freeing associated mem
     if (low_T == Tensor) {
         lowTensor = low;
-    } else if (low_T == f64) {
+    } else {
         var shape = try tensor.shape(allocator);
-        lowTensor = try backend.full(allocator, &shape, f64, low, .f32);
+        lowTensor = try backend.full(allocator, shape, f64, low, .f32);
         lowTensorInit = true;
     }
     if (high_T == Tensor) {
         highTensor = high;
-    } else if (high_T == f64) {
+    } else {
         var shape = try tensor.shape(allocator);
-        highTensor = try backend.full(allocator, &shape, f64, high, .f32);
+        highTensor = try backend.full(allocator, shape, f64, high, .f32);
         highTensorInit = true;
     }
     try ztTensorBackendsMatch(@src().fn_name, &.{ tensor, lowTensor, highTensor });
@@ -233,7 +233,7 @@ pub fn where(
     comptime y_T: type,
     y: y_T,
 ) !Tensor {
-    if (x_T != Tensor and y_T != Tensor) {
+    if ((x_T != Tensor and x_T != f64) or (y_T != Tensor and y_T != f64)) {
         @compileError("where: either lhs or rhs must be a Tensor");
     }
     var backend = try condition.backend(allocator);
@@ -249,21 +249,17 @@ pub fn where(
     };
     if (x_T == Tensor) {
         xTensor = x;
-    } else if (x_T == f64) {
+    } else {
         var shape = try condition.shape(allocator);
         xTensor = try backend.full(allocator, shape, f64, x, try y.dtype(allocator));
         xTensorInit = true;
-    } else {
-        @compileError("where: x must be either a Tensor or f64");
     }
     if (y_T == Tensor) {
         yTensor = y;
-    } else if (y_T == f64) {
+    } else {
         var shape = try condition.shape(allocator);
         yTensor = try backend.full(allocator, shape, f64, y, try x.dtype(allocator));
         yTensorInit = true;
-    } else {
-        @compileError("where: y must be either a Tensor or f64");
     }
     try ztTensorBackendsMatch(@src().fn_name, &.{ condition, xTensor, yTensor });
     return backend.where(allocator, condition, xTensor, yTensor);
@@ -1630,7 +1626,7 @@ fn testTensorIncompatibleShapes(allocator: std.mem.Allocator, dtype: DType, lhs:
 }
 
 fn testTensorIncompatibleShapesForType(allocator: std.mem.Allocator, dtype: DType) !void {
-    const rand = @import("Random.zig").rand;
+    const rand = tensor_.rand;
     var a = try rand(allocator, &.{ 2, 2 }, dtype);
     defer a.deinit();
     var too_many_axises = try rand(allocator, &.{ 4, 5, 6 }, dtype);
@@ -1795,7 +1791,7 @@ test "TensorBinaryOpsTest -> maximum" {
 
 test "TensorBinaryOpsTest -> broadcasting" {
     const allocator = std.testing.allocator;
-    const rand = @import("Random.zig").rand;
+    const rand = tensor_.rand;
     defer tensor_.deinit(); // deinit global singletons
 
     // Collection of {lhs, rhs, tileShapeLhs, tileShapeRhs} corresponding to
@@ -1918,8 +1914,8 @@ test "TensorBinaryOpsTest -> powerDouble" {
 }
 
 test "TensorBase -> assign" {
-    const rand = @import("Random.zig").rand;
-    const deinit = @import("Init.zig").deinit;
+    const rand = tensor_.rand;
+    const deinit = tensor_.deinit;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1943,7 +1939,7 @@ test "TensorBase -> assign" {
 }
 
 test "TensorBinaryOpsTest -> inPlaceAdd" {
-    const deinit = @import("Init.zig").deinit;
+    const deinit = tensor_.deinit;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1959,7 +1955,7 @@ test "TensorBinaryOpsTest -> inPlaceAdd" {
 }
 
 test "TensorBinaryOpsTest -> inPlaceSub" {
-    const deinit = @import("Init.zig").deinit;
+    const deinit = tensor_.deinit;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1975,7 +1971,7 @@ test "TensorBinaryOpsTest -> inPlaceSub" {
 }
 
 test "TensorBinaryOpsTest -> inPlaceMul" {
-    const deinit = @import("Init.zig").deinit;
+    const deinit = tensor_.deinit;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -1991,7 +1987,7 @@ test "TensorBinaryOpsTest -> inPlaceMul" {
 }
 
 test "TensorBinaryOpsTest -> inPlaceDiv" {
-    const deinit = @import("Init.zig").deinit;
+    const deinit = tensor_.deinit;
     const allocator = std.testing.allocator;
     defer deinit(); // deinit global singletons
 
@@ -2004,4 +2000,426 @@ test "TensorBinaryOpsTest -> inPlaceDiv" {
     try std.testing.expect(try allEqual(allocator, a, expected));
 
     // TODO: more extensive testing (mirror Flashlight's tests)
+}
+
+test "TensorUnaryOpsTest -> negative" {
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a = try full(allocator, &.{ 3, 3 }, f64, 1, .f32);
+    defer a.deinit();
+    var b = try full(allocator, &.{ 3, 3 }, f64, 2, .f32);
+    defer b.deinit();
+    var c = try negative(allocator, a);
+    defer c.deinit();
+    var exp_ = try mul(allocator, Tensor, a, f64, -1);
+    defer exp_.deinit();
+    try std.testing.expect(try allClose(allocator, c, exp_, 1e-5));
+    var exp_1 = try sub(allocator, Tensor, a, Tensor, b);
+    defer exp_1.deinit();
+    try std.testing.expect(try allClose(allocator, c, exp_1, 1e-5));
+}
+
+test "TensorUnaryOpsTest -> logicalNot" {
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a = try full(allocator, &.{ 3, 3 }, bool, true, .b8);
+    defer a.deinit();
+    var not_a = try logicalNot(allocator, a);
+    defer not_a.deinit();
+    var exp_ = try full(allocator, &.{ 3, 3 }, bool, false, .b8);
+    defer exp_.deinit();
+    try std.testing.expect(try allEqual(allocator, not_a, exp_));
+}
+
+test "TensorUnaryOpsTest -> clip" {
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var h: f64 = 3;
+    var l: f64 = 2;
+    var s: Shape = &.{ 3, 3 };
+    var high = try full(allocator, s, f64, h, .f32);
+    defer high.deinit();
+    var low = try full(allocator, s, f64, l, .f32);
+    defer low.deinit();
+    // base tensor used for clip tests
+    var base = try full(allocator, s, f64, 4, .f32);
+    defer base.deinit();
+
+    var clipped1 = try clip(allocator, base, Tensor, low, Tensor, high);
+    defer clipped1.deinit();
+    try std.testing.expect(try allClose(allocator, clipped1, high, 1e-5));
+
+    var clipped2 = try clip(allocator, base, f64, l, Tensor, high);
+    defer clipped2.deinit();
+    try std.testing.expect(try allClose(allocator, clipped2, high, 1e-5));
+
+    var clipped3 = try clip(allocator, base, Tensor, low, f64, h);
+    defer clipped3.deinit();
+    try std.testing.expect(try allClose(allocator, clipped3, high, 1e-5));
+
+    var clipped4 = try clip(allocator, base, f64, l, f64, h);
+    defer clipped4.deinit();
+    try std.testing.expect(try allClose(allocator, clipped4, high, 1e-5));
+}
+
+test "TensorUnaryOpsTest -> roll" {
+    const deinit = tensor_.deinit;
+    const Index = tensor_.Index;
+    const Range = tensor_.Range;
+    const end = tensor_.end;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var t = try full(allocator, &.{ 5, 5 }, f64, 4, .f32);
+    defer t.deinit();
+    var res1 = try roll(allocator, t, 3, 1);
+    defer res1.deinit();
+    try std.testing.expect(try allClose(allocator, t, res1, 1e-5));
+
+    const dims: Shape = &.{ 4, 5 };
+    var r = try arange(allocator, dims, 0, .f32);
+    defer r.deinit();
+    var res2 = try roll(allocator, r, 1, 0);
+    defer res2.deinit();
+    try std.testing.expect(tensor_.shape.eql(try r.shape(allocator), try res2.shape(allocator)));
+    var tmp_idx1 = try res2.index(allocator, &.{Index.initDim(0)});
+    defer tmp_idx1.deinit();
+    var exp1 = try full(allocator, &.{dims[1]}, i64, dims[0] - 1, try r.dtype(allocator));
+    defer exp1.deinit();
+    try std.testing.expect(try allClose(allocator, tmp_idx1, exp1, 1e-5));
+    var tmp_idx2 = try res2.index(allocator, &.{Index.initRange(Range.init(1, .{ .end = end }))});
+    defer tmp_idx2.deinit();
+    var exp2 = try arange(allocator, &.{ dims[0] - 1, dims[1] }, 0, try r.dtype(allocator));
+    defer exp2.deinit();
+    try std.testing.expect(try allClose(allocator, tmp_idx2, exp2, 1e-5));
+}
+
+test "TensorUnaryOpsTest -> isnan" {
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    const s: Shape = &.{ 3, 3 };
+    var a = try full(allocator, s, f64, 1, .f32);
+    defer a.deinit();
+    var a_div = try div(allocator, Tensor, a, f64, 3);
+    defer a_div.deinit();
+    var actual = try isnan(allocator, a_div);
+    defer actual.deinit();
+    var expected = try full(allocator, s, bool, false, .b8);
+    defer expected.deinit();
+    try std.testing.expect(try allEqual(allocator, actual, expected));
+}
+
+test "TensorUnaryOpsTest -> isinf" {
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    const s: Shape = &.{ 3, 3 };
+    var a = try full(allocator, s, f64, 1, .f32);
+    defer a.deinit();
+    var a_div = try div(allocator, Tensor, a, f64, 3);
+    defer a_div.deinit();
+    var actual = try isinf(allocator, a_div);
+    defer actual.deinit();
+    var expected = try full(allocator, s, bool, false, .b8);
+    defer expected.deinit();
+    try std.testing.expect(try allEqual(allocator, actual, expected));
+
+    var b = try div(allocator, Tensor, a, f64, 0);
+    defer b.deinit();
+    var actual1 = try isinf(allocator, b);
+    defer actual1.deinit();
+    var expected2 = try full(allocator, s, bool, true, .b8);
+    defer expected2.deinit();
+    try std.testing.expect(try allEqual(allocator, actual1, expected2));
+}
+
+test "TensorUnaryOpsTest -> sign" {
+    const Index = tensor_.Index;
+    const rand = tensor_.rand;
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var tmp_vals = try rand(allocator, &.{ 5, 5 }, .f32);
+    defer tmp_vals.deinit();
+    var vals = try sub(allocator, Tensor, tmp_vals, f64, 0.5);
+    defer vals.deinit();
+    try vals.indexAssign(allocator, f64, 0, &.{ Index.initDim(2), Index.initDim(2) });
+
+    var signs = try sign(allocator, vals);
+    defer signs.deinit();
+    var gt = try greaterThan(allocator, Tensor, vals, f64, 0);
+    defer gt.deinit();
+    try vals.indexAssign(allocator, f64, 1, &.{Index.initTensor(gt)});
+    var eql = try eq(allocator, Tensor, vals, f64, 0);
+    defer eql.deinit();
+    try vals.indexAssign(allocator, f64, 0, &.{Index.initTensor(eql)});
+    var lt = try lessThan(allocator, Tensor, vals, f64, 0);
+    defer lt.deinit();
+    try vals.indexAssign(allocator, f64, -1, &.{Index.initTensor(lt)});
+    try std.testing.expect(try allClose(allocator, signs, vals, 1e-5));
+}
+
+fn checkSquareTril(allocator: std.mem.Allocator, dim: Dim, res: Tensor, in: Tensor) !void {
+    const Index = tensor_.Index;
+    for (0..@intCast(dim)) |i| {
+        for (i + 1..@intCast(dim)) |j| {
+            var tmp_idx = try res.index(allocator, &.{ Index.initDim(@intCast(i)), Index.initDim(@intCast(j)) });
+            defer tmp_idx.deinit();
+            try std.testing.expect(try tmp_idx.scalar(allocator, f32) == 0);
+        }
+    }
+    for (0..@intCast(dim)) |i| {
+        for (0..i) |j| {
+            var res_idx = try res.index(allocator, &.{ Index.initDim(@intCast(i)), Index.initDim(@intCast(j)) });
+            defer res_idx.deinit();
+            var in_idx = try in.index(allocator, &.{ Index.initDim(@intCast(i)), Index.initDim(@intCast(j)) });
+            defer in_idx.deinit();
+            try std.testing.expect(try allClose(allocator, res_idx, in_idx, 1e-5));
+        }
+    }
+}
+
+test "TensorUnaryOpsTest -> tril" {
+    const rand = tensor_.rand;
+    const Index = tensor_.Index;
+    const span = tensor_.span;
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    const dim: Dim = 10;
+    var t = try rand(allocator, &.{ dim, dim }, .f32);
+    defer t.deinit();
+    var out = try tril(allocator, t);
+    defer out.deinit();
+    try checkSquareTril(allocator, dim, out, t);
+
+    // TODO: this could be bogus behavior
+    // > 2 dims
+    const dim2: Dim = 3;
+    var t2 = try rand(allocator, &.{ dim2, dim2, dim2 }, .f32);
+    defer t2.deinit();
+    var out2 = try tril(allocator, t2);
+    defer out2.deinit();
+    for (0..@intCast(dim2)) |i| {
+        var tmp_res = try out2.index(allocator, &.{ Index.initRange(span), Index.initRange(span), Index.initDim(@intCast(i)) });
+        defer tmp_res.deinit();
+        var tmp_in = try t2.index(allocator, &.{ Index.initRange(span), Index.initRange(span), Index.initDim(@intCast(i)) });
+        defer tmp_in.deinit();
+        try checkSquareTril(allocator, dim2, tmp_res, tmp_in);
+    }
+}
+
+fn checkSquareTriu(allocator: std.mem.Allocator, dim: Dim, res: Tensor, in: Tensor) !void {
+    const Index = tensor_.Index;
+    for (0..@intCast(dim)) |i| {
+        for (i + 1..@intCast(dim)) |j| {
+            var res_idx = try res.index(allocator, &.{ Index.initDim(@intCast(i)), Index.initDim(@intCast(j)) });
+            defer res_idx.deinit();
+            var in_idx = try in.index(allocator, &.{ Index.initDim(@intCast(i)), Index.initDim(@intCast(j)) });
+            defer in_idx.deinit();
+            try std.testing.expect(try allClose(allocator, res_idx, in_idx, 1e-5));
+        }
+    }
+    for (0..@intCast(dim)) |i| {
+        for (0..i) |j| {
+            var tmp_idx = try res.index(allocator, &.{ Index.initDim(@intCast(i)), Index.initDim(@intCast(j)) });
+            defer tmp_idx.deinit();
+            try std.testing.expect(try tmp_idx.scalar(allocator, f32) == 0);
+        }
+    }
+}
+
+test "TensoryUnaryOpsTest -> triu" {
+    const rand = tensor_.rand;
+    const Index = tensor_.Index;
+    const span = tensor_.span;
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    const dim: Dim = 10;
+    var t = try rand(allocator, &.{ dim, dim }, .f32);
+    defer t.deinit();
+    var out = try triu(allocator, t);
+    defer out.deinit();
+    try checkSquareTriu(allocator, dim, out, t);
+
+    // TODO: this could be bogus behavior
+    // > 2 dims
+    const dim2: Dim = 3;
+    var t2 = try rand(allocator, &.{ dim2, dim2, dim2 }, .f32);
+    defer t2.deinit();
+    var out2 = try triu(allocator, t2);
+    defer out2.deinit();
+    for (0..@intCast(dim2)) |i| {
+        var tmp_res = try out2.index(allocator, &.{ Index.initRange(span), Index.initRange(span), Index.initDim(@intCast(i)) });
+        defer tmp_res.deinit();
+        var tmp_in = try t2.index(allocator, &.{ Index.initRange(span), Index.initRange(span), Index.initDim(@intCast(i)) });
+        defer tmp_in.deinit();
+        try checkSquareTriu(allocator, dim2, tmp_res, tmp_in);
+    }
+}
+
+test "TensorUnaryOpsTest -> floor" {
+    const rand = tensor_.rand;
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a = try rand(allocator, &.{ 10, 10 }, .f32);
+    defer a.deinit();
+    try a.inPlaceAdd(allocator, f64, 0.5);
+
+    var gte = try greaterThanEqual(allocator, Tensor, a, f64, 1);
+    defer gte.deinit();
+    var expected = try gte.astype(allocator, .f32);
+    defer expected.deinit();
+    var actual = try floor(allocator, a);
+    defer actual.deinit();
+    try std.testing.expect(try allClose(allocator, actual, expected, 1e-5));
+}
+
+test "TensorUnaryOpsTest -> ceil" {
+    const rand = tensor_.rand;
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a = try rand(allocator, &.{ 10, 10 }, .f32);
+    defer a.deinit();
+    try a.inPlaceAdd(allocator, f64, 0.5);
+
+    var gte = try greaterThanEqual(allocator, Tensor, a, f64, 1);
+    defer gte.deinit();
+    var expected = try gte.astype(allocator, .f32);
+    defer expected.deinit();
+    var actual = try ceil(allocator, a);
+    defer actual.deinit();
+    try actual.inPlaceSub(allocator, f64, 1);
+    try std.testing.expect(try allClose(allocator, actual, expected, 1e-5));
+}
+
+test "TensorUnaryOpsTest -> rint" {
+    const rand = tensor_.rand;
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var s: Shape = &.{ 10, 10 };
+    var a = try rand(allocator, s, .f32);
+    defer a.deinit();
+    try a.inPlaceSub(allocator, f64, 0.5);
+    var actual = try rint(allocator, a);
+    defer actual.deinit();
+    var expected = try full(allocator, s, f64, 0, .f32);
+    defer expected.deinit();
+    try std.testing.expect(try allClose(allocator, actual, expected, 1e-5));
+
+    var b = try rand(allocator, s, .f32);
+    defer b.deinit();
+    try b.inPlaceAdd(allocator, f64, 0.5);
+    var actual1 = try rint(allocator, b);
+    defer actual1.deinit();
+    var expected1 = try full(allocator, s, f64, 1, .f32);
+    defer expected1.deinit();
+    try std.testing.expect(try allClose(allocator, actual1, expected1, 1e-5));
+}
+
+test "TensorUnaryOpsTest -> sigmoid" {
+    const rand = tensor_.rand;
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    var a = try rand(allocator, &.{ 10, 10 }, .f32);
+    defer a.deinit();
+
+    var tmp = try mul(allocator, f64, -1, Tensor, a);
+    defer tmp.deinit();
+    var tmp_exp = try exp(allocator, tmp);
+    defer tmp_exp.deinit();
+    try tmp_exp.inPlaceAdd(allocator, f64, 1);
+    var expected = try div(allocator, f64, 1, Tensor, tmp_exp);
+    defer expected.deinit();
+    var actual = try sigmoid(allocator, a);
+    defer actual.deinit();
+    try std.testing.expect(try allClose(allocator, actual, expected, 1e-5));
+}
+
+test "TensorUnaryOpsTest -> flip" {
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+
+    const high: Dim = 10;
+    var a = try arange(allocator, &.{high}, 0, .f32);
+    defer a.deinit();
+    var flipped = try flip(allocator, a, 0);
+    defer flipped.deinit();
+    try a.inPlaceMul(allocator, f64, -1);
+    try a.inPlaceAdd(allocator, i64, high - 1);
+    try std.testing.expect(try allClose(allocator, flipped, a, 1e-5));
+
+    var b = try arange(allocator, &.{ high, high }, 0, .f32);
+    defer b.deinit();
+    var b_flipped = try flip(allocator, b, 1);
+    defer b_flipped.deinit();
+    try std.testing.expect(try allClose(allocator, b_flipped, b, 1e-5));
+
+    var c = try arange(allocator, &.{ high, high }, 0, .f32);
+    defer c.deinit();
+    var c_flipped = try flip(allocator, c, 1);
+    defer c_flipped.deinit();
+    try std.testing.expect(try allClose(allocator, c_flipped, c, 1e-5));
+}
+
+test "TensorUnaryOpsTest -> where" {
+    const deinit = tensor_.deinit;
+    const allocator = std.testing.allocator;
+    defer deinit(); // deinit global singletons
+    // 1 0
+    // 0 1
+    var cond = try Tensor.fromSlice(allocator, &.{ 2, 2 }, i8, &.{ 1, 0, 0, 1 }, .b8);
+    defer cond.deinit();
+    // 0 2
+    // 1 3
+    var x = try Tensor.fromSlice(allocator, &.{ 2, 2 }, i32, &.{ 0, 1, 2, 3 }, .s32);
+    defer x.deinit();
+    // 4 6
+    // 5 7
+    var y = try Tensor.fromSlice(allocator, &.{ 2, 2 }, i32, &.{ 4, 5, 6, 7 }, .s32);
+    defer y.deinit();
+
+    // 0 6
+    // 5 3
+    var actual1 = try where(allocator, cond, Tensor, x, Tensor, y);
+    defer actual1.deinit();
+    var expected1 = try Tensor.fromSlice(allocator, &.{ 2, 2 }, i32, &.{ 0, 5, 6, 3 }, .s32);
+    defer expected1.deinit();
+    try std.testing.expect(try allClose(allocator, actual1, expected1, 1e-5));
+    // 0 1
+    // 1 3
+    var actual2 = try where(allocator, cond, Tensor, x, f64, 1);
+    defer actual2.deinit();
+    var expected2 = try Tensor.fromSlice(allocator, &.{ 2, 2 }, i32, &.{ 0, 1, 1, 3 }, .s32);
+    defer expected2.deinit();
+    try std.testing.expect(try allClose(allocator, actual2, expected2, 1e-5));
+    // 2 6
+    // 5 2
+    var actual3 = try where(allocator, cond, f64, 2, Tensor, y);
+    defer actual3.deinit();
+    var expected3 = try Tensor.fromSlice(allocator, &.{ 2, 2 }, i32, &.{ 2, 5, 6, 2 }, .s32);
+    defer expected3.deinit();
+    try std.testing.expect(try allClose(allocator, actual3, expected3, 1e-5));
 }
