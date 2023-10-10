@@ -48,6 +48,8 @@ pub const TensorBackend = struct {
         randn: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: Shape, dtype: DType) anyerror!Tensor,
         rand: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: Shape, dtype: DType) anyerror!Tensor,
         fromScalar: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, value: f64, dtype: DType) anyerror!Tensor,
+        fromScalarI64: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, value: i64) anyerror!Tensor,
+        fromScalarU64: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, value: u64) anyerror!Tensor,
         fromSlice: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, s: Shape, data: ?*anyopaque, dtype: DType) anyerror!Tensor,
         full: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: Shape, value: f64, dtype: DType) anyerror!Tensor,
         fullI64: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, shape: Shape, value: i64) anyerror!Tensor,
@@ -182,8 +184,15 @@ pub const TensorBackend = struct {
     }
 
     pub fn fromScalar(self: *const Self, allocator: std.mem.Allocator, comptime T: type, value: T, dtype: DType) !Tensor {
+        if (T == i64 and dtype == .s64) {
+            return self.vtable.fromScalarI64(self.ptr, allocator, value);
+        }
+        if (T == u64 and dtype == .u64) {
+            return self.vtable.fromScalarU64(self.ptr, allocator, value);
+        }
         var f: f64 = undefined;
         switch (@typeInfo(T)) {
+            .Bool => f = @floatFromInt(@intFromBool(value)),
             .Float => f = @floatCast(value),
             .Int => f = @floatFromInt(value),
             else => return error.InvalidTypePassedToFromScalar,
@@ -819,6 +828,16 @@ pub const TensorBackend = struct {
                 return self.fromScalar(allocator, value, dtype);
             }
 
+            fn fromScalarI64(ctx: *anyopaque, allocator: std.mem.Allocator, value: i64) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.fromScalarI64(allocator, value);
+            }
+
+            fn fromScalarU64(ctx: *anyopaque, allocator: std.mem.Allocator, value: u64) !Tensor {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.fromScalarU64(allocator, value);
+            }
+
             fn fromSlice(ctx: *anyopaque, allocator: std.mem.Allocator, s: Shape, data: ?*anyopaque, dtype: DType) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.fromSlice(allocator, s, data, dtype);
@@ -1309,6 +1328,8 @@ pub const TensorBackend = struct {
                 .randn = impl.randn,
                 .rand = impl.rand,
                 .fromScalar = impl.fromScalar,
+                .fromScalarI64 = impl.fromScalarI64,
+                .fromScalarU64 = impl.fromScalarU64,
                 .fromSlice = impl.fromSlice,
                 .full = impl.full,
                 .fullI64 = impl.fullI64,

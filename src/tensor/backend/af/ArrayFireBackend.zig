@@ -298,6 +298,42 @@ pub const ArrayFireBackend = struct {
         );
     }
 
+    pub fn fromScalarI64(_: *const ArrayFireBackend, allocator: std.mem.Allocator, value: i64) !Tensor {
+        var arr: *af.Array = try af.Array.constantI64(
+            allocator,
+            value,
+            1,
+            af.Dim4{},
+        );
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    0,
+                ),
+            ),
+        );
+    }
+
+    pub fn fromScalarU64(_: *const ArrayFireBackend, allocator: std.mem.Allocator, value: u64) !Tensor {
+        var arr: *af.Array = try af.Array.constantU64(
+            allocator,
+            value,
+            1,
+            af.Dim4{},
+        );
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try ArrayFireTensor.initFromArray(
+                    allocator,
+                    arr,
+                    0,
+                ),
+            ),
+        );
+    }
+
     pub fn fromSlice(_: *const ArrayFireBackend, allocator: std.mem.Allocator, s: Shape, data: ?*anyopaque, dtype: DType) !Tensor {
         var arr: *af.Array = try af.ops.createArray(
             allocator,
