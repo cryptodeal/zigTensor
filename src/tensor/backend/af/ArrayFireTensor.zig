@@ -501,7 +501,7 @@ pub const ArrayFireTensor = struct {
         return afStrides.getOwnedStrides(allocator, self.numDims());
     }
 
-    pub fn stream(self: *ArrayFireTensor, allocator: std.mem.Allocator) !*runtime.Stream {
+    pub fn stream(self: *ArrayFireTensor, allocator: std.mem.Allocator) !runtime.Stream {
         // TODO indexing is unlikely to change the stream associated with a tensor.
         // But if it can, we need to call `getHandle()` here.
         var bknd = try ArrayFireBackend.getInstance(allocator);

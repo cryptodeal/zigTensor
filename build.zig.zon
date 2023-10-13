@@ -1,6 +1,7 @@
 .{
     .name = "zigTensor",
     .version = "0.0.1",
+    .paths = .{"src/"},
     .dependencies = .{
         .zigrc = .{
             .url = "https://github.com/cryptodeal/zigrc/archive/9065c38e79b613043aa728ea3f97218a93d9450e.tar.gz",

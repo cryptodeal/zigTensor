@@ -91,7 +91,7 @@ pub const DeviceManager = struct {
         return self.deviceTypeToInfo_.contains(device_type);
     }
 
-    pub fn getDeviceCount(self: *DeviceManager, device_type: DeviceType) !u32 {
+    pub fn getDeviceCount(self: *DeviceManager, device_type: DeviceType) !usize {
         try self.enforceDeviceTypeAvailable("[DeviceManager.getDeviceCount]", device_type);
         return self.deviceTypeToInfo_.get(device_type).?.count();
     }

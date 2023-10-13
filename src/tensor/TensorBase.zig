@@ -229,7 +229,7 @@ pub const Tensor = struct {
         return self.impl_.strides(allocator);
     }
 
-    pub fn stream(self: *const Tensor, allocator: std.mem.Allocator) !*Stream {
+    pub fn stream(self: *const Tensor, allocator: std.mem.Allocator) !Stream {
         return self.impl_.stream(allocator);
     }
 
@@ -1272,8 +1272,8 @@ test "TensorBaseTest -> stream" {
     defer t2.deinit();
     var t3 = try tensor.add(allocator, Tensor, t1, Tensor, t2);
     defer t3.deinit();
-    try std.testing.expect(try t1.stream(allocator) == try t2.stream(allocator));
-    try std.testing.expect(try t1.stream(allocator) == try t3.stream(allocator));
+    try std.testing.expectEqual(try t1.stream(allocator), try t2.stream(allocator));
+    try std.testing.expectEqual(try t1.stream(allocator), try t3.stream(allocator));
 }
 
 test "TensorBaseTest -> asContiguousTensor" {

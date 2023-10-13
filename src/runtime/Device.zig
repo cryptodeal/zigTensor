@@ -48,44 +48,44 @@ pub const Device = struct {
     };
 
     /// Set this device as the active device, without worrying about the callbacks.
-    pub fn setActiveImpl(ctx: *Self) void {
+    pub fn setActiveImpl(ctx: *const Self) void {
         return ctx.vtable.setActiveImpl(ctx.ptr);
     }
 
     /// Returns an immutable list of all streams managed by this device.
-    pub fn getStreams(ctx: *Self) std.AutoHashMap(Arc(Stream), void) {
+    pub fn getStreams(ctx: *const Self) std.AutoHashMap(Arc(Stream), void) {
         return ctx.vtable.getStreams(ctx.ptr);
     }
 
     // Let this device manage given stream. Do nothing if it was already added.
-    pub fn addStream(ctx: *Self, stream: Arc(Stream)) !void {
+    pub fn addStream(ctx: *const Self, stream: Arc(Stream)) !void {
         return ctx.vtable.addStream(ctx.ptr, stream);
     }
 
     /// Block calling thread and synchronize with regard to all streams on this device.
-    pub fn sync(ctx: *Self) !void {
+    pub fn sync(ctx: *const Self) !void {
         try ctx.vtable.sync(ctx.ptr);
     }
 
     /// Returns the native ID of this device (semantics are implementation-dependent).
-    pub fn nativeId(ctx: *Self) i32 {
+    pub fn nativeId(ctx: *const Self) i32 {
         return ctx.vtable.nativeId(ctx.ptr);
     }
 
     /// Returns the type of this device.
-    pub fn deviceType(ctx: *Self) DeviceType {
+    pub fn deviceType(ctx: *const Self) DeviceType {
         return ctx.vtable.deviceType(ctx.ptr);
     }
 
     /// Set this device as the active device and invokes any callbacks added.
-    pub fn setActive(ctx: *Self) !void {
+    pub fn setActive(ctx: *const Self) !void {
         return ctx.vtable.setActive(ctx.ptr);
     }
 
     /// Lets this device keep track of the given callback (along with previously
     /// added ones), which will be invoked with the device's native ID after
     /// setting the device active.
-    pub fn addSetActiveCallback(ctx: *Self, callback: *const fn (data: ?*anyopaque, id: i32) anyerror!void, data: ?*anyopaque) DeviceErrors!void {
+    pub fn addSetActiveCallback(ctx: *const Self, callback: *const fn (data: ?*anyopaque, id: i32) anyerror!void, data: ?*anyopaque) DeviceErrors!void {
         return ctx.vtable.addSetActiveCallback(ctx.ptr, callback, data);
     }
 
@@ -93,7 +93,7 @@ pub const Device = struct {
     //
     // Throws if the specified type does not match the actual
     // derived device type.
-    pub fn getImpl(ctx: *Self, comptime T: type) !*T {
+    pub fn getImpl(ctx: *const Self, comptime T: type) !*T {
         var actual_type = ctx.deviceType();
         if (T.type_ != actual_type) {
             std.log.debug("[zt.Device.getImpl] specified device type: [{s}] doesn't match actual device type: [{s}]\n", .{ @tagName(T.type_), @tagName(actual_type) });
@@ -103,7 +103,7 @@ pub const Device = struct {
     }
 
     /// Frees all associated memory from the implementation.
-    pub fn deinit(ctx: *Self) void {
+    pub fn deinit(ctx: *const Self) void {
         return ctx.vtable.deinit(ctx.ptr);
     }
 

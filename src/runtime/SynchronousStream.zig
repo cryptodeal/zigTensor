@@ -47,7 +47,7 @@ pub const SynchronousStream = struct {
 
     pub fn sync(_: *Self) !void {} // no-op
 
-    pub fn relativeSync(_: *Self, wait_on: *Stream) !void {
+    pub fn relativeSync(_: *Self, wait_on: Stream) !void {
         switch (wait_on.streamType()) {
             .Synchronous => {
                 var stream = try wait_on.getImpl(SynchronousStream);
@@ -60,7 +60,7 @@ pub const SynchronousStream = struct {
         }
     }
 
-    pub fn relativeSyncMulti(self: *Self, wait_ons: *std.AutoHashMap(Stream, void)) !void {
+    pub fn relativeSyncMulti(self: *Self, wait_ons: std.AutoHashMap(Stream, void)) !void {
         var iterator = wait_ons.keyIterator();
         while (iterator.next()) |stream| {
             try self.relativeSync(stream);

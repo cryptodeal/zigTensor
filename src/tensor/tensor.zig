@@ -50,6 +50,7 @@ pub const dtypeTraits = types.dtypeTraits;
 
 pub usingnamespace @import("Random.zig");
 pub usingnamespace @import("TensorOps.zig");
+pub usingnamespace @import("Compute.zig");
 
 test {
     const std = @import("std");

@@ -49,7 +49,7 @@ pub fn sync(_: *ArrayFireCPUStream) !void {
     try af.ops.sync(try af.ops.getDevice());
 }
 
-pub fn relativeSync(_: *ArrayFireCPUStream, wait_on: *Stream) !void {
+pub fn relativeSync(_: *ArrayFireCPUStream, wait_on: Stream) !void {
     switch (wait_on.streamType()) {
         .Synchronous => {
             var stream = try wait_on.getImpl(ArrayFireCPUStream);
@@ -62,9 +62,9 @@ pub fn relativeSync(_: *ArrayFireCPUStream, wait_on: *Stream) !void {
     }
 }
 
-pub fn relativeSyncMulti(self: *ArrayFireCPUStream, wait_ons: *std.AutoHashMap(Stream, void)) !void {
+pub fn relativeSyncMulti(self: *ArrayFireCPUStream, wait_ons: std.AutoHashMap(Stream, void)) !void {
     var iterator = wait_ons.keyIterator();
     while (iterator.next()) |stream| {
-        try self.relativeSync(stream);
+        try self.relativeSync(stream.*);
     }
 }

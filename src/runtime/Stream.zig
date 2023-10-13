@@ -29,8 +29,8 @@ pub const Stream = struct {
         streamType: *const fn (ctx: *anyopaque) StreamType,
         device: *const fn (ctx: *anyopaque) Device,
         sync: *const fn (ctx: *anyopaque) anyerror!void,
-        relativeSync: *const fn (ctx: *anyopaque, wait_on: *Stream) anyerror!void,
-        relativeSyncMulti: *const fn (ctx: *anyopaque, wait_ons: *std.AutoHashMap(Stream, void)) anyerror!void,
+        relativeSync: *const fn (ctx: *anyopaque, wait_on: Stream) anyerror!void,
+        relativeSyncMulti: *const fn (ctx: *anyopaque, wait_ons: std.AutoHashMap(Stream, void)) anyerror!void,
         deinit: *const fn (ctx: *anyopaque) void,
     };
 
@@ -38,7 +38,7 @@ pub const Stream = struct {
     //
     // Throws if the specified type does not match the actual
     // derived device type.
-    pub fn getImpl(ctx: *Self, comptime T: type) StreamErrors!*T {
+    pub fn getImpl(ctx: *const Self, comptime T: type) StreamErrors!*T {
         var actual_type = ctx.streamType();
         if (T.type_ != actual_type) {
             std.log.debug("[zt.Stream.getImpl] specified stream type: [{s}] doesn't match actual stream type: [{s}]\n", .{ @tagName(T.type_), @tagName(actual_type) });
@@ -48,24 +48,24 @@ pub const Stream = struct {
     }
 
     /// Returns enum denoting the type of this stream.
-    pub fn streamType(ctx: *Self) StreamType {
+    pub fn streamType(ctx: *const Self) StreamType {
         return ctx.vtable.streamType(ctx.ptr);
     }
 
     /// Return the owner device of this stream.
-    pub fn device(ctx: *Self) Device {
+    pub fn device(ctx: *const Self) Device {
         return ctx.vtable.device(ctx.ptr);
     }
 
     /// Return the owner device implementation of this stream.
-    pub fn deviceImpl(ctx: *Self, comptime T: type) !*T {
+    pub fn deviceImpl(ctx: *const Self, comptime T: type) !*T {
         var dev = ctx.device();
         return dev.getImpl(T);
     }
 
     /// Block calling thread and synchronize with regard to
     /// all tasks on this stream.
-    pub fn sync(ctx: *Self) !void {
+    pub fn sync(ctx: *const Self) !void {
         try ctx.vtable.sync(ctx.ptr);
     }
 
@@ -73,7 +73,7 @@ pub const Stream = struct {
     /// current tasks on all given stream, i.e., the former can only
     /// start after the completion of the latter. N.B. this function
     /// may or may not block the calling thread.
-    pub fn relativeSync(ctx: *Self, wait_on: *Stream) !void {
+    pub fn relativeSync(ctx: *const Self, wait_on: Stream) !void {
         return ctx.vtable.relativeSync(ctx.ptr, wait_on);
     }
 
@@ -81,12 +81,12 @@ pub const Stream = struct {
     /// current tasks on given stream, i.e., the former can only
     /// start after the completion of the latter. N.B. this function
     /// may or may not block the calling thread.
-    pub fn relativeSyncMulti(ctx: *anyopaque, wait_ons: *std.AutoHashMap(Stream, void)) !void {
+    pub fn relativeSyncMulti(ctx: *const Self, wait_ons: std.AutoHashMap(Stream, void)) !void {
         return ctx.vtable.relativeSyncMulti(ctx.ptr, wait_ons);
     }
 
     /// Frees all associated memory from the implementation.
-    pub fn deinit(ctx: *Self) void {
+    pub fn deinit(ctx: *const Self) void {
         return ctx.vtable.deinit(ctx.ptr);
     }
 
@@ -112,12 +112,12 @@ pub const Stream = struct {
                 try self.sync();
             }
 
-            fn relativeSync(ctx: *anyopaque, wait_on: *Stream) !void {
+            fn relativeSync(ctx: *anyopaque, wait_on: Stream) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 try self.relativeSync(wait_on);
             }
 
-            fn relativeSyncMulti(ctx: *anyopaque, wait_ons: *std.AutoHashMap(Stream, void)) !void {
+            fn relativeSyncMulti(ctx: *anyopaque, wait_ons: std.AutoHashMap(Stream, void)) !void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 try self.relativeSyncMulti(wait_ons);
             }
