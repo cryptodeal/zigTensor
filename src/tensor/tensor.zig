@@ -48,9 +48,9 @@ pub const DTypeError = types.DTypeError;
 pub const DType = types.DType;
 pub const dtypeTraits = types.dtypeTraits;
 
-pub usingnamespace @import("Random.zig");
+pub usingnamespace @import("random.zig");
 pub usingnamespace @import("TensorOps.zig");
-pub usingnamespace @import("Compute.zig");
+pub usingnamespace @import("compute.zig");
 
 test {
     const std = @import("std");

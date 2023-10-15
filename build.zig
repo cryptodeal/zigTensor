@@ -5,6 +5,12 @@ const std = @import("std");
 // runner.
 pub fn build(b: *std.Build) !void {
     // capture build cli flags
+    const ZT_INCLUDE_PATHS = b.option([]const u8, "ZT_INCLUDE_PATHS", "Include paths pointing to headers") orelse &.{};
+    const ZT_LIBRARY_PATHS = b.option([]const u8, "ZT_LIBRARY_PATHS", "Libary paths") orelse &.{};
+    const backend_link_opts = LinkBackendCtx{
+        .include_paths = ZT_INCLUDE_PATHS,
+        .library_paths = ZT_LIBRARY_PATHS,
+    };
     const ZT_BACKEND_CUDA = b.option(bool, "ZT_BACKEND_CUDA", "Use CUDA backend") orelse false;
     const ZT_BACKEND_CPU = b.option(bool, "ZT_BACKEND_CPU", "Use CPU backend") orelse false;
     const ZT_BACKEND_OPENCL = b.option(bool, "ZT_BACKEND_OPENCL", "Use OpenCL backend") orelse false;
@@ -49,7 +55,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .link_libc = true,
     });
-    linkBackend(lib);
+    try linkBackend(lib, backend_link_opts);
     b.installArtifact(lib);
 
     // Unit Tests
@@ -59,7 +65,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .link_libc = true,
     });
-    linkBackend(main_tests);
+    try linkBackend(main_tests, backend_link_opts);
 
     main_tests.addOptions("build_options", shared_opts);
     main_tests.addModule("zigrc", zigrc_module);
@@ -80,20 +86,50 @@ pub fn build(b: *std.Build) !void {
     build_docs_step.dependOn(&build_docs.step);
 }
 
+const LinkBackendCtx = struct {
+    include_paths: []const u8,
+    library_paths: []const u8,
+};
+
 // TODO: add flexibility, enable linking various backends
-fn linkBackend(compile: *std.Build.Step.Compile) void {
+fn linkBackend(compile: *std.Build.Step.Compile, opts: LinkBackendCtx) !void {
     const target = (std.zig.system.NativeTargetInfo.detect(compile.target) catch @panic("failed to detect native target info!")).target;
     if (target.os.tag == .linux) {
-        // TODO: support linux
+        if (opts.include_paths.len == 0) {
+            std.debug.print("include paths must be specified for linux", .{});
+            return error.LinuxRequiresIncludePaths;
+        }
+        if (opts.library_paths.len == 0) {
+            std.debug.print("library paths must be specified for linux", .{});
+            return error.LinuxRequiresLibraryPaths;
+        }
+        compile.addIncludePath(.{ .path = opts.include_paths });
+        compile.addLibraryPath(.{ .path = opts.library_paths });
     } else if (target.os.tag == .windows) {
         // TODO: support windows
     } else if (target.isDarwin()) {
         if (target.cpu.arch == .aarch64) {
-            compile.addIncludePath(.{ .path = "/opt/homebrew/include" });
-            compile.addLibraryPath(.{ .path = "/opt/homebrew/lib" });
+            if (opts.include_paths.len == 0) {
+                compile.addIncludePath(.{ .path = "/opt/homebrew/include" });
+            } else {
+                compile.addIncludePath(.{ .path = opts.include_paths });
+            }
+            if (opts.library_paths.len == 0) {
+                compile.addLibraryPath(.{ .path = "/opt/homebrew/lib" });
+            } else {
+                compile.addLibraryPath(.{ .path = opts.library_paths });
+            }
         } else {
-            compile.addIncludePath(.{ .path = "/usr/local/include" });
-            compile.addLibraryPath(.{ .path = "/usr/local/lib" });
+            if (opts.include_paths.len == 0) {
+                compile.addIncludePath(.{ .path = "/usr/local/include" });
+            } else {
+                compile.addIncludePath(.{ .path = opts.include_paths });
+            }
+            if (opts.library_paths.len == 0) {
+                compile.addLibraryPath(.{ .path = "/usr/local/lib" });
+            } else {
+                compile.addLibraryPath(.{ .path = opts.library_paths });
+            }
         }
         compile.linkSystemLibrary("afcpu");
     }

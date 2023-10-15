@@ -4,8 +4,8 @@
     .paths = .{"src/"},
     .dependencies = .{
         .zigrc = .{
-            .url = "https://github.com/cryptodeal/zigrc/archive/9065c38e79b613043aa728ea3f97218a93d9450e.tar.gz",
-            .hash = "1220e1cec640c0232fa592a6e666133e02dba68b21f0f9e360a5d68a870332f0dc28",
+            .url = "https://github.com/cryptodeal/zigrc/archive/d19625bfa92ad2c814d40be3516b9a4a7627e5d7.tar.gz",
+            .hash = "12207aaf9c0536c7f4f4e5275f8f181824ca266994c72adcb51706776b25b8a8cbc4",
         },
     },
 }

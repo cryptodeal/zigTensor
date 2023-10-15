@@ -1,17 +1,43 @@
 name: format_and_test
 on: [push]
 jobs:
-  test:
-    strategy:
-      matrix:
-        os: [macos-latest]
-    runs-on: ${{matrix.os}}
+  osx-test:
+    runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: goto-bus-stop/setup-zig@v2
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
       - name: "Install ArrayFire CPU backend with OpenBLAS runtime"
         run: brew install arrayfire
       - run: zig build test --summary all -DZT_ARRAYFIRE_USE_CPU
+  linux-test:
+    runs-on: ubuntu-latest
+    env:
+      AF_VER: 3.9.0
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+      - name: Cache ArrayFire
+        uses: actions/cache@v1
+        id: arrayfire
+        with:
+          path: afbin
+          key: ${{ runner.os }}-af-${{ env.AF_VER }}
+      - name: Download ArrayFire
+        # Only download and cache arrayfire if already not found
+        if: steps.arrayfire.outputs.cache-hit != 'true'
+        run: |
+          wget --quiet http://arrayfire.s3.amazonaws.com/${AF_VER}/ArrayFire-v${AF_VER}_Linux_x86_64.sh
+          chmod +x ./ArrayFire-v${AF_VER}_Linux_x86_64.sh
+          mkdir afbin
+          ./ArrayFire-v${AF_VER}_Linux_x86_64.sh --skip-license --exclude-subdir --prefix=./afbin
+          rm ./afbin/lib64/libcu*.so*
+          rm ./afbin/lib64/libafcuda*.so*
+          rm ./ArrayFire-v${AF_VER}_Linux_x86_64.sh
+      - run: zig build test --summary all -DZT_ARRAYFIRE_USE_CPU -DZT_INCLUDE_PATHS=${GITHUB_WORKSPACE}/afbin/include -DZT_LIBRARY_PATHS=${GITHUB_WORKSPACE}/afbin/lib64
   lint:
     runs-on: macos-latest
     steps:
