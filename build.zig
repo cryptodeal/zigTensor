@@ -131,6 +131,6 @@ fn linkBackend(compile: *std.Build.Step.Compile, opts: LinkBackendCtx) !void {
                 compile.addLibraryPath(.{ .path = opts.library_paths });
             }
         }
-        compile.linkSystemLibrary("afcpu");
     }
+    compile.linkSystemLibrary("afcpu");
 }
