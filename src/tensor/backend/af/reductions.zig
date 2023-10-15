@@ -7,7 +7,7 @@ const TensorAdapterBase = @import("../../tensor_adapter.zig").TensorAdapterBase;
 const ArrayFireTensor = af_tensor.ArrayFireTensor;
 const toArray = af_tensor.toArray;
 
-const condenseIndices = @import("Utils.zig").condenseIndices;
+const condenseIndices = @import("utils.zig").condenseIndices;
 
 pub fn afReduceAxes(
     allocator: std.mem.Allocator,
