@@ -94,7 +94,24 @@ pub fn add(allocator: std.mem.Allocator, comptime LhsT: type, lhs: LhsT, comptim
 
 // TODO: pub fn sub(allocator: std.mem.Allocator, comptime LhsT: type, lhs: LhsT, comptime RhsT: type, rhs: RhsT) !Variable {}
 
+fn negateGradFunc(allocator: std.mem.Allocator, inputs: []Variable, grad_output: *Variable, _: ?*anyopaque) !void {
+    _ = allocator;
+    _ = inputs;
+    _ = grad_output;
+}
+
 pub fn negate(allocator: std.mem.Allocator, input: *const Variable) !Variable {
     var result = try zt.tensor.sub(allocator, f64, 0, Tensor, input.tensor());
-    defer result.deinit();
+    _ = result;
+}
+
+fn reciprocalGradFunc(allocator: std.mem.Allocator, inputs: []Variable, grad_output: *Variable, _: ?*anyopaque) !void {
+    _ = allocator;
+    _ = inputs;
+    _ = grad_output;
+}
+
+pub fn reciprocal(allocator: std.mem.Allocator, input: *const Variable) !Variable {
+    _ = allocator;
+    _ = input;
 }

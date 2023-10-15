@@ -1,6 +1,6 @@
 const default_tensor_type = @import("DefaultTensorType.zig");
 const index = @import("Index.zig");
-const init_ = @import("Init.zig");
+const init_ = @import("init.zig");
 const base = @import("TensorBase.zig");
 const types = @import("Types.zig");
 const tensor_backend = @import("TensorBackend.zig");
