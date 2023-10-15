@@ -1,5 +1,5 @@
 const std = @import("std");
-const af = @import("ArrayFire.zig");
+const af = @import("arrayfire.zig");
 
 /// Wraps `af.af_features`, the ArrayFire Features class,
 /// as a zig struct to simplify calling into the ArrayFire C API.

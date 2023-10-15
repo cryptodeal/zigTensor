@@ -1,9 +1,9 @@
 const std = @import("std");
-const af = @import("ArrayFire.zig");
-const zt_shape = @import("../../tensor/Shape.zig");
-const zt_base = @import("../../tensor/TensorBase.zig");
+const af = @import("arrayfire.zig");
+const zt_shape = @import("../../tensor/shape.zig");
+const zt_base = @import("../../tensor/tensor_base.zig");
 
-const DType = @import("../../tensor/Types.zig").DType;
+const DType = @import("../../tensor/types.zig").DType;
 const Shape = zt_shape.Shape;
 const Dim = zt_shape.Dim;
 const MatrixProperty = zt_base.MatrixProperty;

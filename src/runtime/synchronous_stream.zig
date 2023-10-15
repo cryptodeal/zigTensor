@@ -1,7 +1,7 @@
 const std = @import("std");
-const rt_stream = @import("Stream.zig");
-const rt_device = @import("Device.zig");
-const rt_device_mgr = @import("DeviceManager.zig");
+const rt_stream = @import("stream.zig");
+const rt_device = @import("device.zig");
+const rt_device_mgr = @import("device_manager.zig");
 
 const X64Device = rt_device.X64Device;
 const Device = rt_device.Device;

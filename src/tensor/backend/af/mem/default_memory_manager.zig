@@ -1,6 +1,6 @@
 const std = @import("std");
 const zigrc = @import("zigrc");
-const mem_dev_interface = @import("MemoryManagerDeviceInterface.zig");
+const mem_dev_interface = @import("memory_manager_device_interface.zig");
 
 const Arc = zigrc.Arc;
 const MemoryManagerDeviceInterface = mem_dev_interface.MemoryManagerDeviceInterface;

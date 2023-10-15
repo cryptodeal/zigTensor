@@ -1,5 +1,5 @@
 const std = @import("std");
-const af = @import("ArrayFire.zig");
+const af = @import("arrayfire.zig");
 
 /// Returns a new `af.Event` handle.
 pub fn createEvent(allocator: std.mem.Allocator) !*af.Event {

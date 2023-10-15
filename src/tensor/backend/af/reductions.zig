@@ -1,9 +1,9 @@
-const af = @import("../../../bindings/af/ArrayFire.zig");
+const af = @import("../../../bindings/af/arrayfire.zig");
 const std = @import("std");
-const af_tensor = @import("ArrayFireTensor.zig");
+const af_tensor = @import("arrayfire_tensor.zig");
 
-const Tensor = @import("../../TensorBase.zig").Tensor;
-const TensorAdapterBase = @import("../../TensorAdapter.zig").TensorAdapterBase;
+const Tensor = @import("../../tensor_base.zig").Tensor;
+const TensorAdapterBase = @import("../../tensor_adapter.zig").TensorAdapterBase;
 const ArrayFireTensor = af_tensor.ArrayFireTensor;
 const toArray = af_tensor.toArray;
 

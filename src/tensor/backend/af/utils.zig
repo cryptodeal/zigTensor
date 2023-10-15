@@ -1,6 +1,6 @@
 const std = @import("std");
-const af = @import("../../../bindings/af/ArrayFire.zig");
-const zt_idx = @import("../../Index.zig");
+const af = @import("../../../bindings/af/arrayfire.zig");
+const zt_idx = @import("../../index.zig");
 const assert = std.debug.assert;
 
 const IndexType = zt_idx.IndexType;

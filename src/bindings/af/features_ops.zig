@@ -1,5 +1,5 @@
 const std = @import("std");
-const af = @import("ArrayFire.zig");
+const af = @import("arrayfire.zig");
 
 /// Returns a new `AFFeatures` object with `num` features.
 pub fn createFeatures(allocator: std.mem.Allocator, num: i64) !*af.Features {

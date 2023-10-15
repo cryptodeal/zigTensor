@@ -1,5 +1,5 @@
 const std = @import("std");
-const af = @import("ArrayFire.zig");
+const af = @import("arrayfire.zig");
 
 /// Creates an `af.Window` struct with specified `width`, `height`, and `title`.
 pub fn createWindow(

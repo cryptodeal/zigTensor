@@ -1,7 +1,7 @@
 //! The ArrayFire MemoryManagerAdapter interface.
 
 const std = @import("std");
-const af = @import("../../../../bindings/af/ArrayFire.zig");
+const af = @import("../../../../bindings/af/arrayfire.zig");
 
 const assert = std.debug.assert;
 

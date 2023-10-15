@@ -1,4 +1,4 @@
-const af = @import("ArrayFire.zig");
+const af = @import("arrayfire.zig");
 
 pub const Cell = struct {
     row: i32,

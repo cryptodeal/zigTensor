@@ -1,5 +1,5 @@
 const std = @import("std");
-const af = @import("ArrayFire.zig");
+const af = @import("arrayfire.zig");
 
 /// Returns a new `af.RandomEngine`.
 pub fn createRandEngine(allocator: std.mem.Allocator, rtype: af.RandomEngineType, seed: u64) !*af.RandomEngine {

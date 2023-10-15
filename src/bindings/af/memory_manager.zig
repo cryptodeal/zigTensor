@@ -1,5 +1,5 @@
 const std = @import("std");
-const af = @import("ArrayFire.zig");
+const af = @import("arrayfire.zig");
 
 /// Wraps `af.af_memory_manager`, the ArrayFire memory manager interface,
 /// as a zig struct to simplify calling into the ArrayFire C API.

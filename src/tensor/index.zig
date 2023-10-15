@@ -239,7 +239,7 @@ test "IndexTest -> Index.idxType" {
 
 test "IndexTest -> ArrayFireMaxIndex" {
     const full = tensor_.full;
-    const deinit = @import("Init.zig").deinit;
+    const deinit = @import("init.zig").deinit;
     defer deinit(); // deinit global singletons
     const allocator = std.testing.allocator;
 
@@ -259,7 +259,7 @@ test "IndexTest -> ArrayFireMaxIndex" {
 
 test "IndexTest -> Shape" {
     const full = tensor_.full;
-    const deinit = @import("Init.zig").deinit;
+    const deinit = @import("init.zig").deinit;
     const allocator = std.testing.allocator;
     const shape = tensor_.shape;
     defer deinit(); // deinit global singletons

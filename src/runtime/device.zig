@@ -1,11 +1,11 @@
 const std = @import("std");
 const rc = @import("zigrc");
-const rt_device_type = @import("DeviceType.zig");
-const rt_stream = @import("Stream.zig");
-const rt_device_mgr = @import("DeviceManager.zig");
+const rt_device_type = @import("device_type.zig");
+const rt_stream = @import("stream.zig");
+const rt_device_mgr = @import("device_manager.zig");
 
 const assert = std.debug.assert;
-const kX64DeviceId = @import("DeviceManager.zig").kX64DeviceId;
+const kX64DeviceId = rt_device_mgr.kX64DeviceId;
 const Arc = rc.Arc;
 const DeviceType = rt_device_type.DeviceType;
 const getDeviceTypes = rt_device_type.getDeviceTypes;

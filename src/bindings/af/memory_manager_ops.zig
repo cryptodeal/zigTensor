@@ -1,5 +1,5 @@
 const std = @import("std");
-const af = @import("ArrayFire.zig");
+const af = @import("arrayfire.zig");
 
 /// Called after a memory manager is set and becomes active.
 pub const MemMgrInitializeFn = af.af_memory_manager_initialize_fn;

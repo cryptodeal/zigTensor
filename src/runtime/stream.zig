@@ -1,6 +1,6 @@
 //! The standard Stream interface.
 const std = @import("std");
-const rt_device = @import("Device.zig");
+const rt_device = @import("device.zig");
 
 const assert = std.debug.assert;
 const Device = rt_device.Device;

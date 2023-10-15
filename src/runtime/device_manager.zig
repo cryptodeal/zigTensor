@@ -1,7 +1,7 @@
 const std = @import("std");
 const rc = @import("zigrc");
-const rt_device = @import("Device.zig");
-const rt_device_type = @import("DeviceType.zig");
+const rt_device = @import("device.zig");
+const rt_device_type = @import("device_type.zig");
 // const cuda = @import("CUDAUtils.zig");
 const ZT_BACKEND_CUDA = @import("build_options").ZT_BACKEND_CUDA;
 

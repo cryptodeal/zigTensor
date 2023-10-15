@@ -1,5 +1,5 @@
 const std = @import("std");
-const af = @import("../bindings/af/ArrayFire.zig");
+const af = @import("../bindings/af/arrayfire.zig");
 
 const StringMapType: type = struct { key: []const u8, value: DType };
 

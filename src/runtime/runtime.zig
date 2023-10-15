@@ -1,10 +1,10 @@
 const std = @import("std");
 
-pub usingnamespace @import("DeviceType.zig");
-pub usingnamespace @import("DeviceManager.zig");
-pub usingnamespace @import("Device.zig");
-pub usingnamespace @import("Stream.zig");
-pub usingnamespace @import("SynchronousStream.zig");
+pub usingnamespace @import("device_type.zig");
+pub usingnamespace @import("device_manager.zig");
+pub usingnamespace @import("device.zig");
+pub usingnamespace @import("stream.zig");
+pub usingnamespace @import("synchronous_stream.zig");
 
 test {
     std.testing.refAllDecls(@This());

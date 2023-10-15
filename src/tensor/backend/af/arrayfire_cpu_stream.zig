@@ -1,9 +1,9 @@
 const std = @import("std");
 const zigrc = @import("zigrc");
-const af = @import("../../../bindings/af/ArrayFire.zig");
-const rt_stream = @import("../../../runtime/Stream.zig");
-const rt_device = @import("../../../runtime/Device.zig");
-const rt_sync_stream = @import("../../../runtime/SynchronousStream.zig");
+const af = @import("../../../bindings/af/arrayfire.zig");
+const rt_stream = @import("../../../runtime/stream.zig");
+const rt_device = @import("../../../runtime/device.zig");
+const rt_sync_stream = @import("../../../runtime/synchronous_stream.zig");
 
 const Arc = zigrc.Arc;
 const SynchronousStream = rt_sync_stream.SynchronousStream;
