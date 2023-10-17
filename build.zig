@@ -76,7 +76,14 @@ pub fn build(b: *std.Build) !void {
     test_step.dependOn(&run_main_tests.step);
 
     // Docs
-    const zigTensor_docs = main_tests;
+    const zigTensor_docs = b.addStaticLibrary(.{
+        .name = "zigTensor",
+        .root_source_file = std.build.LazyPath.relative("src/zt.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    zigTensor_docs.addOptions("build_options", shared_opts);
+    zigTensor_docs.addModule("zigrc", zigrc_module);
     const build_docs = b.addInstallDirectory(.{
         .source_dir = zigTensor_docs.getEmittedDocs(),
         .install_dir = .prefix,
