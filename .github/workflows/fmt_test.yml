@@ -17,15 +17,17 @@ jobs:
     env:
       AF_VER: 3.9.0
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
+      - name: Install Linux Deps
+        run: |
+          sudo apt update
+          sudo apt install -y libtbb12
       - name: Setup Zig
         uses: goto-bus-stop/setup-zig@v2
       - name: Cache ArrayFire
         uses: actions/cache@v1
         id: arrayfire
         with:
-          path: afbin
+          path: /opt/ArrayFire-${AF_VER}-Linux
           key: ${{ runner.os }}-af-${{ env.AF_VER }}
       - name: Download ArrayFire
         # Only download and cache arrayfire if already not found
@@ -33,13 +35,14 @@ jobs:
         run: |
           wget --quiet http://arrayfire.s3.amazonaws.com/${AF_VER}/ArrayFire-v${AF_VER}_Linux_x86_64.sh
           chmod +x ./ArrayFire-v${AF_VER}_Linux_x86_64.sh
-          mkdir afbin
-          ./ArrayFire-v${AF_VER}_Linux_x86_64.sh --skip-license --exclude-subdir --prefix=./afbin
-          rm ./afbin/lib64/libcu*.so*
-          rm ./afbin/lib64/libafcuda*.so*
+          ./ArrayFire-v${AF_VER}_Linux_x86_64.sh --include-subdir --prefix=/opt
+          rm /opt/ArrayFire-${AF_VER}-Linux/lib64/libcu*.so*
+          rm /opt/ArrayFire-${AF_VER}-Linux/lib64/libafcuda*.so*
           rm ./ArrayFire-v${AF_VER}_Linux_x86_64.sh
+      - name: Checkout Repository
+        uses: actions/checkout@v3
       - name: Run Zig Tests
-        run: zig build test --summary all -DZT_ARRAYFIRE_USE_CPU -DZT_INCLUDE_PATHS=${GITHUB_WORKSPACE}/afbin/include -DZT_LIBRARY_PATHS=${GITHUB_WORKSPACE}/afbin/lib64
+        run: zig build test --summary all -DZT_ARRAYFIRE_USE_CPU -DZT_INCLUDE_PATHS=/opt/ArrayFire-${AF_VER}-Linux/include -DZT_LIBRARY_PATHS=/opt/ArrayFire-${AF_VER}-Linux/lib64
   lint:
     runs-on: macos-latest
     steps:

@@ -105,6 +105,7 @@ fn linkBackend(compile: *std.Build.Step.Compile, opts: LinkBackendCtx) !void {
         }
         compile.addIncludePath(.{ .path = opts.include_paths });
         compile.addLibraryPath(.{ .path = opts.library_paths });
+        compile.addRPath(.{ .path = opts.library_paths });
     } else if (target.os.tag == .windows) {
         // TODO: support windows
     } else if (target.isDarwin()) {

@@ -7,6 +7,26 @@ const Shape = zt.tensor.shape.Shape;
 const Dim = zt.tensor.shape.Dim;
 
 pub const detail = struct {
+    pub fn adjustInputType(allocator: std.mem.Allocator, comptime T: type, in: T, func_name: []const u8) !struct { res: T, allocated: bool } {
+        const optim_level: zt.OptimLevel = zt.OptimMode.get().getOptimLevel();
+        // Fastpath - DEFAULT mode never casts tensors
+        if (optim_level == .DEFAULT) {
+            return .{ .res = in, .allocated = false };
+        }
+
+        if (!zt.kOptimLevelTypeExclusionMappings(optim_level, func_name)) {
+            // Not in the excluded list - cast to f16
+            return .{ .res = in.astype(allocator, .f16), .allocated = true };
+        } else {
+            // Upcast to f32 only if we have an f16 input - otherwise, leave as is
+            if (try in.dtype(allocator) == .f16) {
+                return .{ .res = in.astype(allocator, .f32), .allocated = true };
+            } else {
+                return .{ .res = in, .allocated = false };
+            }
+        }
+    }
+
     pub fn tileAs(allocator: std.mem.Allocator, input: Tensor, rdims: Shape) !Tensor {
         // Scalar tensor
         if (try input.ndim(allocator) == 0) {
@@ -106,12 +126,16 @@ pub fn negate(allocator: std.mem.Allocator, input: *const Variable) !Variable {
 }
 
 fn reciprocalGradFunc(allocator: std.mem.Allocator, inputs: []Variable, grad_output: *Variable, _: ?*anyopaque) !void {
-    _ = allocator;
-    _ = inputs;
     _ = grad_output;
+    var res = try reciprocal(allocator, &inputs[0]);
+    _ = res;
+    // TODO: finish impl
+    // try inputs[0].addGrad(allocator, try Variable.init(allocator, negate(allocator, )))
 }
 
 pub fn reciprocal(allocator: std.mem.Allocator, input: *const Variable) !Variable {
-    _ = allocator;
-    _ = input;
+    var adj = try detail.adjustInputType(allocator, Tensor, input.tensor(), @src().fn_name);
+    defer if (adj.allocated == true) adj.res.deinit();
+    var result = try zt.tensor.div(allocator, f64, 1, Tensor, adj.res);
+    _ = result;
 }
