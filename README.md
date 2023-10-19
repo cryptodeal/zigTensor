@@ -6,11 +6,11 @@ library.
 
 ## Minimum Requirements
 
-| Requirement | Notes               |
-| ----------- | ------------------- |
-| Zig version | main                |
-| ArrayFire   | latest via homebrew |
-| OSx         | currently Mac only  |
+| Requirement | Notes                            |
+| ----------- | -------------------------------- |
+| Zig version | main                             |
+| ArrayFire   | latest via homebrew              |
+| OS          | OSx & Linux (verified on Ubuntu) |
 
 Install with [zigup](https://github.com/marler8997/zigup):
 
@@ -26,9 +26,10 @@ brew install arrayfire
 
 ### Status
 
-The project is in the incredibly early stages of development and not enough of the core
-functionality has been implemented for the library to be usable. Currently, development
-is solely focused on OSx and leveraging ArrayFire for the backend.
+The project is in the incredibly early stages of development and only the core Tensor/Tensor Ops
+functionality is currently functional. Autograd is a WIP.
+
+Currently, development is solely focused on OSx/Linux and leveraging ArrayFire for the backend.
 
 ### Basic Tensor Usage
 
@@ -55,19 +56,22 @@ defer c.deinit();
 ### Roadmap
 
 - [ ] bindings
-  - [x] ArrayFire
-- [ ] autograd
-- [ ] common
+  - [x] ArrayFire // TODO: optimize to remove unnecessary allocations
+- [ ] autograd (WIP)
+  - [ ] Functions (WIP)
+  - [ ] Utils
+  - [ ] Variable (WIP)
+- [ ] common (WIP)
 - [ ] contrib
 - [ ] dataset
 - [ ] distributed
 - [ ] meter
 - [ ] nn
 - [ ] optim
-- [ ] runtime
+- [ ] runtime (WIP)
   - [ ] CUDADevice
   - [ ] CUDAStream
-  - [ ] CUDAUtils (WIP)
+  - [ ] CUDAUtils
   - [x] Device
   - [x] DeviceManager
   - [x] DeviceType
@@ -84,28 +88,28 @@ defer c.deinit();
         - [ ] MemoryManagerInstaller
       - [ ] AdvancedIndex
       - [x] ArrayFireBLAS
-      - [ ] ArrayFireBackend (WIP)
+      - [x] ArrayFireBackend
       - [x] ArrayFireBinaryOps
-      - [ ] ArrayFireCPUStream (WIP)
+      - [x] ArrayFireCPUStream
       - [x] ArrayFireReductions
       - [x] ArrayFireShapeAndIndex
-      - [ ] ArrayFireTensor (WIP)
-      - [ ] ArrayFireUnaryOps (WIP)
+      - [x] ArrayFireTensor
+      - [x] ArrayFireUnaryOps
       - [x] Utils
     - [ ] JIT
     - [ ] oneDNN
     - [ ] Stub
   - [ ] CUDAProfile
-  - [ ] Compute
+  - [x] Compute
   - [ ] DefaultTensorType (WIP)
   - [x] Index
-  - [ ] Init (WIP)
+  - [x] Init
   - [ ] Profile
   - [x] Random
   - [x] Shape
-  - [ ] TensorAdapter (WIP)
-  - [ ] TensorBackend (WIP)
-  - [ ] TensorBase (WIP)
+  - [x] TensorAdapter
+  - [x] TensorBackend
+  - [x] TensorBase
   - [ ] TensorExtension
   - [x] Types
 

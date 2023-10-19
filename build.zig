@@ -84,6 +84,8 @@ pub fn build(b: *std.Build) !void {
     });
     zigTensor_docs.addOptions("build_options", shared_opts);
     zigTensor_docs.addModule("zigrc", zigrc_module);
+    try linkBackend(zigTensor_docs, backend_link_opts);
+
     const build_docs = b.addInstallDirectory(.{
         .source_dir = zigTensor_docs.getEmittedDocs(),
         .install_dir = .prefix,
