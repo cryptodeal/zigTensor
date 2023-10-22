@@ -1,6 +1,7 @@
 zig-cache/
 zig-out/
 docs/
+.vscode/
 
 # OSx
 .DS_Store

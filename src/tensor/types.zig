@@ -1,7 +1,6 @@
 const std = @import("std");
-const af = @import("../bindings/af/arrayfire.zig");
 
-const StringMapType: type = struct { key: []const u8, value: DType };
+const StringMapType = struct { key: []const u8, value: DType };
 
 const kStringToType = std.ComptimeStringMap(usize, []StringMapType{
     .{ .key = "f16", .value = DType.f16 },

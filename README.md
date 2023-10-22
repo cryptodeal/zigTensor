@@ -18,11 +18,17 @@ Install with [zigup](https://github.com/marler8997/zigup):
 zigup master
 ```
 
+### OSx Setup
+
 Install ArrayFire with [homebrew](https://formulae.brew.sh/formula/arrayfire#default):
 
 ```bash
 brew install arrayfire
 ```
+
+### Linux Setup
+
+See [Github Action Workflow](/.github/workflows/fmt_test.yml) for example setup on Ubuntu.
 
 ### Status
 
