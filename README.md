@@ -66,7 +66,7 @@ defer c.deinit();
 - [ ] autograd (WIP)
   - [ ] Functions (WIP)
   - [ ] Utils
-  - [ ] Variable (WIP)
+  - [x] Variable TODO: optimize/allocate less
 - [ ] common (WIP)
 - [ ] contrib
 - [ ] dataset
@@ -122,7 +122,7 @@ defer c.deinit();
 ### Backend Roadmap
 
 - [ ] ArrayFire (current focus - WIP)
-  - [ ] CPU (priority 1 - supports OSx)
+  - [x] CPU
   - [ ] OpenCL
   - [ ] CUDA
 - [ ] JIT

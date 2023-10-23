@@ -2,6 +2,8 @@ const zt = @import("../zt.zig");
 const std = @import("std");
 
 const Variable = @import("autograd.zig").Variable;
+const Index = zt.tensor.Index;
+const Range = zt.tensor.Range;
 const Tensor = zt.tensor.Tensor;
 const Shape = zt.tensor.shape.Shape;
 const Dim = zt.tensor.shape.Dim;
@@ -89,9 +91,9 @@ pub inline fn ztVariableDTypesMatch(allocator: std.mem.Allocator, fn_name: []con
 
 fn bothAddGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, _: ?*anyopaque) !void {
     var var1 = try Variable.initSharedData(allocator, grad_output.shared_data.retain(), false);
-    defer var1.deinitAll();
+    defer var1.deinit();
     var var2 = try Variable.initSharedData(allocator, grad_output.shared_data.retain(), false);
-    defer var2.deinitAll();
+    defer var2.deinit();
     try inputs[0].addGrad(allocator, var1);
     try inputs[1].addGrad(allocator, var2);
 }
@@ -121,18 +123,18 @@ pub fn add(allocator: std.mem.Allocator, comptime LhsT: type, lhs: LhsT, comptim
 
 fn bothSubGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, _: ?*anyopaque) !void {
     var var1 = try Variable.initSharedData(allocator, grad_output.shared_data.retain(), false);
-    defer var1.deinitAll();
+    defer var1.deinit();
     try inputs[0].addGrad(allocator, var1);
     var neg = try negate(allocator, grad_output);
     defer neg.deinit();
     var var2 = try Variable.initSharedData(allocator, neg.shared_data.retain(), false);
-    defer var2.deinitAll();
+    defer var2.deinit();
     try inputs[1].addGrad(allocator, var2);
 }
 
 fn lhsSubGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, _: ?*anyopaque) !void {
     var var1 = try Variable.initSharedData(allocator, grad_output.shared_data.retain(), false);
-    defer var1.deinitAll();
+    defer var1.deinit();
     try inputs[0].addGrad(allocator, var1);
 }
 
@@ -140,7 +142,7 @@ fn rhsSubGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_
     var neg = try negate(allocator, &grad_output);
     defer neg.deinit();
     var var1 = try Variable.initSharedData(allocator, neg.shared_data.retain(), false);
-    defer var1.deinitAll();
+    defer var1.deinit();
     try inputs[0].addGrad(allocator, var1);
 }
 
@@ -167,12 +169,12 @@ pub fn sub(allocator: std.mem.Allocator, comptime LhsT: type, lhs: LhsT, comptim
 fn bothMulGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, _: ?*anyopaque) !void {
     if (inputs[0].isCalcGrad()) {
         var tmp_var = try Variable.init(allocator, try zt.tensor.mul(allocator, Tensor, grad_output.tensor(), Tensor, inputs[1].tensor()), false);
-        defer tmp_var.deinitAll();
+        defer tmp_var.deinit();
         try inputs[0].addGrad(allocator, tmp_var);
     }
     if (inputs[1].isCalcGrad()) {
         var tmp_var = try Variable.init(allocator, try zt.tensor.mul(allocator, Tensor, grad_output.tensor(), Tensor, inputs[0].tensor()), false);
-        defer tmp_var.deinitAll();
+        defer tmp_var.deinit();
         try inputs[1].addGrad(allocator, tmp_var);
     }
 }
@@ -187,7 +189,7 @@ fn freeF64Ctx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
 fn lhsMulGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
     var grad_ctx: *F64Ctx = @ptrCast(@alignCast(ctx));
     var tmp_var = try Variable.init(allocator, try zt.tensor.mul(allocator, Tensor, grad_output.tensor(), f64, grad_ctx.val), false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -216,23 +218,23 @@ pub fn mul(allocator: std.mem.Allocator, comptime LhsT: type, lhs: LhsT, comptim
 
 fn bothDivGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, _: ?*anyopaque) !void {
     var inputs1_rec = try negate(allocator, inputs[1]);
-    defer inputs1_rec.deinitAll();
+    defer inputs1_rec.deinit();
     var grad_input0 = try mul(allocator, *Variable, grad_output, *Variable, inputs1_rec);
-    defer grad_input0.deinitAll();
+    defer grad_input0.deinit();
     if (inputs[0].isCalcGrad()) {
         var tmp_var = try Variable.initSharedData(allocator, grad_input0.shared_data.retain(), false);
-        defer tmp_var.deinitAll();
+        defer tmp_var.deinit();
         try inputs[0].addGrad(allocator, tmp_var);
     }
     if (inputs[1].isCalcGrad()) {
         var tmp_neg = try negate(allocator, inputs[0]);
-        defer tmp_neg.deinitAll();
+        defer tmp_neg.deinit();
         var tmp = try mul(allocator, *Variable, grad_input0, *Variable, tmp_neg);
-        defer tmp.deinitAll();
+        defer tmp.deinit();
         var tmp2 = try mul(allocator, *Variable, tmp, *Variable, inputs1_rec);
-        defer tmp2.deinitAll();
+        defer tmp2.deinit();
         var tmp_var = try Variable.initSharedData(allocator, tmp2.shared_data.retain(), false);
-        defer tmp_var.deinitAll();
+        defer tmp_var.deinit();
         try inputs[1].addGrad(allocator, tmp_var);
     }
 }
@@ -240,22 +242,22 @@ fn bothDivGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad
 fn lhsDivGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
     var grad_ctx: *F64Ctx = @ptrCast(@alignCast(ctx));
     var tmp = try div(allocator, Variable, grad_output, f64, grad_ctx.val);
-    defer tmp.deinitAll();
+    defer tmp.deinit();
     var tmp_var = try Variable.initSharedData(allocator, tmp.shared_data.retain(), false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
 fn rhsDivGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
     var grad_ctx: *F64Ctx = @ptrCast(@alignCast(ctx));
     var tmp = try mul(allocator, Variable, grad_output, f64, -grad_ctx.val);
-    defer tmp.deinitAll();
+    defer tmp.deinit();
     var tmp2 = try mul(allocator, Variable, inputs[0], Variable, inputs[0]);
-    defer tmp2.deinitAll();
+    defer tmp2.deinit();
     var res = try div(allocator, Variable, tmp, Variable, tmp2);
-    defer res.deinitAll();
+    defer res.deinit();
     var tmp_var = try Variable.initSharedData(allocator, res.shared_data.retain(), false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -379,18 +381,18 @@ fn bothMaxGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad
     var tmp_mask = try zt.tensor.greaterThan(allocator, Tensor, inputs[0].tensor(), Tensor, inputs[1].tensor());
     defer tmp_mask.deinit();
     var mask = try Variable.init(allocator, try tmp_mask.astype(allocator, try grad_output.dtype(allocator)), false);
-    defer mask.deinitAll();
+    defer mask.deinit();
     var tmp1 = try mul(allocator, *Variable, mask, *Variable, grad_output);
-    defer tmp1.deinitAll();
+    defer tmp1.deinit();
     var tmp_var1 = try Variable.initSharedData(allocator, tmp1.shared_data.retain(), false);
-    defer tmp_var1.deinitAll();
+    defer tmp_var1.deinit();
     try inputs[0].addGrad(allocator, tmp_var1);
     var tmp_not = try logicalNot(allocator, mask);
-    defer tmp_not.deinitAll();
+    defer tmp_not.deinit();
     var tmp2 = try mul(allocator, *Variable, tmp_not, *Variable, grad_output);
-    defer tmp2.deinitAll();
+    defer tmp2.deinit();
     var tmp_var2 = try Variable.initSharedData(allocator, tmp2.shared_data.retain(), false);
-    defer tmp_var2.deinitAll();
+    defer tmp_var2.deinit();
     try inputs[1].addGrad(allocator, tmp_var2);
 }
 
@@ -399,11 +401,11 @@ fn lhsMaxGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_
     var tmp_mask = try zt.tensor.greaterThan(allocator, Tensor, inputs[0].tensor(), f64, grad_ctx.val);
     defer tmp_mask.deinit();
     var mask = try Variable.init(allocator, try tmp_mask.astype(allocator, try grad_output.dtype(allocator)), false);
-    defer mask.deinitAll();
+    defer mask.deinit();
     var tmp1 = try mul(allocator, *Variable, mask, *Variable, grad_output);
-    defer tmp1.deinitAll();
+    defer tmp1.deinit();
     var tmp_var = try Variable.initSharedData(allocator, tmp1.shared_data.retain(), false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -432,18 +434,18 @@ fn bothMinGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad
     var tmp_mask = try zt.tensor.lessThan(allocator, Tensor, inputs[0].tensor(), Tensor, inputs[1].tensor());
     defer tmp_mask.deinit();
     var mask = try Variable.init(allocator, try tmp_mask.astype(allocator, try grad_output.dtype(allocator)), false);
-    defer mask.deinitAll();
+    defer mask.deinit();
     var tmp1 = try mul(allocator, *Variable, mask, *Variable, grad_output);
     defer tmp1.deinit();
     var tmp_var1 = try Variable.initSharedData(allocator, tmp1.shared_data.retain(), false);
-    defer tmp_var1.deinitAll();
+    defer tmp_var1.deinit();
     try inputs[0].addGrad(allocator, tmp_var1);
     var tmp_not = try logicalNot(allocator, mask);
-    defer tmp_not.deinitAll();
+    defer tmp_not.deinit();
     var tmp2 = try mul(allocator, *Variable, tmp_not, *Variable, grad_output);
-    defer tmp2.deinitAll();
+    defer tmp2.deinit();
     var tmp_var2 = try Variable.initSharedData(allocator, tmp2.shared_data.retain(), false);
-    defer tmp_var2.deinitAll();
+    defer tmp_var2.deinit();
     try inputs[1].addGrad(allocator, tmp_var2);
 }
 
@@ -452,11 +454,11 @@ fn lhsMinGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_
     var tmp_mask = try zt.tensor.lessThan(allocator, Tensor, inputs[0].tensor(), f64, grad_ctx.val);
     defer tmp_mask.deinit();
     var mask = try Variable.init(allocator, try tmp_mask.astype(allocator, try grad_output.dtype(allocator)), false);
-    defer mask.deinitAll();
+    defer mask.deinit();
     var tmp1 = try mul(allocator, *Variable, mask, *Variable, grad_output);
-    defer tmp1.deinitAll();
+    defer tmp1.deinit();
     var tmp_var = try Variable.initSharedData(allocator, tmp1.shared_data.retain(), false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -483,9 +485,9 @@ pub fn min(allocator: std.mem.Allocator, comptime LhsT: type, lhs: LhsT, comptim
 
 fn negateGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, _: ?*anyopaque) !void {
     var tmp_neg = try negate(allocator, grad_output);
-    defer tmp_neg.deinitAll();
+    defer tmp_neg.deinit();
     var tmp_var = try Variable.initSharedData(allocator, tmp_neg.shared_data.retain(), false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -497,13 +499,13 @@ pub fn negate(allocator: std.mem.Allocator, input: *Variable) !*Variable {
 fn reciprocalGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, _: ?*anyopaque) !void {
     var res = try reciprocal(allocator, inputs[0]);
     var tmp_neg = try negate(allocator, grad_output);
-    defer tmp_neg.deinitAll();
+    defer tmp_neg.deinit();
     var tmp1 = try mul(allocator, *Variable, tmp_neg, *Variable, res);
-    defer tmp1.deinitAll();
+    defer tmp1.deinit();
     var tmp2 = try mul(allocator, *Variable, tmp1, *Variable, res);
-    defer tmp2.deinitAll();
+    defer tmp2.deinit();
     var tmp_var = try Variable.initSharedData(allocator, tmp2.shared_data.retain(), false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -518,7 +520,7 @@ fn expGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_out
     var res = try zt.tensor.exp(allocator, inputs[0].tensor());
     try res.inPlaceMul(allocator, Tensor, grad_output.tensor());
     var tmp_var = try Variable.init(allocator, res, false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -532,7 +534,7 @@ pub fn exp(allocator: std.mem.Allocator, input: *Variable) !*Variable {
 fn logGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, _: ?*anyopaque) !void {
     var res = try zt.tensor.div(allocator, Tensor, grad_output.tensor(), Tensor, inputs[0].tensor());
     var tmp_var = try Variable.init(allocator, res, false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -548,7 +550,7 @@ fn log1pGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_o
     defer tmp.deinit();
     var res = try zt.tensor.div(allocator, Tensor, grad_output.tensor(), Tensor, tmp);
     var tmp_var = try Variable.init(allocator, res, false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -565,7 +567,7 @@ fn powGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_out
     try grad.inPlaceMul(allocator, f64, grad_ctx.val);
     try grad.inPlaceMul(allocator, Tensor, grad_output.tensor());
     var tmp_var = try Variable.init(allocator, grad, false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -582,7 +584,7 @@ fn sinGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_out
     var res = try zt.tensor.cos(allocator, inputs[0].tensor());
     try res.inPlaceMul(allocator, Tensor, grad_output.tensor());
     var tmp_var = try Variable.init(allocator, res, false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -597,7 +599,7 @@ fn cosGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_out
     var res = try zt.tensor.negative(allocator, tmp);
     try res.inPlaceMul(allocator, Tensor, grad_output.tensor());
     var tmp_var = try Variable.init(allocator, res, false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -619,7 +621,7 @@ fn tanhGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_ou
     var tmp2 = try zt.tensor.sub(allocator, i8, 1, Tensor, tmp1);
     try tmp2.inPlaceMul(allocator, Tensor, grad_output.tensor());
     var tmp_var = try Variable.init(allocator, tmp2, false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -648,7 +650,7 @@ fn clampGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_o
     var grad_mask = try zt.tensor.where(allocator, tmp3, Tensor, tmp1, f64, 0);
     tmp4.deinit();
     var tmp_var = try Variable.init(allocator, grad_mask, false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -663,12 +665,12 @@ fn sqrtGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_ou
     var grad_ctx: *TensorCtx = @ptrCast(@alignCast(ctx));
     var output = try Variable.init(allocator, grad_ctx.val, false);
     var tmp = try mul(allocator, f64, 2, *Variable, output);
-    output.deinitAll();
+    output.deinit();
     var res = try div(allocator, *Variable, grad_output, *Variable, tmp);
-    defer res.deinitAll();
-    tmp.deinitAll();
+    defer res.deinit();
+    tmp.deinit();
     var tmp_var = try Variable.initSharedData(allocator, res.shared_data.retain(), false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -686,7 +688,7 @@ fn sigmoidGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad
     var grad = try zt.tensor.mul(allocator, Tensor, grad_output.tensor(), Tensor, tmp);
     tmp.deinit();
     var tmp_var = try Variable.init(allocator, grad, false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -699,9 +701,9 @@ pub fn sigmoid(allocator: std.mem.Allocator, input: *Variable) !*Variable {
 
 pub fn swish(allocator: std.mem.Allocator, input: *Variable, beta: f64) !*Variable {
     var tmp1 = try mul(allocator, f64, beta, *Variable, input);
-    defer tmp1.deinitAll();
+    defer tmp1.deinit();
     var tmp2 = try sigmoid(allocator, tmp1);
-    defer tmp2.deinitAll();
+    defer tmp2.deinit();
     return mul(allocator, *Variable, input, *Variable, tmp2);
 }
 
@@ -716,7 +718,7 @@ fn erfGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_out
     defer tmp2.deinit();
     try grad.inPlaceMul(allocator, Tensor, tmp2);
     var tmp_var = try Variable.init(allocator, grad, false);
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
@@ -727,16 +729,16 @@ pub fn erf(allocator: std.mem.Allocator, input: *Variable) !*Variable {
     return Variable.initWithInputs(allocator, result, &.{try input.clone(allocator)}, erfGradFunc, null, null);
 }
 
-const TransposeCtx = struct { dims: []Dim };
+const DimsCtx = struct { dims: []Dim };
 
-fn freeTransposeCtx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
-    var transpose_ctx: *TransposeCtx = @ptrCast(@alignCast(ctx));
+fn freeDimsCtx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
+    var transpose_ctx: *DimsCtx = @ptrCast(@alignCast(ctx));
     allocator.free(transpose_ctx.dims);
     allocator.destroy(transpose_ctx);
 }
 
 fn transposeGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
-    var transpose_ctx: *TransposeCtx = @ptrCast(@alignCast(ctx));
+    var transpose_ctx: *DimsCtx = @ptrCast(@alignCast(ctx));
     var reverse_shape = transpose_ctx.dims;
     if (zt.tensor.shape.ndim(transpose_ctx.dims) != 0) {
         // Reverse if transposing all dims (empty arg)
@@ -749,20 +751,173 @@ fn transposeGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, gr
         allocator,
         try zt.tensor.transpose(allocator, grad_output.tensor(), reverse_shape),
     );
-    defer tmp_var.deinitAll();
+    defer tmp_var.deinit();
     try inputs[0].addGrad(allocator, tmp_var);
 }
 
 pub fn transpose(allocator: std.mem.Allocator, input: *Variable, dims: []const Dim) !*Variable {
     var result = try zt.tensor.transpose(allocator, input.tensor(), dims);
-    var ctx = try allocator.create(TransposeCtx);
+    var ctx = try allocator.create(DimsCtx);
     ctx.* = .{ .dims = try allocator.alloc(Dim, dims.len) };
     @memcpy(ctx.dims, dims);
-    return Variable.initWithInputs(allocator, result, &.{try input.clone(allocator)}, transposeGradFunc, ctx, freeTransposeCtx);
+    return Variable.initWithInputs(allocator, result, &.{try input.clone(allocator)}, transposeGradFunc, ctx, freeDimsCtx);
+}
+
+fn tileAsGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
+    var tile_ctx: *DimsCtx = @ptrCast(@alignCast(ctx));
+    var tmp_sum = try sumAs(allocator, grad_output, tile_ctx.dims);
+    defer tmp_sum.deinit();
+    var tmp_var = try Variable.init(allocator, try tmp_sum.tensor().astype(allocator, try inputs[0].dtype(allocator)), false);
+    defer tmp_var.deinit();
+    try inputs[0].addGrad(allocator, tmp_var);
+}
+
+fn tileAs(allocator: std.mem.Allocator, input: *Variable, comptime T: type, ref: T) !*Variable {
+    return switch (T) {
+        *Variable => tileAs(allocator, input, Shape, try ref.shape(allocator)),
+        Shape => {
+            var result = try detail.tileAs(allocator, input.tensor(), ref);
+            var in_dims = try input.shape(allocator);
+            var ctx = try allocator.create(DimsCtx);
+            ctx.* = .{ .dims = try allocator.alloc(Dim, in_dims.len) };
+            @memcpy(ctx.dims, in_dims);
+            return Variable.initWithInputs(allocator, result, &.{try input.withoutData(allocator)}, tileAsGradFunc, ctx, freeDimsCtx);
+        },
+        else => @compileError("autograd.tileAs only supports ref value of *Variable or Shape"),
+    };
+}
+
+fn sumAsGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
+    var sum_ctx: *DimsCtx = @ptrCast(@alignCast(ctx));
+    var tmp_tiled = try tileAs(allocator, grad_output, sum_ctx.dims);
+    defer tmp_tiled.deinit();
+    var tmp_var = try Variable.initSharedData(allocator, tmp_tiled.shared_data.retain(), false);
+    defer tmp_var.deinit();
+    try inputs[0].addGrad(allocator, tmp_var);
+}
+
+fn sumAs(allocator: std.mem.Allocator, input: *Variable, comptime T: type, ref: T) !*Variable {
+    return switch (T) {
+        *Variable => sumAs(allocator, input, Shape, try ref.shape(allocator)),
+        Shape => {
+            var result = try detail.sumAs(allocator, input.tensor(), ref);
+            var in_dims = try input.shape(allocator);
+            var ctx = try allocator.create(DimsCtx);
+            ctx.* = .{ .dims = try allocator.alloc(Dim, in_dims.len) };
+            @memcpy(ctx.dims, in_dims);
+            return Variable.initWithInputs(allocator, result, &.{try input.withoutData(allocator)}, sumAsGradFunc, ctx, freeDimsCtx);
+        },
+        else => @compileError("autograd.tileAs only supports ref value of *Variable or Shape"),
+    };
+}
+
+const ConcatCtx = struct {
+    dim: Dim,
+    in_dims: []Shape,
+    numdims: usize,
+};
+
+fn freeConcatCtx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
+    var concat_ctx: *ConcatCtx = @ptrCast(@alignCast(ctx));
+    allocator.free(concat_ctx.in_dims);
+    allocator.destroy(concat_ctx);
+}
+
+fn concatGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
+    var concat_ctx: *ConcatCtx = @ptrCast(@alignCast(ctx));
+    var sx = try allocator.alloc(Index, concat_ctx.numdims);
+    defer allocator.free(sx);
+    @memset(sx, zt.tensor.span);
+    var s: Dim = 0;
+    for (0..inputs.len) |i| {
+        sx[@intCast(concat_ctx.dim)] = Index.initRange(Range.init(s, .{ .dim = s + concat_ctx.in_dims[i][@intCast(concat_ctx.dim)] }));
+        var tmp_var = try Variable.init(allocator, try grad_output.tensor().index(allocator, sx), false);
+        defer tmp_var.deinit();
+        try inputs[i].addGrad(allocator, tmp_var);
+        s += concat_ctx.in_dims[i][@intCast(concat_ctx.dim)];
+    }
+}
+
+pub fn concatenate(allocator: std.mem.Allocator, concat_inputs: []const *Variable, dim: Dim) !*Variable {
+    if (concat_inputs.len == 0) {
+        std.debug.print("cannot concatenate zero variables\n", .{});
+        return error.ConcatenateZeroVariables;
+    }
+    if (concat_inputs.len == 1) {
+        return concat_inputs[0].clone(allocator);
+    }
+    // All Variables must be of the same type and have the same number of dims
+    var dtype = try concat_inputs[0].dtype(allocator);
+    var numdims = try concat_inputs[0].ndim(allocator);
+    for (concat_inputs[1..]) |v| {
+        if (try v.dtype(allocator) != dtype) {
+            std.debug.print("concatenate: all input Variables must be of the same type\n", .{});
+            return error.ConcatenateInputVariableTypeMismatch;
+        } else if (try v.ndim(allocator) != numdims) {
+            std.debug.print("concatenate: all input Variables must have the same number of dimensions\n", .{});
+            return error.ConcatenateInputVariableDimsMismatch;
+        }
+    }
+
+    // All Variables must have the same size when indexed along the dim not being
+    // concatenated along
+    var dims = try concat_inputs[0].shape(allocator);
+    var concat_size = dims[@intCast(dim)];
+    for (1..concat_inputs.len) |i| {
+        concat_size += try concat_inputs[i].dim(allocator, i);
+        for (0..numdims) |d| {
+            if (dim != @as(Dim, @intCast(d)) and try concat_inputs[i].dim(allocator, d) != dims[@intCast(d)]) {
+                std.debug.print("mismatch in dimension not being concatenated\n", .{});
+                return error.ConcatenateDimsMismatch;
+            }
+        }
+    }
+    var new_dims = try allocator.alloc(Dim, dims.len);
+    defer allocator.free(new_dims);
+    @memcpy(new_dims, dims);
+    new_dims[@intCast(dim)] = concat_size;
+    var result = try Tensor.initHandle(allocator, new_dims, dtype);
+    var slice = try allocator.alloc(Index, numdims);
+    defer allocator.free(slice);
+    @memset(slice, zt.tensor.span);
+    var start: Dim = 0;
+    var inputs_no_data = std.ArrayList(*Variable).init(allocator);
+    defer inputs_no_data.deinit();
+    var in_dims = std.ArrayList(Shape).init(allocator);
+    for (concat_inputs) |input| {
+        slice[@intCast(dim)] = Index.initRange(Range.init(start, .{ .dim = start + try input.dim(allocator, @intCast(dim)) }));
+        try result.indexAssign(allocator, Tensor, input.tensor(), slice);
+        start += try input.dim(allocator, @intCast(dim));
+        try inputs_no_data.append(try input.withoutData(allocator));
+        try in_dims.append(try input.shape(allocator));
+    }
+
+    var ctx = try allocator.create(ConcatCtx);
+    ctx.* = .{ .dim = dim, .in_dims = try in_dims.toOwnedSlice(), .numdims = numdims };
+    return Variable.initWithInputs(allocator, result, inputs_no_data.items, concatGradFunc, ctx, freeConcatCtx);
+}
+
+// TODO pub fn split() !*Variable {}
+
+fn tileGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
+    var tile_ctx: *DimsCtx = @ptrCast(@alignCast(ctx));
+    var tmp_sum = try sumAs(allocator, grad_output, Shape, tile_ctx.dims);
+    defer tmp_sum.deinit();
+    var tmp_var = try Variable.init(allocator, try tmp_sum.tensor().astype(allocator, try inputs[0].dtype(allocator)), false);
+    defer tmp_var.deinit();
+    try inputs[0].addGrad(allocator, tmp_var);
+}
+
+pub fn tile(allocator: std.mem.Allocator, input: *Variable, dims: Shape) !*Variable {
+    var result = try zt.tensor.tile(allocator, input.tensor(), dims);
+    var idims = try input.shape(allocator);
+    var ctx = try allocator.create(DimsCtx);
+    ctx.* = .{ .dims = try allocator.alloc(Dim, idims.len) };
+    @memcpy(ctx.dims, idims);
+    return Variable.initWithInputs(allocator, result, &.{try input.withoutData(allocator)}, tileGradFunc, ctx, freeDimsCtx);
 }
 
 // Unit tests
-const Index = zt.tensor.Index;
 const JacobianFunc = *const fn (allocator: std.mem.Allocator, input: *Variable) anyerror!*Variable;
 
 inline fn jacobianTestImpl(
@@ -773,7 +928,7 @@ inline fn jacobianTestImpl(
     perturbation: f32,
 ) !bool {
     var fwd_jacobian_variable = try func(allocator, input);
-    defer fwd_jacobian_variable.deinitAll();
+    defer fwd_jacobian_variable.deinit();
     var fwd_jacobian = try Tensor.initHandle(allocator, &.{ try fwd_jacobian_variable.elements(allocator), try input.elements(allocator) }, .f32);
     defer fwd_jacobian.deinit();
 
@@ -786,14 +941,14 @@ inline fn jacobianTestImpl(
         defer assign1.deinit();
         try input.tensor().flatAssign(allocator, Tensor, assign1, Index.initDim(@intCast(i)));
         var outa_variable: *Variable = try func(allocator, input);
-        defer outa_variable.deinitAll();
+        defer outa_variable.deinit();
         var outa = outa_variable.tensor();
 
         var assign2 = try zt.tensor.add(allocator, Tensor, orig, f32, perturbation);
         defer assign2.deinit();
         try input.tensor().flatAssign(allocator, Tensor, assign2, Index.initDim(@intCast(i)));
         var outb_variable: *Variable = try func(allocator, input);
-        defer outb_variable.deinitAll();
+        defer outb_variable.deinit();
         var outb = outb_variable.tensor();
         try input.tensor().flatAssign(allocator, Tensor, orig, Index.initDim(@intCast(i)));
 
@@ -806,13 +961,13 @@ inline fn jacobianTestImpl(
         try fwd_jacobian.indexAssign(allocator, Tensor, assign3, &.{ Index.initRange(zt.tensor.span), Index.initDim(@intCast(i)) });
     }
     var bwd_jacobian_variable = try func(allocator, input);
-    defer bwd_jacobian_variable.deinitAll();
+    defer bwd_jacobian_variable.deinit();
     var bwd_jacobian = try Tensor.initHandle(allocator, &.{ try bwd_jacobian_variable.elements(allocator), try input.elements(allocator) }, .f32);
     defer bwd_jacobian.deinit();
     var dout_jacobian_var = try func(allocator, input);
-    defer dout_jacobian_var.deinitAll();
+    defer dout_jacobian_var.deinit();
     var dout = try Variable.init(allocator, try zt.tensor.full(allocator, try dout_jacobian_var.shape(allocator), f64, 0, try dout_jacobian_var.dtype(allocator)), false);
-    defer dout.deinitAll();
+    defer dout.deinit();
 
     for (0..@intCast(try dout.elements(allocator))) |i| {
         try dout.tensor().flatAssign(allocator, f64, 1, Index.initDim(@intCast(i)));
@@ -831,9 +986,9 @@ inline fn jacobianTestImpl(
 
 fn funcIdx(allocator: std.mem.Allocator, input: *Variable) !*Variable {
     var tmp_idx1 = try input.index(allocator, &.{ Index.initDim(0), Index.initDim(0) });
-    defer tmp_idx1.deinitAll();
+    defer tmp_idx1.deinit();
     var tmp_idx2 = try input.index(allocator, &.{ Index.initDim(0), Index.initDim(1) });
-    defer tmp_idx2.deinitAll();
+    defer tmp_idx2.deinit();
     return add(allocator, *Variable, tmp_idx1, *Variable, tmp_idx2);
 }
 
@@ -841,13 +996,13 @@ test "AutogradTest -> AutogradVariableIndex" {
     const allocator = std.testing.allocator;
     defer zt.tensor.deinit(); // deinit global singletons
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 1, 3, 3 }, .f64), true);
-    defer x.deinitAll();
+    defer x.deinit();
     var tmp_x_idx1 = try x.index(allocator, &.{ Index.initDim(0), Index.initDim(0) });
-    defer tmp_x_idx1.deinitAll();
+    defer tmp_x_idx1.deinit();
     var tmp_x_idx2 = try x.index(allocator, &.{ Index.initDim(0), Index.initDim(1) });
-    defer tmp_x_idx2.deinitAll();
+    defer tmp_x_idx2.deinit();
     var y = try add(allocator, *Variable, tmp_x_idx1, *Variable, tmp_x_idx2);
-    defer y.deinitAll();
+    defer y.deinit();
     try std.testing.expect(try jacobianTestImpl(allocator, funcIdx, x, 1e-5, 1e-4));
 }
 
@@ -859,9 +1014,9 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
     }
 
     var half = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 2, 2 }, .f16), true);
-    defer half.deinitAll();
+    defer half.deinit();
     var float = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 2, 2 }, .f32), true);
-    defer float.deinitAll();
+    defer float.deinit();
     try std.testing.expectError(error.VariableDTypeMismatch, add(allocator, *Variable, half, *Variable, float));
     try std.testing.expectError(error.VariableDTypeMismatch, sub(allocator, *Variable, half, *Variable, float));
     try std.testing.expectError(error.VariableDTypeMismatch, mul(allocator, *Variable, half, *Variable, float));
@@ -873,4 +1028,38 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
     try std.testing.expectError(error.VariableDTypeMismatch, logicalAnd(allocator, half, float));
     try std.testing.expectError(error.VariableDTypeMismatch, max(allocator, *Variable, half, *Variable, float));
     try std.testing.expectError(error.VariableDTypeMismatch, min(allocator, *Variable, half, *Variable, float));
+
+    // TODO: finish tests
+}
+
+test "AutogradTest -> CastingAsDifferentGradTypes" {
+    const allocator = std.testing.allocator;
+    defer zt.tensor.deinit(); // deinit global singletons
+    if (!try zt.f16Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+    var half = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 5 }, .f16), true);
+    defer half.deinit();
+    var float = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 5 }, .f32), true);
+    defer float.deinit();
+    // Computing gradients with mixed types fails when the op is applied
+    try std.testing.expectError(error.VariableDTypeMismatch, add(allocator, *Variable, half, *Variable, float));
+}
+
+test "AutogradTest -> CastingAs" {
+    const allocator = std.testing.allocator;
+    defer zt.tensor.deinit(); // deinit global singletons
+    if (!try zt.f16Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+
+    var var_f32 = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 5 }, .f32), true);
+    defer var_f32.deinit();
+    var var_f16 = try var_f32.astype(allocator, .f16);
+    defer var_f16.deinit();
+    try std.testing.expect(try var_f32.dtype(allocator) == .f32);
+    try std.testing.expect(try var_f16.dtype(allocator) == .f16);
+    var comp_tensor = try var_f32.tensor().astype(allocator, .f16);
+    defer comp_tensor.deinit();
+    try std.testing.expect(try zt.tensor.allClose(allocator, var_f16.tensor(), comp_tensor, 1e-5));
 }

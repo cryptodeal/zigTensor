@@ -57,10 +57,10 @@ pub const Variable = struct {
 
         pub fn deinit(self: SharedGrad) void {
             if (self.grad != null) {
-                self.grad.?.deinitAll();
+                self.grad.?.deinit();
             }
             if (self.inputs.len > 0) {
-                for (self.inputs) |in| in.deinitAll();
+                for (self.inputs) |in| in.deinit();
                 self.allocator.free(self.inputs);
             }
             if (self.grad_func_ctx != null and self.deinit_grad_func_ctx != null) {
@@ -132,12 +132,6 @@ pub const Variable = struct {
     }
 
     pub fn deinit(self: *Variable) void {
-        self.shared_data.release();
-        self.shared_grad.releaseWithFn(SharedGrad.deinit);
-        self.allocator.destroy(self);
-    }
-
-    pub fn deinitAll(self: *Variable) void {
         self.shared_data.releaseWithFn(SharedData.deinit);
         self.shared_grad.releaseWithFn(SharedGrad.deinit);
         self.allocator.destroy(self);
@@ -180,7 +174,7 @@ pub const Variable = struct {
         return self.shared_data.value.data;
     }
 
-    pub fn astype(self: *const Variable, allocator: std.mem.Allocator, new_type: DType) !*Variable {
+    pub fn astype(self: *Variable, allocator: std.mem.Allocator, new_type: DType) !*Variable {
         var output = try self.tensor().astype(allocator, new_type);
         return Variable.initWithInputs(allocator, output, &.{try self.withoutData(allocator)}, astypeGradFunc, null, null);
     }
@@ -250,8 +244,8 @@ pub const Variable = struct {
         return self.tensor().ndim(allocator);
     }
 
-    pub fn dim(self: *const Variable, allocator: std.mem.Allocator) !Dim {
-        return self.tensor().dim(allocator);
+    pub fn dim(self: *const Variable, allocator: std.mem.Allocator, dimension: usize) !Dim {
+        return self.tensor().dim(allocator, dimension);
     }
 
     pub fn eval(self: *const Variable, allocator: std.mem.Allocator) !void {
@@ -260,7 +254,7 @@ pub const Variable = struct {
 
     pub fn zeroGrad(self: *Variable) void {
         if (self.shared_grad.value.grad != null) {
-            self.shared_grad.value.grad.?.deinitAll();
+            self.shared_grad.value.grad.?.deinit();
             self.shared_grad.value.grad = null;
         }
     }
@@ -271,7 +265,7 @@ pub const Variable = struct {
             self.shared_grad.value.grad_func = null;
             self.shared_grad.value.allocator.free(self.shared_grad.value.inputs);
             self.shared_grad.value.inputs = &[_]*Variable{};
-            self.shared_grad.value.grad.?.deinitAll();
+            self.shared_grad.value.grad.?.deinit();
             self.shared_grad.value.grad = null;
         }
     }
@@ -296,7 +290,7 @@ pub const Variable = struct {
             }
             if (self.shared_grad.value.grad != null) {
                 var tmp = self.shared_grad.value.grad.?;
-                defer tmp.deinitAll();
+                defer tmp.deinit();
                 // Prevent increment of array refcount to avoid a copy
                 // if getting a device pointer. See
                 // https://git.io/fp9oM for more
@@ -355,7 +349,7 @@ pub const Variable = struct {
             try iter.calcGradInputs(allocator, retain_graph);
             try iter.applyGradHook(allocator);
             if (!retain_graph) {
-                defer iter.deinitAll();
+                defer iter.deinit();
             }
         }
     }
@@ -372,6 +366,7 @@ pub const Variable = struct {
             ),
             false,
         );
+        defer ones.deinit();
         try self.backwardAddGrad(allocator, ones, retain_graph);
     }
 
@@ -433,7 +428,7 @@ fn indexGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_o
     if (!inputs[0].isGradAvailable()) {
         var grad = try zt.tensor.full(allocator, idx_ctx.in_dims, i8, 0, idx_ctx.in_type);
         var grad_var = try Variable.init(allocator, grad, false);
-        defer grad_var.deinitAll();
+        defer grad_var.deinit();
         try inputs[0].addGrad(allocator, grad_var);
     }
     var grad = (try inputs[0].grad()).tensor();
@@ -443,8 +438,13 @@ fn indexGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_o
 fn flatGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
     var idx_ctx: *FlatCtx = @ptrCast(@alignCast(ctx));
     if (!inputs[0].isGradAvailable()) {
-        var grad = try zt.tensor.full(allocator, idx_ctx.in_dims, i8, 0, idx_ctx.in_type);
-        try inputs[0].addGrad(allocator, try Variable.init(allocator, grad, false));
+        var tmp_var = try Variable.init(
+            allocator,
+            try zt.tensor.full(allocator, idx_ctx.in_dims, i8, 0, idx_ctx.in_type),
+            false,
+        );
+        defer tmp_var.deinit();
+        try inputs[0].addGrad(allocator, tmp_var);
     }
     var grad = (try inputs[0].grad()).tensor();
     try grad.flatAdd(allocator, Tensor, grad_output.tensor(), idx_ctx.index);
@@ -453,5 +453,7 @@ fn flatGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_ou
 fn astypeGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, _: ?*anyopaque) !void {
     var input = inputs[0];
     // Cast the grad output to match the type of the input's grad
-    try input.addGrad(allocator, try Variable.init(allocator, try grad_output.tensor().astype(try input.dtype(allocator)), false));
+    var tmp_var = try Variable.init(allocator, try grad_output.tensor().astype(allocator, try input.dtype(allocator)), false);
+    defer tmp_var.deinit();
+    try input.addGrad(allocator, tmp_var);
 }
