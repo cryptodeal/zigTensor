@@ -117,8 +117,11 @@ pub const Variable = struct {
             .shared_grad = try Arc(SharedGrad).init(allocator, .{}),
             .allocator = allocator,
         };
+        var is_calc_required = false;
         for (inputs) |in| {
-            if (!in.isCalcGrad()) continue;
+            if (in.isCalcGrad()) is_calc_required = true;
+        }
+        if (is_calc_required) {
             self.shared_grad.value.calc_grad = true;
             self.shared_grad.value.allocator = allocator;
             self.shared_grad.value.inputs = try allocator.alloc(*Variable, inputs.len);
@@ -126,7 +129,13 @@ pub const Variable = struct {
             self.shared_grad.value.grad_func = grad_func;
             self.shared_grad.value.grad_func_ctx = grad_func_ctx;
             self.shared_grad.value.deinit_grad_func_ctx = deinit_grad_func_ctx;
-            break;
+        } else {
+            for (inputs) |in| {
+                in.deinit();
+            }
+            if (grad_func_ctx != null and deinit_grad_func_ctx != null) {
+                deinit_grad_func_ctx.?(allocator, grad_func_ctx.?);
+            }
         }
         return self;
     }
@@ -263,6 +272,9 @@ pub const Variable = struct {
         self.shared_grad.value.calc_grad = calc_grad;
         if (!calc_grad) {
             self.shared_grad.value.grad_func = null;
+            for (self.shared_grad.value.inputs) |in| {
+                in.deinit();
+            }
             self.shared_grad.value.allocator.free(self.shared_grad.value.inputs);
             self.shared_grad.value.inputs = &[_]*Variable{};
             self.shared_grad.value.grad.?.deinit();
@@ -296,7 +308,7 @@ pub const Variable = struct {
                 // https://git.io/fp9oM for more
                 self.shared_grad.value.grad = try Variable.init(
                     allocator,
-                    try zt.tensor.add(allocator, Tensor, tmp.tensor(), Tensor, child_grad.shared_grad.value.grad.?.tensor()),
+                    try zt.tensor.add(allocator, Tensor, tmp.tensor(), Tensor, child_grad.tensor()),
                     false,
                 );
             } else {
@@ -323,7 +335,7 @@ pub const Variable = struct {
         }
     }
 
-    pub fn calcGradInputs(self: *Variable, allocator: std.mem.Allocator, retain_graph: bool) !void {
+    pub fn calcGradInputs(self: *Variable, allocator: std.mem.Allocator) !void {
         if (self.shared_grad.value.grad_func != null) {
             if (self.shared_grad.value.grad == null) {
                 std.debug.print("gradient was not propagated to this Variable\n", .{});
@@ -332,13 +344,9 @@ pub const Variable = struct {
 
             try self.shared_grad.value.grad_func.?(allocator, self.shared_grad.value.inputs, self.shared_grad.value.grad.?, self.shared_grad.value.grad_func_ctx);
         }
-        if (!retain_graph) {
-            self.shared_grad.value.allocator.free(self.shared_grad.value.inputs);
-            self.shared_grad.value.inputs = &[_]*Variable{};
-        }
     }
 
-    pub fn backwardAddGrad(self: *Variable, allocator: std.mem.Allocator, grad_: *Variable, retain_graph: bool) !void {
+    pub fn backwardWithGrad(self: *Variable, allocator: std.mem.Allocator, grad_: *Variable, retain_graph: bool) !void {
         try self.addGrad(allocator, grad_);
         var dag = try self.build(allocator);
         defer allocator.free(dag);
@@ -346,7 +354,7 @@ pub const Variable = struct {
         while (i > 0) {
             i -= 1;
             var iter = dag[i];
-            try iter.calcGradInputs(allocator, retain_graph);
+            try iter.calcGradInputs(allocator);
             try iter.applyGradHook(allocator);
             if (!retain_graph) {
                 defer iter.deinit();
@@ -367,7 +375,7 @@ pub const Variable = struct {
             false,
         );
         defer ones.deinit();
-        try self.backwardAddGrad(allocator, ones, retain_graph);
+        try self.backwardWithGrad(allocator, ones, retain_graph);
     }
 
     pub fn withoutData(self: *Variable, allocator: std.mem.Allocator) !*Variable {
@@ -384,20 +392,20 @@ pub const Variable = struct {
         var cache = std.AutoHashMap(*SharedData, void).init(allocator);
         defer cache.deinit();
         var dag = std.ArrayList(*Variable).init(allocator);
-        try recurse(self, &cache, &dag);
+        try recurse(allocator, self, &cache, &dag);
         return dag.toOwnedSlice();
     }
 };
 
 // Topological sort
-fn recurse(variable: *Variable, cache: *std.AutoHashMap(*Variable.SharedData, void), dag: *std.ArrayList(*Variable)) !void {
+fn recurse(allocator: std.mem.Allocator, variable: *Variable, cache: *std.AutoHashMap(*Variable.SharedData, void), dag: *std.ArrayList(*Variable)) !void {
     var id = variable.shared_data.value;
     if (cache.contains(id)) return;
     for (variable.getInputs()) |input| {
-        try recurse(input, cache, dag);
+        try recurse(allocator, input, cache, dag);
     }
     try cache.put(id, {});
-    try dag.append(variable);
+    try dag.append(try variable.clone(allocator));
 }
 
 const IndexCtx = struct {
