@@ -10,7 +10,7 @@ const std = @import("std");
 /// - https://bit.ly/310k8Z6
 pub const OptimLevel = enum(u8) {
     /// All operations occur in default (f32 or f64) precision.
-    DEFAULT = 0,
+    Default = 0,
     /// Operations that perform reduction accumulation, including layer/batch
     /// normalization are performed in f32 - all other operations are in fp16.
     /// To be used in a standard mixed-precision training setup.
@@ -27,10 +27,10 @@ var optim_mode_singleton = OptimMode{};
 /// OptimMode used for storing the current optimization level (`OptimLevel`) for
 /// zigTensor as a global singleton.
 pub const OptimMode = struct {
-    optim_level: OptimLevel = .DEFAULT,
+    optim_level: OptimLevel = .Default,
 
     const kStringToOptimLevel = std.ComptimeStringMap(OptimLevel, .{
-        .{ "DEFAULT", .DEFAULT },
+        .{ "Default", .Default },
         .{ "O1", .O1 },
         .{ "O2", .O2 },
         .{ "O3", .O3 },
@@ -46,10 +46,12 @@ pub const OptimMode = struct {
         return self.optim_level;
     }
 
+    /// Sets the current optimization level. Not thread safe.
     pub fn setOptimLevel(self: *OptimMode, level: OptimLevel) void {
         self.optim_level = level;
     }
 
+    /// Converts OptimLevel
     pub fn toOptimLevel(self: *const OptimMode, in: []const u8) !OptimLevel {
         var l: ?OptimLevel = self.kStringToOptimLevel.get(in);
         if (l == null) {
@@ -57,4 +59,11 @@ pub const OptimMode = struct {
             return error.FailedToOptimLevel;
         }
     }
+};
+
+/// Reduction mode to used for CrossEntropy, AdaptiveSoftMax, etc...
+pub const ReduceMode = enum(u8) {
+    None = 0,
+    Mean = 1,
+    Sum = 2,
 };

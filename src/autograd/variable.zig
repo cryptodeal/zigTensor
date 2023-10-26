@@ -119,7 +119,10 @@ pub const Variable = struct {
         };
         var is_calc_required = false;
         for (inputs) |in| {
-            if (in.isCalcGrad()) is_calc_required = true;
+            if (in.isCalcGrad()) {
+                is_calc_required = true;
+                break;
+            }
         }
         if (is_calc_required) {
             self.shared_grad.value.calc_grad = true;
@@ -159,23 +162,27 @@ pub const Variable = struct {
     pub fn index(self: *Variable, allocator: std.mem.Allocator, indices: []const Index) !*Variable {
         var result = try self.tensor().index(allocator, indices);
         var idx_ctx = try allocator.create(IndexCtx);
+        var in_dims = try self.shape(allocator);
         idx_ctx.* = .{
             .indices = try allocator.alloc(Index, indices.len),
-            .in_dims = try self.shape(allocator),
+            .in_dims = try allocator.alloc(Dim, in_dims.len),
             .in_type = try self.dtype(allocator),
         };
         @memcpy(idx_ctx.indices, indices);
+        @memcpy(idx_ctx.in_dims, in_dims);
         return Variable.initWithInputs(allocator, result, &.{try self.withoutData(allocator)}, indexGradFunc, idx_ctx, freeIndexCtx);
     }
 
-    pub fn flat(self: *const Variable, allocator: std.mem.Allocator, idx: Index) !*Variable {
-        var result = try (self.tensor()).flat(allocator, idx);
+    pub fn flat(self: *Variable, allocator: std.mem.Allocator, idx: Index) !*Variable {
+        var result = try self.tensor().flat(allocator, idx);
         var flat_ctx = try allocator.create(FlatCtx);
+        var in_dims = try self.shape(allocator);
         flat_ctx.* = .{
             .index = idx,
-            .in_dims = try self.shape(allocator),
+            .in_dims = try allocator.alloc(Dim, in_dims.len),
             .in_type = try self.dtype(allocator),
         };
+        @memcpy(flat_ctx.in_dims, in_dims);
         return Variable.initWithInputs(allocator, result, &.{try self.withoutData(allocator)}, flatGradFunc, flat_ctx, freeFlatCtx);
     }
 
@@ -410,32 +417,33 @@ fn recurse(allocator: std.mem.Allocator, variable: *Variable, cache: *std.AutoHa
 
 const IndexCtx = struct {
     indices: []Index,
-    in_dims: Shape,
+    in_dims: []Dim,
     in_type: DType,
 };
 
 const FlatCtx = struct {
     index: Index,
-    in_dims: Shape,
+    in_dims: []Dim,
     in_type: DType,
 };
 
 fn freeIndexCtx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
     var idx_ctx: *IndexCtx = @ptrCast(@alignCast(ctx));
     allocator.free(idx_ctx.indices);
+    allocator.free(idx_ctx.in_dims);
     allocator.destroy(idx_ctx);
 }
 
 fn freeFlatCtx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
     var flat_ctx: *FlatCtx = @ptrCast(@alignCast(ctx));
+    allocator.free(flat_ctx.in_dims);
     allocator.destroy(flat_ctx);
 }
 
 fn indexGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
     var idx_ctx: *IndexCtx = @ptrCast(@alignCast(ctx));
     if (!inputs[0].isGradAvailable()) {
-        var grad = try zt.tensor.full(allocator, idx_ctx.in_dims, i8, 0, idx_ctx.in_type);
-        var grad_var = try Variable.init(allocator, grad, false);
+        var grad_var = try Variable.init(allocator, try zt.tensor.full(allocator, idx_ctx.in_dims, i8, 0, idx_ctx.in_type), false);
         defer grad_var.deinit();
         try inputs[0].addGrad(allocator, grad_var);
     }

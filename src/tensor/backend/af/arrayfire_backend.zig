@@ -2608,7 +2608,7 @@ pub const ArrayFireBackend = struct {
     }
 
     pub fn print(_: *const ArrayFireBackend, allocator: std.mem.Allocator, tensor: Tensor) !void {
-        var arr_string = try (try toArray(allocator, tensor)).toString("ArrayFireTensor", 4, true);
+        var arr_string = try (try toArray(allocator, tensor)).toString("ArrayFireTensor", 10, true);
         defer af.ops.freeHost(@ptrCast(@constCast(arr_string.ptr))) catch unreachable;
         std.debug.print("{s}\n", .{arr_string});
     }
