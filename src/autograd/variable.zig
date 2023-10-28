@@ -268,6 +268,10 @@ pub const Variable = struct {
         try zt.tensor.eval(allocator, self.tensor());
     }
 
+    pub fn scalar(self: *const Variable, allocator: std.mem.Allocator, comptime T: type) !T {
+        return self.tensor().scalar(allocator, T);
+    }
+
     pub fn zeroGrad(self: *Variable) void {
         if (self.shared_grad.value.grad != null) {
             self.shared_grad.value.grad.?.deinit();

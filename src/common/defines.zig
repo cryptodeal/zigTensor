@@ -37,8 +37,8 @@ pub const OptimMode = struct {
     });
 
     /// Returns the OptimMode singleton.
-    pub fn get() OptimMode {
-        return optim_mode_singleton;
+    pub fn get() *OptimMode {
+        return &optim_mode_singleton;
     }
 
     /// Gets the current optimization level. Not thread safe.
