@@ -892,7 +892,7 @@ pub fn concatenate(allocator: std.mem.Allocator, concat_inputs: []const *Variabl
     for (concat_inputs[1..]) |v| {
         if (try v.dtype(allocator) != dtype) {
             std.debug.print("concatenate: all input Variables must be of the same type\n", .{});
-            return error.ConcatenateInputVariableTypeMismatch;
+            return error.ConcatInputVariableDTypeMismatch;
         } else if (try v.ndim(allocator) != numdims) {
             std.debug.print("concatenate: all input Variables must have the same number of dimensions\n", .{});
             return error.ConcatenateInputVariableDimsMismatch;
@@ -1009,8 +1009,8 @@ pub fn tile(allocator: std.mem.Allocator, input: *Variable, dims: Shape) !*Varia
 }
 
 const ReductionCtx = struct {
-    in_dims: Shape,
-    axes: []i64,
+    in_dims: []Dim,
+    axes: []Dim,
     keep_dims: bool,
 };
 
@@ -1036,7 +1036,7 @@ pub fn sum(allocator: std.mem.Allocator, input: *Variable, axes: []const i64, ke
     var result = try zt.tensor.sum(allocator, adj.res, axes, keep_dims);
     var indims = try input.shape(allocator);
     var ctx = try allocator.create(ReductionCtx);
-    ctx.* = .{ .in_dims = try allocator.alloc(Dim, indims.len), .axes = try allocator.alloc(i64, axes.len), .keep_dims = keep_dims };
+    ctx.* = .{ .in_dims = try allocator.alloc(Dim, indims.len), .axes = try allocator.alloc(Dim, axes.len), .keep_dims = keep_dims };
     @memcpy(ctx.in_dims, indims);
     @memcpy(ctx.axes, axes);
     return Variable.initWithInputs(allocator, result, &.{try input.withoutData(allocator)}, sumGradFunc, ctx, freeSumCtx);
@@ -1046,9 +1046,9 @@ fn meanGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_ou
     var mean_ctx: *ReductionCtx = @ptrCast(@alignCast(ctx));
     var odims = try grad_output.shape(allocator);
     var count: Dim = 1;
-    for (0..zt.tensor.shape.ndim(try mean_ctx.in_dims)) |i| {
+    for (0..zt.tensor.shape.ndim(mean_ctx.in_dims)) |i| {
         const odim_size: Dim = if (i + 1 > zt.tensor.shape.ndim(odims)) 1 else odims[i];
-        count *= @divTrunc(ctx.in_dims[i], odim_size);
+        count *= @divTrunc(mean_ctx.in_dims[i], odim_size);
     }
     var tmp = try detail.expandFromReduction(allocator, Tensor, grad_output.tensor(), mean_ctx.axes, mean_ctx.keep_dims);
     defer tmp.deinit();
@@ -1073,7 +1073,7 @@ pub fn mean(allocator: std.mem.Allocator, input: *Variable, axes: []const Dim, k
 
 const VarCtx = struct {
     val: f64,
-    axes: []const Dim,
+    axes: []Dim,
 };
 
 fn freeVarCtx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
@@ -1084,10 +1084,10 @@ fn freeVarCtx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
 
 fn varianceGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
     var var_ctx: *VarCtx = @ptrCast(@alignCast(ctx));
-    var expanded_dims = try allocator.alloc(Dim, try inputs[0].shape(allocator));
+    var expanded_dims = try allocator.alloc(Dim, try inputs[0].ndim(allocator));
     defer allocator.free(expanded_dims);
     @memcpy(expanded_dims, try inputs[0].shape(allocator));
-    var tile_dims = try allocator.alloc(Dim, try inputs[0].shape(allocator));
+    var tile_dims = try allocator.alloc(Dim, try inputs[0].ndim(allocator));
     defer allocator.free(tile_dims);
     @memcpy(tile_dims, try inputs[0].shape(allocator));
     for (var_ctx.axes) |ax| {
@@ -1119,9 +1119,10 @@ fn varianceGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, gra
 pub fn variance(allocator: std.mem.Allocator, in: *Variable, axes: []const Dim, is_biased: bool, keep_dims: bool) !*Variable {
     var adj = try detail.adjustInputType(allocator, Tensor, in.tensor(), @src().fn_name);
     defer if (adj.allocated) adj.res.deinit();
-    var input = try zt.tensor.mul(allocator, Tensor, adj.res, Tensor, adj.res);
-    defer input.deinit();
-    var result = try zt.tensor.sum(allocator, input, axes, keep_dims);
+    var input = adj.res;
+    var tmp = try zt.tensor.mul(allocator, Tensor, adj.res, Tensor, adj.res);
+    defer tmp.deinit();
+    var result = try zt.tensor.sum(allocator, tmp, axes, keep_dims);
 
     var avg = try zt.tensor.mean(allocator, input, axes, keep_dims);
     defer avg.deinit();
@@ -1135,14 +1136,15 @@ pub fn variance(allocator: std.mem.Allocator, in: *Variable, axes: []const Dim, 
     }
 
     var val: f64 = 1 / (if (is_biased) @as(f64, @floatFromInt(n)) else @as(f64, @floatFromInt(n)) - 1);
-    try result.inPlaceSub(allocator, Dim, n);
-    try result.inPlaceMul(allocator, Tensor, avg);
-    try result.inPlaceMul(allocator, Tensor, avg);
+    var tmp1 = try zt.tensor.mul(allocator, Tensor, avg, Tensor, avg);
+    defer tmp1.deinit();
+    try tmp1.inPlaceMul(allocator, i64, n);
+    try result.inPlaceSub(allocator, Tensor, tmp1);
     try result.inPlaceMul(allocator, f64, val);
     var ctx = try allocator.create(VarCtx);
     ctx.* = .{ .val = val, .axes = try allocator.alloc(Dim, axes.len) };
     @memcpy(ctx.axes, axes);
-    return Variable.initWithInputs(allocator, result, &.{try in.withoutData(allocator)}, varianceGradFunc, ctx, freeVarCtx);
+    return Variable.initWithInputs(allocator, result, &.{try in.clone(allocator)}, varianceGradFunc, ctx, freeVarCtx);
 }
 
 const NormCtx = struct {
@@ -1940,13 +1942,194 @@ pub fn linear(allocator: std.mem.Allocator, in: *Variable, wt: *Variable, bs: *V
 
 // TODO: pub fn batchnorm() !*Variable {}
 
-// TODO: pub fn gatedlinearunit() !*Variable {}
+const GLUCtx = struct {
+    fhalf: []Index,
+    shalf: []Index,
+    fhalfout: Tensor,
+    shalfout: Tensor,
+    in_dims: []Dim,
+    in_type: zt.tensor.DType,
+};
+
+fn freeGLUCtx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
+    var c: *GLUCtx = @ptrCast(@alignCast(ctx));
+    allocator.free(c.fhalf);
+    allocator.free(c.shalf);
+    c.fhalfout.deinit();
+    c.shalfout.deinit();
+    allocator.free(c.in_dims);
+    allocator.destroy(c);
+}
+
+fn gluGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
+    var c: *GLUCtx = @ptrCast(@alignCast(ctx));
+    var grad_glu = try Tensor.initHandle(allocator, c.in_dims, c.in_type);
+    var tmp1 = try zt.tensor.mul(allocator, Tensor, c.shalfout, Tensor, grad_output.tensor());
+    defer tmp1.deinit();
+    try grad_glu.indexAssign(allocator, Tensor, tmp1, c.fhalf);
+    var tmp2 = try zt.tensor.sub(allocator, f64, 1, Tensor, c.shalfout);
+    defer tmp2.deinit();
+    try tmp2.inPlaceMul(allocator, Tensor, c.shalfout);
+    try tmp2.inPlaceMul(allocator, Tensor, c.fhalfout);
+    try tmp2.inPlaceMul(allocator, Tensor, grad_output.tensor());
+    try grad_glu.indexAssign(allocator, Tensor, tmp2, c.shalf);
+    var tmp_var = try Variable.init(allocator, grad_glu, false);
+    defer tmp_var.deinit();
+    try inputs[0].addGrad(allocator, tmp_var);
+}
+
+pub fn gatedlinearunit(allocator: std.mem.Allocator, input: *Variable, dim: usize) !*Variable {
+    if (dim >= try input.ndim(allocator)) {
+        std.debug.print("gatedlinearunit - passed dim is great than the number of dimensions of the input.\n", .{});
+        return error.GLUInvalidDim;
+    }
+
+    var in_dims = try input.shape(allocator);
+    var in_type = try input.dtype(allocator);
+    var in_size = in_dims[dim];
+    if (@rem(in_size, 2) == 1) {
+        std.debug.print("halving dimension must be even for GLU\n", .{});
+        return error.GLUHalvingDimensionNotEven;
+    }
+
+    var fhalf = try allocator.alloc(Index, try input.ndim(allocator));
+    @memset(fhalf, Index.initRange(zt.tensor.span));
+    var shalf = try allocator.alloc(Index, try input.ndim(allocator));
+    @memset(shalf, Index.initRange(zt.tensor.span));
+    fhalf[dim] = Index.initRange(Range.initEnd(@divTrunc(in_size, 2)));
+    shalf[dim] = Index.initRange(Range.init(@divTrunc(in_size, 2), .{ .dim = in_size }));
+
+    var fhalfout = try input.tensor().index(allocator, fhalf);
+    var tmp_shalfout1 = try input.tensor().index(allocator, shalf);
+    defer tmp_shalfout1.deinit();
+
+    var shalfout = try zt.tensor.sigmoid(allocator, tmp_shalfout1);
+    var ctx = try allocator.create(GLUCtx);
+    ctx.* = .{
+        .fhalf = fhalf,
+        .shalf = shalf,
+        .fhalfout = fhalfout,
+        .shalfout = shalfout,
+        .in_dims = try allocator.alloc(Dim, in_dims.len),
+        .in_type = in_type,
+    };
+    @memcpy(ctx.in_dims, in_dims);
+
+    return Variable.initWithInputs(
+        allocator,
+        try zt.tensor.mul(allocator, Tensor, fhalfout, Tensor, shalfout),
+        &.{try input.withoutData(allocator)},
+        gluGradFunc,
+        ctx,
+        freeGLUCtx,
+    );
+}
 
 // TODO: pub fn rnn() !*Variable {}
 
-// TODO: pub fn embedding() !*Variable {}
+fn embeddingGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, _: ?*anyopaque) !void {
+    var w = inputs[1];
+    if (!w.isCalcGrad()) {
+        return;
+    }
 
-// TODO: pub fn padding() !*Variable {}
+    var ip = try inputs[0].tensor().flatten(allocator);
+    defer ip.deinit();
+    var size = try ip.elements(allocator);
+    var deltas = try zt.tensor.reshape(allocator, grad_output.tensor(), &.{ try w.dim(allocator, 0), size });
+    defer deltas.deinit();
+
+    var sp_vals = try zt.tensor.full(allocator, &.{size}, f64, 1, try deltas.dtype(allocator));
+    defer sp_vals.deinit();
+    var sp_row_idxs = try zt.tensor.arange(allocator, &.{size + 1}, 0, .s32);
+    defer sp_row_idxs.deinit();
+    var sp_col_idxs = try ip.astype(allocator, .s32);
+    defer sp_col_idxs.deinit();
+
+    var sp = try Tensor.initSparse(
+        allocator,
+        try ip.elements(allocator),
+        try w.dim(allocator, 1),
+        sp_vals,
+        sp_row_idxs,
+        sp_col_idxs,
+        .CSR,
+    );
+    defer sp.deinit();
+    var rhs = try zt.tensor.transpose(allocator, deltas, &.{});
+    defer rhs.deinit();
+    var tmp = try zt.tensor.matmul(allocator, sp, rhs, .Transpose, .None);
+    defer tmp.deinit();
+    var tmp_var = try Variable.init(allocator, try zt.tensor.transpose(allocator, tmp, &.{}), false);
+    defer tmp_var.deinit();
+    try w.addGrad(allocator, tmp_var);
+}
+
+pub fn embedding(allocator: std.mem.Allocator, input: *Variable, embeddings: *Variable) !*Variable {
+    // TODO: {zt.tensor.Tensor}{4-dims} - relax this
+    if (try input.ndim(allocator) >= 4) {
+        std.debug.print("embedding input must have 3 or fewer dims\n", .{});
+        return error.EmbeddingInputExceedsMaxDims;
+    }
+
+    var idxs = try input.tensor().flatten(allocator);
+    defer idxs.deinit();
+    var in_dims = try input.shape(allocator);
+    var r_dims = try allocator.alloc(Dim, try input.ndim(allocator) + 1);
+    defer allocator.free(r_dims);
+    r_dims[0] = try embeddings.dim(allocator, 0);
+    for (1..try input.ndim(allocator) + 1) |i| {
+        r_dims[i] = in_dims[i - 1];
+    }
+    var tmp = try embeddings.tensor().index(allocator, &.{ Index.initRange(zt.tensor.span), Index.initTensor(idxs) });
+    defer tmp.deinit();
+    var result = try zt.tensor.reshape(allocator, tmp, r_dims);
+    return Variable.initWithInputs(
+        allocator,
+        result,
+        &.{ try input.clone(allocator), try embeddings.clone(allocator) },
+        embeddingGradFunc,
+        null,
+        null,
+    );
+}
+
+const PaddingCtx = struct { in_seq: []Index };
+
+fn freePaddingCtx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
+    var padding_ctx: *PaddingCtx = @ptrCast(@alignCast(ctx));
+    allocator.free(padding_ctx.in_seq);
+    allocator.destroy(padding_ctx);
+}
+
+fn paddingGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
+    var padding_ctx: *PaddingCtx = @ptrCast(@alignCast(ctx));
+    var tmp_var = try Variable.init(allocator, try grad_output.tensor().index(allocator, padding_ctx.in_seq), false);
+    defer tmp_var.deinit();
+    try inputs[0].addGrad(allocator, tmp_var);
+}
+
+pub fn padding(allocator: std.mem.Allocator, input: *Variable, pad: []const [2]Dim, val: f64) !*Variable {
+    if (pad.len > try input.ndim(allocator)) {
+        std.debug.print("padding: number of padding dimensions exceeds number of input dimensions\n", .{});
+        return error.PaddingDimsExceedsInputDims;
+    }
+
+    var op_dims = try allocator.alloc(Dim, try input.ndim(allocator));
+    defer allocator.free(op_dims);
+    @memcpy(op_dims, try input.shape(allocator));
+    var in_seq = try allocator.alloc(Index, try input.ndim(allocator));
+    @memset(in_seq, Index.initRange(zt.tensor.span));
+    for (pad, 0..) |p, i| {
+        op_dims[i] += (p[0] + p[1]);
+        in_seq[i] = Index.initRange(Range.init(p[0], .{ .dim = op_dims[i] - p[1] }));
+    }
+    var result = try zt.tensor.full(allocator, op_dims, f64, val, try input.dtype(allocator));
+    try result.indexAssign(allocator, Tensor, input.tensor(), in_seq);
+    var ctx = try allocator.create(PaddingCtx);
+    ctx.* = .{ .in_seq = in_seq };
+    return Variable.initWithInputs(allocator, result, &.{try input.withoutData(allocator)}, paddingGradFunc, ctx, freePaddingCtx);
+}
 
 pub fn dropout(allocator: std.mem.Allocator, input: *Variable, p: f64) !*Variable {
     if (p > 0) {
@@ -1968,11 +2151,171 @@ pub fn relu(allocator: std.mem.Allocator, input: *Variable) !*Variable {
     return max(allocator, *Variable, input, f64, 0);
 }
 
-// TODO: pub fn gelu(allocator: std.mem.Allocator, in: *Variable) !*Variable {}
+pub fn gelu(allocator: std.mem.Allocator, in: *Variable) !*Variable {
+    var adj = try detail.adjustInputType(allocator, *Variable, in, @src().fn_name);
+    defer if (adj.allocated) adj.res.deinit();
+    var input = adj.res;
+    var tmp1 = try mul(allocator, *Variable, input, *Variable, input);
+    defer tmp1.deinit();
+    var tmp2 = try mul(allocator, *Variable, input, *Variable, tmp1);
+    defer tmp2.deinit();
+    var tmp3 = try mul(allocator, f64, 0.044715, *Variable, tmp2);
+    defer tmp3.deinit();
+    var tmp4 = try add(allocator, *Variable, input, *Variable, tmp3);
+    defer tmp4.deinit();
+    var tmp5 = try mul(allocator, f64, 0.7978845608, *Variable, tmp4);
+    defer tmp5.deinit();
+    var tmp6 = try tanh(allocator, tmp5);
+    defer tmp6.deinit();
+    var rhs = try add(allocator, f64, 1, *Variable, tmp6);
+    defer rhs.deinit();
+    var lhs = try mul(allocator, f64, 0.5, *Variable, input);
+    defer lhs.deinit();
+    return mul(allocator, *Variable, lhs, *Variable, rhs);
+}
 
-// TODO: pub fn relativePositionEmbeddingRotate(allocator: std.mem.Allocator, input: *Variable) !*Variable {}
+const EmbeddingRotateCtx = struct { d0: Dim, d1: Dim, d2: Dim };
 
-// TODO: pub fn multiheadAttention() !*Variable {}
+fn freeEmbeddingRotateCtx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
+    var embedding_rotate_ctx: *EmbeddingRotateCtx = @ptrCast(@alignCast(ctx));
+    allocator.destroy(embedding_rotate_ctx);
+}
+
+fn relativePositionEmbeddingRotateGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
+    var c: *EmbeddingRotateCtx = @ptrCast(@alignCast(ctx));
+    var d0 = c.d0;
+    var d1 = c.d1;
+    var d2 = c.d2;
+    var tmp1 = try zt.tensor.reshape(allocator, grad_output.tensor(), &.{ (d0 + d1 - 1) * d1, 1, d2 });
+    defer tmp1.deinit();
+    var tmp2 = try zt.tensor.full(allocator, &.{ d1, 1, d2 }, f64, 0, try grad_output.dtype(allocator));
+    defer tmp2.deinit();
+    var tmp3 = try zt.tensor.concatenate(allocator, &.{ grad_output.tensor(), tmp2 }, 0);
+    defer tmp3.deinit();
+    var tmp_var1 = try Variable.init(allocator, try zt.tensor.reshape(allocator, tmp3, &.{ d0 + d1, d1, d2 }), false);
+    defer tmp_var1.deinit();
+    var tmp_var2 = try tmp_var1.index(allocator, &.{Index.initRange(Range.init(0, .{ .dim = d0 }))});
+    defer tmp_var2.deinit();
+    var used_var = try Variable.initSharedData(allocator, tmp_var2.shared_data.retain(), false);
+    defer used_var.deinit();
+    try inputs[0].addGrad(allocator, used_var);
+}
+
+pub fn relativePositionEmbeddingRotate(allocator: std.mem.Allocator, input: *Variable) !*Variable {
+    if (try input.ndim(allocator) != 3) {
+        std.debug.print("relativePositionEmbeddingRotate - input tensor must have 3 dimensions\n", .{});
+        return error.InputMustHave3Dims;
+    }
+
+    var d0 = try input.dim(allocator, 0);
+    var d1 = try input.dim(allocator, 1);
+    var d2 = try input.dim(allocator, 2);
+    var tmp1 = try zt.tensor.full(allocator, &.{ d1, d1, d2 }, f64, 0, try input.dtype());
+    defer tmp1.deinit();
+    var tmp2 = try zt.tensor.concatenate(allocator, &.{ input.tensor(), tmp1 }, 0);
+    defer tmp2.deinit();
+    var tmp3 = try zt.tensor.reshape(allocator, tmp2, &.{ (d0 + d1) * d1, 1, d2 });
+    defer tmp3.deinit();
+    var tmp4 = try tmp3.index(allocator, &.{Index.initRange(Range.init(0, .{ .dim = (d1 + d0 - 1) * d1 }))});
+    defer tmp4.deinit();
+    var result = try zt.tensor.reshape(allocator, tmp4, &.{ d0 + d1 - 1, d1, d2 });
+    _ = result;
+    var ctx = try allocator.create(EmbeddingRotateCtx);
+    ctx.* = .{ .d0 = d0, .d1 = d1, .d2 = d2 };
+}
+
+pub fn multiheadAttention(
+    allocator: std.mem.Allocator,
+    query: *Variable,
+    key: *Variable,
+    value: *Variable,
+    pos_emb: *Variable,
+    mask: *Variable,
+    pad_mask: *Variable,
+    n_heads: i64,
+    p_dropout: f64,
+    offset: i64,
+) !*Variable {
+    if (try query.ndim(allocator) != 3) {
+        std.debug.print("multiheadAttention - query input tensor should be 3 dimensions: Time x (n_heads * head_dim) x B\n", .{});
+        return error.QueryRequires3Dims;
+    }
+    if (try key.ndim(allocator) != 3) {
+        std.debug.print("multiheadAttention - key input tensor should be 3 dimensions: Time x (n_heads * head_dim) x B\n", .{});
+        return error.KeyRequires3Dims;
+    }
+    if (try value.ndim(allocator) != 3) {
+        std.debug.print("multiheadAttention - value input tensor should be 3 dimensions: Time x (n_heads * head_dim) x B\n", .{});
+        return error.ValueRequires3Dims;
+    }
+
+    var bsz = try query.dim(allocator, 2);
+    var model_dim = try query.dim(allocator, 1);
+    var head_dim = @divTrunc(model_dim, n_heads);
+
+    var tmp_q = try moddims(allocator, query, &.{ -1, head_dim, n_heads * bsz });
+    defer tmp_q.deinit();
+    var k = try moddims(allocator, key, &.{ -1, head_dim, n_heads * bsz });
+    defer k.deinit();
+    var v = try moddims(allocator, value, &.{ -1, head_dim, n_heads * bsz });
+    defer v.deinit();
+
+    var q = try div(allocator, *Variable, tmp_q, f64, @sqrt(@as(f64, @floatFromInt(head_dim))));
+    defer q.deinit();
+    var scores = try matmulNT(allocator, q, k);
+    defer scores.deinit();
+    if (!try pos_emb.isEmpty(allocator)) {
+        var n = @divTrunc(try pos_emb.dim(allocator, 0), 2) - offset;
+        var tmp1 = try pos_emb.astype(allocator, try q.dtype(allocator));
+        defer tmp1.deinit();
+        var tmp2 = try matmulNT(allocator, tmp1, q);
+        defer tmp2.deinit();
+        var pscores = try relativePositionEmbeddingRotate(allocator, tmp2);
+        defer pscores.deinit();
+        var tmp_scores = scores;
+        defer tmp_scores.deinit();
+        var tmp3 = try pscores.index(allocator, &.{Index.initRange(Range.init(n, .{ .dim = n + try k.dim(allocator, 0) }))});
+        defer tmp3.deinit();
+        var tmp4 = try transpose(allocator, tmp3, &.{ 1, 0, 2 });
+        defer tmp4.deinit();
+        scores = try add(allocator, *Variable, scores, *Variable, tmp4);
+    }
+    if (!try mask.isEmpty(allocator)) {
+        var tmp_scores = scores;
+        defer tmp_scores.deinit();
+        var tmp1 = try mask.astype(allocator, try scores.dtype(allocator));
+        defer tmp1.deinit();
+        var tmp2 = try tileAs(allocator, tmp1, *Variable, scores);
+        defer tmp2.deinit();
+        scores = try add(allocator, *Variable, scores, *Variable, tmp2);
+    }
+    if (!try pad_mask.isEmpty(allocator)) {
+        if (try pad_mask.dim(allocator, 0) != try query.dim(allocator, 0)) {
+            std.debug.print("multiheadAttention: invalid padding mask size\n", .{});
+            return error.InvalidPaddingMaskSize;
+        }
+        var tmp1 = try moddims(allocator, pad_mask, &.{ 1, try pad_mask.dim(allocator, 0), 1, bsz });
+        defer tmp1.deinit();
+        var tmp2 = try tileAs(allocator, tmp1, Shape, &.{ try pad_mask.dim(allocator, 0), try pad_mask.dim(allocator, 0), n_heads, bsz });
+        defer tmp2.deinit();
+        var tmp_scores = scores;
+        defer tmp_scores.deinit();
+        var tmp3 = try tmp2.astype(allocator, try scores.dtype(allocator));
+        defer tmp3.deinit();
+        var tmp4 = try moddims(allocator, tmp3, &.{ try pad_mask.dim(allocator, 0), try pad_mask.dim(allocator, 0), n_heads * bsz });
+        defer tmp4.deinit();
+        scores = try add(allocator, *Variable, scores, *Variable, tmp4);
+    }
+    var tmp1 = try softmax(allocator, scores, 1);
+    defer tmp1.deinit();
+    var attn = try dropout(allocator, tmp1, p_dropout);
+    defer attn.deinit();
+    var tmp2 = try attn.astype(allocator, try v.dtype(allocator));
+    defer tmp2.deinit();
+    var tmp_result = try matmul(allocator, tmp2, v);
+    defer tmp_result.deinit();
+    return moddims(allocator, tmp_result, &.{ -1, head_dim * n_heads, bsz });
+}
 
 // Unit tests
 const AutogradTestF16 = struct {
@@ -2080,29 +2423,29 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
         return error.SkipZigTest;
     }
 
-    var half = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 2, 2 }, .f16), true);
-    defer half.deinit();
-    var float = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 2, 2 }, .f32), true);
-    defer float.deinit();
+    var f16_ = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 2, 2 }, .f16), true);
+    defer f16_.deinit();
+    var f32_ = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 2, 2 }, .f32), true);
+    defer f32_.deinit();
 
     // Binary operators
-    try std.testing.expectError(error.VariableDTypeMismatch, add(allocator, *Variable, half, *Variable, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, sub(allocator, *Variable, half, *Variable, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, mul(allocator, *Variable, half, *Variable, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, div(allocator, *Variable, half, *Variable, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, greaterThan(allocator, *Variable, half, *Variable, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, lessThan(allocator, *Variable, half, *Variable, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, greaterThanEqual(allocator, *Variable, half, *Variable, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, lessThanEqual(allocator, *Variable, half, *Variable, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, logicalAnd(allocator, half, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, max(allocator, *Variable, half, *Variable, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, min(allocator, *Variable, half, *Variable, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, matmul(allocator, half, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, matmulTN(allocator, half, float));
-    try std.testing.expectError(error.VariableDTypeMismatch, matmulNT(allocator, half, float));
+    try std.testing.expectError(error.VariableDTypeMismatch, add(allocator, *Variable, f16_, *Variable, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, sub(allocator, *Variable, f16_, *Variable, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, mul(allocator, *Variable, f16_, *Variable, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, div(allocator, *Variable, f16_, *Variable, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, greaterThan(allocator, *Variable, f16_, *Variable, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, lessThan(allocator, *Variable, f16_, *Variable, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, greaterThanEqual(allocator, *Variable, f16_, *Variable, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, lessThanEqual(allocator, *Variable, f16_, *Variable, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, logicalAnd(allocator, f16_, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, max(allocator, *Variable, f16_, *Variable, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, min(allocator, *Variable, f16_, *Variable, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, matmul(allocator, f16_, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, matmulTN(allocator, f16_, f32_));
+    try std.testing.expectError(error.VariableDTypeMismatch, matmulNT(allocator, f16_, f32_));
 
     // expect no throw
-    var res1 = try binaryCrossEntropy(allocator, half, float);
+    var res1 = try binaryCrossEntropy(allocator, f16_, f32_);
     res1.deinit();
 
     var cat_input = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 7, 10, 4 }, .f16), true);
@@ -2116,7 +2459,36 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
     var res2 = try categoricalCrossEntropy(allocator, cat_input, cat_target, .Mean, -1);
     res2.deinit();
 
-    // TODO: finish tests
+    // TODO: test `pool2d` doesn't throw
+
+    var res3 = try embedding(allocator, f16_, f32_);
+    res3.deinit();
+
+    // Ternary operators
+    var f32_2 = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 2, 2 }, .f32), true);
+    defer f32_2.deinit();
+    var f16_2 = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 2, 2 }, .f16), true);
+    defer f16_2.deinit();
+    try std.testing.expectError(error.VariableDTypeMismatch, linear(allocator, f16_, f32_, f16_2));
+    try std.testing.expectError(error.VariableDTypeMismatch, linear(allocator, f16_, f32_, f32_2));
+
+    var w = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{1}, .f32), true);
+    defer w.deinit();
+    var b = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{1}, .f32), true);
+    defer b.deinit();
+    // TODO: test `batchnorm` throws
+
+    // TODO: test `batchnorm` throws
+
+    // TODO: test `conv2d` throws
+
+    // Quaternary operators
+
+    // TODO: test `rnn` throws
+
+    // Variadic operators
+    var concat_inputs: []const *Variable = &.{ f16_, f32_, f16_2, f32_2 };
+    try std.testing.expectError(error.ConcatInputVariableDTypeMismatch, concatenate(allocator, concat_inputs, 0));
 }
 
 test "AutogradTest -> CastingAsDifferentGradTypes" {
@@ -2523,7 +2895,19 @@ test "AutogradTest -> Indexing" {
     try std.testing.expect(try jacobianTestImpl(allocator, funcFlat, x, null, 1e-5, 1e-4));
 }
 
-// TODO: test "AutogradTest -> Padding" {}
+test "AutogradTest -> Padding" {
+    const allocator = std.testing.allocator;
+    defer zt.tensor.deinit(); // deinit global singletons
+
+    var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 3, 3 }, .f32), true);
+    defer in.deinit();
+    const funcPad = (struct {
+        pub fn call(alloc: std.mem.Allocator, input: *Variable, _: ?*anyopaque) !*Variable {
+            return padding(alloc, input, &.{ [2]Dim{ 1, 2 }, [2]Dim{ 0, 1 } }, -1);
+        }
+    }).call;
+    try std.testing.expect(try jacobianTestImpl(allocator, funcPad, in, null, 1e-3, 1e-4));
+}
 
 // TODO: test "AutogradTest -> Pooling" {}
 
@@ -2544,7 +2928,25 @@ test "AutogradTest -> Reorder" {
     try std.testing.expect(try jacobianTestImpl(allocator, funcReorder, in, null, 1e-3, 1e-4));
 }
 
-// TODO: test "AutogradTest -> Embedding" {}
+test "AutogradTest -> Embedding" {
+    const allocator = std.testing.allocator;
+    defer zt.tensor.deinit(); // deinit global singletons
+
+    var n_words: i64 = 10;
+    var input_tensor = try zt.tensor.rand(allocator, &.{ 4, 2 }, .f32);
+    try input_tensor.inPlaceMul(allocator, i64, n_words);
+    var input = try Variable.init(allocator, input_tensor, true);
+    defer input.deinit();
+    var weights = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 4, n_words }, .f64), true);
+    defer weights.deinit();
+    const funcEmbed = (struct {
+        pub fn call(alloc: std.mem.Allocator, w: *Variable, ctx: ?*anyopaque) !*Variable {
+            var in: *Variable = @ptrCast(@alignCast(ctx.?));
+            return embedding(alloc, in, w);
+        }
+    }).call;
+    try std.testing.expect(try jacobianTestImpl(allocator, funcEmbed, weights, input, 1e-5, 1e-4));
+}
 
 // TODO (once CUDA is supported): test "AutogradTest -> GetAdvancedIndex" {}
 
@@ -3298,17 +3700,258 @@ test "AutogradNormalizationTest -> Normalize" {
 
 // TODO: test "AutogradTestF16 -> LayerNormJacobianF16" {}
 
-// TODO: test "AutogradReductionTest -> Sum" {}
+// TODO: terminates signal 11 (pending debugging)
+test "AutogradReductionTest -> Sum" {
+    const allocator = std.testing.allocator;
+    defer zt.tensor.deinit(); // deinit global singletons
 
-// TODO: test "AutogradReductionTest -> SumAs" {}
+    const handle_dims: []const bool = &.{ false, true };
+    for (handle_dims) |keep_dims| {
+        var s: Shape = if (keep_dims) &.{ 6, 1 } else &.{6};
 
-// TODO: test "AutogradReductionTest -> SumAs2" {}
+        var x = try Variable.init(allocator, try zt.tensor.rand(allocator, s, .f32), true);
+        defer x.deinit();
+        var y = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 6, 3 }, .f32), true);
+        defer y.deinit();
 
-// TODO: test "AutogradReductionTest -> Mean" {}
+        var tmp1 = try sum(allocator, y, &.{1}, keep_dims);
+        defer tmp1.deinit();
+        var z = try mul(allocator, *Variable, x, *Variable, tmp1);
+        defer z.deinit();
+        var dz = try Variable.init(allocator, try zt.tensor.full(allocator, s, f64, 1, .f32), false);
+        defer dz.deinit();
+        try z.backwardWithGrad(allocator, dz, false);
 
-// TODO: test "AutogradReductionTest -> Variance" {}
+        var dy = try y.grad();
+        var dx = try x.grad();
+        var tmp2 = try zt.tensor.tile(allocator, x.tensor(), &.{ 1, 3 });
+        defer tmp2.deinit();
+        try std.testing.expect(try zt.tensor.allClose(allocator, dy.tensor(), tmp2, 1e-5));
+        var tmp3 = try zt.tensor.sum(allocator, y.tensor(), &.{1}, keep_dims);
+        defer tmp3.deinit();
+        try std.testing.expect(try zt.tensor.allClose(allocator, dx.tensor(), tmp3, 1e-5));
+        const TestCtx = struct { keep_dims: bool };
+        var ctx = try allocator.create(TestCtx);
+        defer allocator.destroy(ctx);
+        ctx.* = .{ .keep_dims = keep_dims };
 
-// TODO: test "AutogradReductionTest -> Norm" {}
+        // this function terminates with signal 11 (pending debugging)
+        const funcSum = (struct {
+            pub fn call(alloc: std.mem.Allocator, input: *Variable, c: ?*anyopaque) !*Variable {
+                var c_ctx: *TestCtx = @ptrCast(@alignCast(c.?));
+                return sum(alloc, input, &.{0}, c_ctx.keep_dims);
+            }
+        }).call;
+        _ = funcSum;
+        // Reduce over 1-dim input
+        // var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{6}, .f32), true);
+        // defer in.deinit();
+        // try std.testing.expect(try jacobianTestImpl(allocator, funcSum, in, ctx, 5e-3, 1e-4));
+        // Reduce over scalar input
+        // var in_scalar = try Variable.init(allocator, try zt.tensor.fromScalar(allocator, f64, 3.14, .f32), true);
+        // defer in_scalar.deinit();
+        // try std.testing.expect(try jacobianTestImpl(allocator, funcSum, in_scalar, ctx, 5e-3, 1e-4));
+    }
+
+    var r = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 6, 7, 8 }, .f32), true);
+    defer r.deinit();
+    var r_out = try sum(allocator, r, &.{ 1, 2 }, false);
+    defer r_out.deinit();
+    var r_out_tensor = try zt.tensor.sum(allocator, r.tensor(), &.{ 1, 2 }, false);
+    defer r_out_tensor.deinit();
+    try std.testing.expect(try zt.tensor.allClose(allocator, r_out.tensor(), r_out_tensor, 1e-5));
+}
+
+test "AutogradReductionTest -> SumAs" {
+    const allocator = std.testing.allocator;
+    defer zt.tensor.deinit(); // deinit global singletons
+
+    var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
+    defer x.deinit();
+    var y = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 2 }, .f32), true);
+    defer y.deinit();
+    var tmp1 = try sumAs(allocator, y, *Variable, x);
+    defer tmp1.deinit();
+    var z = try mul(allocator, *Variable, x, *Variable, tmp1);
+    defer z.deinit();
+    var dz = try Variable.init(allocator, try zt.tensor.full(allocator, &.{5}, f64, 1, .f32), false);
+    defer dz.deinit();
+    try z.backwardWithGrad(allocator, dz, false);
+    var dy = try y.grad();
+    var dx = try x.grad();
+    var tmp2 = try zt.tensor.tile(allocator, x.tensor(), &.{ 1, 2 });
+    defer tmp2.deinit();
+    try std.testing.expect(try zt.tensor.allClose(allocator, dy.tensor(), tmp2, 1e-5));
+    var tmp3 = try zt.tensor.sum(allocator, y.tensor(), &.{1}, false);
+    defer tmp3.deinit();
+    try std.testing.expect(try zt.tensor.allClose(allocator, dx.tensor(), tmp3, 1e-5));
+}
+
+test "AutogradReductionTest -> SumAs2" {
+    const allocator = std.testing.allocator;
+    defer zt.tensor.deinit(); // deinit global singletons
+
+    var y = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 2 }, .f32), true);
+    defer y.deinit();
+    var z = try sumAs(allocator, y, Shape, &.{5});
+    defer z.deinit();
+    var dz = try Variable.init(allocator, try zt.tensor.full(allocator, &.{5}, f64, 1, .f32), false);
+    defer dz.deinit();
+    try z.backwardWithGrad(allocator, dz, false);
+    var dy = try y.grad();
+    var tmp = try zt.tensor.full(allocator, &.{ 5, 2 }, f64, 1, .f32);
+    defer tmp.deinit();
+    try std.testing.expect(try zt.tensor.allClose(allocator, dy.tensor(), tmp, 1e-5));
+}
+
+// TODO: terminates signal 11 (pending debugging)
+test "AutogradReductionTest -> Mean" {
+    const allocator = std.testing.allocator;
+    defer zt.tensor.deinit(); // deinit global singletons
+    const TestCtx = struct { keep_dims: bool };
+
+    const handle_dims: []const bool = &.{ false, true };
+    for (handle_dims) |keep_dims| {
+        var x_shape: Shape = if (keep_dims) &.{ 5, 1, 1 } else &.{5};
+        var x = try Variable.init(allocator, try zt.tensor.rand(allocator, x_shape, .f32), true);
+        defer x.deinit();
+        var y = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 3, 2 }, .f32), true);
+        defer y.deinit();
+        var var_out = try mean(allocator, y, &.{ 1, 2 }, keep_dims);
+        defer var_out.deinit();
+        var tmp = try mean(allocator, y, &.{ 1, 2 }, keep_dims);
+        defer tmp.deinit();
+        var z = try mul(allocator, *Variable, x, *Variable, tmp);
+        defer z.deinit();
+        var dz = try Variable.init(allocator, try zt.tensor.full(allocator, try x.shape(allocator), f64, 1, .f32), false);
+        defer dz.deinit();
+        try z.backwardWithGrad(allocator, dz, false);
+        var dy = try y.grad();
+        var dx = try x.grad();
+        var tmp1 = try zt.tensor.tile(allocator, x.tensor(), &.{ 1, 3, 2 });
+        defer tmp1.deinit();
+        try tmp1.inPlaceDiv(allocator, f64, 6);
+        try std.testing.expect(try zt.tensor.allClose(allocator, dy.tensor(), tmp1, 1e-5));
+        var tmp2 = try zt.tensor.mean(allocator, y.tensor(), &.{ 1, 2 }, keep_dims);
+        defer tmp2.deinit();
+        try std.testing.expect(try zt.tensor.allClose(allocator, dx.tensor(), tmp2, 1e-5));
+
+        var a = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 3, 2 }, .f64), true);
+        defer a.deinit();
+        const funcMean = (struct {
+            pub fn call(alloc: std.mem.Allocator, input: *Variable, c: ?*anyopaque) !*Variable {
+                var m_ctx: *TestCtx = @ptrCast(@alignCast(c.?));
+                return mean(alloc, input, &.{ 1, 2 }, m_ctx.keep_dims);
+            }
+        }).call;
+        var ctx = try allocator.create(TestCtx);
+        defer allocator.destroy(ctx);
+        ctx.* = .{ .keep_dims = keep_dims };
+        try std.testing.expect(try jacobianTestImpl(allocator, funcMean, a, ctx, 1e-4, 1e-4));
+
+        var q = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 6, 7, 8 }, .f32), false);
+        defer q.deinit();
+        var q_out = try mean(allocator, q, &.{ 1, 2 }, keep_dims);
+        defer q_out.deinit();
+        var q_out_tensor = try zt.tensor.mean(allocator, q.tensor(), &.{ 1, 2 }, keep_dims);
+        defer q_out_tensor.deinit();
+        try std.testing.expect(try zt.tensor.allClose(allocator, q_out.tensor(), q_out_tensor, 1e-5));
+
+        // this function terminates with signal 11 (pending debugging)
+        const funcMean0 = (struct {
+            pub fn call(alloc: std.mem.Allocator, input: *Variable, c: ?*anyopaque) !*Variable {
+                var m_ctx: *TestCtx = @ptrCast(@alignCast(c.?));
+                return mean(alloc, input, &.{0}, m_ctx.keep_dims);
+            }
+        }).call;
+        _ = funcMean0;
+        // Reduce over 1-dim input
+        // var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{6}, .f32), true);
+        // defer in.deinit();
+        // try std.testing.expect(try jacobianTestImpl(allocator, funcMean0, in, ctx, 5e-3, 1e-4));
+        // Reduce over scalar input
+        // var in_scalar = try Variable.init(allocator, try zt.tensor.fromScalar(allocator, f64, 3.14, .f32), true);
+        // defer in_scalar.deinit();
+        // try std.testing.expect(try jacobianTestImpl(allocator, funcMean0, in_scalar, ctx, 5e-3, 1e-4));
+    }
+}
+
+test "AutogradReductionTest -> Variance" {
+    const allocator = std.testing.allocator;
+    defer zt.tensor.deinit(); // deinit global singletons
+
+    const TestCtx = struct { b: bool, keep_dims: bool };
+
+    const biased: []const bool = &.{ true, false };
+    const handle_dims: []const bool = &.{ false, true };
+    for (biased) |b| {
+        for (handle_dims) |keep_dims| {
+            var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 6, 7, 8 }, .f64), true);
+            defer x.deinit();
+
+            // TODO:{zt.tensor.Tensor} -- enforce AF versioning and remediate
+            // Behavior of the bias parameter in af::var was changed in
+            // https://git.io/Jv5gF and is different in ArrayFire v3.7. If isbiased is
+            // true, sample variance rather than population variance is used. The
+            // zigTensor API implements the opposite behavior to be consistent with
+            // other libraries.
+            const af_var_bias_arg = !b;
+
+            var expected_var = try zt.tensor.variance(allocator, x.tensor(), &.{1}, af_var_bias_arg, keep_dims);
+            defer expected_var.deinit();
+            var calculated_var = try variance(allocator, x, &.{1}, b, keep_dims);
+            defer calculated_var.deinit();
+            try std.testing.expect(try zt.tensor.allClose(allocator, expected_var, calculated_var.tensor(), 1e-5));
+            var ctx = try allocator.create(TestCtx);
+            defer allocator.destroy(ctx);
+            ctx.* = .{ .b = b, .keep_dims = keep_dims };
+
+            const funcVar = (struct {
+                pub fn call(alloc: std.mem.Allocator, input: *Variable, c: ?*anyopaque) !*Variable {
+                    var v_ctx: *TestCtx = @ptrCast(@alignCast(c.?));
+                    return variance(alloc, input, &.{ 1, 2 }, v_ctx.b, v_ctx.keep_dims);
+                }
+            }).call;
+            try std.testing.expect(try jacobianTestImpl(allocator, funcVar, x, ctx, 1e-5, 1e-5));
+        }
+    }
+}
+
+test "AutogradReductionTest -> Norm" {
+    const allocator = std.testing.allocator;
+    defer zt.tensor.deinit(); // deinit global singletons
+    const TestCtx = struct { keep_dims: bool };
+
+    const handle_dims: []const bool = &.{ false, true };
+    var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 3 }, .f64), true);
+    defer x.deinit();
+    var ctx = try allocator.create(TestCtx);
+    defer allocator.destroy(ctx);
+    for (handle_dims) |keep_dims| {
+        ctx.* = .{ .keep_dims = keep_dims };
+        const funcNorm2 = (struct {
+            pub fn call(alloc: std.mem.Allocator, input: *Variable, c: ?*anyopaque) !*Variable {
+                var n_ctx: *TestCtx = @ptrCast(@alignCast(c.?));
+                return norm(alloc, input, &.{1}, 2, n_ctx.keep_dims);
+            }
+        }).call;
+        try std.testing.expect(try jacobianTestImpl(allocator, funcNorm2, x, ctx, 1e-4, 1e-4));
+        const funcNorm1 = (struct {
+            pub fn call(alloc: std.mem.Allocator, input: *Variable, c: ?*anyopaque) !*Variable {
+                var n_ctx: *TestCtx = @ptrCast(@alignCast(c.?));
+                return norm(alloc, input, &.{1}, 1, n_ctx.keep_dims);
+            }
+        }).call;
+        try std.testing.expect(try jacobianTestImpl(allocator, funcNorm1, x, ctx, 1e-4, 1e-4));
+        const funcNorm3 = (struct {
+            pub fn call(alloc: std.mem.Allocator, input: *Variable, c: ?*anyopaque) !*Variable {
+                var n_ctx: *TestCtx = @ptrCast(@alignCast(c.?));
+                return norm(alloc, input, &.{1}, 3, n_ctx.keep_dims);
+            }
+        }).call;
+        try std.testing.expect(try jacobianTestImpl(allocator, funcNorm3, x, ctx, 1e-4, 1e-4));
+    }
+}
 
 // TODO: fn testRnnImpl() !void {}
 
@@ -3369,7 +4012,19 @@ test "AutogradUnaryOpsTest -> Clamp" {
     try std.testing.expect(try jacobianTestImpl(allocator, fnCol, input, ctx, 1e-10, perturb));
 }
 
-// TODO: test "AutogradUnaryOpsTest -> Glu" {}
+test "AutogradUnaryOpsTest -> Glu" {
+    const allocator = std.testing.allocator;
+    defer zt.tensor.deinit(); // deinit global singletons
+
+    var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 3, 4, 5 }, .f64), true);
+    defer in.deinit();
+    const funcGlu = (struct {
+        pub fn call(alloc: std.mem.Allocator, input: *Variable, _: ?*anyopaque) !*Variable {
+            return gatedlinearunit(alloc, input, 1);
+        }
+    }).call;
+    try std.testing.expect(try jacobianTestImpl(allocator, funcGlu, in, null, 1e-5, 1e-4));
+}
 
 test "AutogradUnaryOpsTest -> Sigmoid" {
     const allocator = std.testing.allocator;

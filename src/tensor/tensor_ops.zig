@@ -1086,7 +1086,12 @@ pub fn allClose(allocator: std.mem.Allocator, a: Tensor, b: Tensor, abs_toleranc
     var r4 = try r3.astype(allocator, .f64);
     defer r4.deinit();
     var res = try r4.scalar(allocator, f64);
-    return res < abs_tolerance;
+    const matches = res < abs_tolerance;
+    if (!matches) {
+        try print(allocator, a);
+        try print(allocator, b);
+    }
+    return matches;
 }
 
 pub fn allEqual(allocator: std.mem.Allocator, a: Tensor, b: Tensor) !bool {

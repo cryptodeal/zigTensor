@@ -339,14 +339,34 @@ pub const ArrayFireTensor = struct {
         return self;
     }
 
-    pub fn initSparse(allocator: std.mem.Allocator, n_rows: Dim, n_cols: Dim, values: Tensor, row_idx: Tensor, col_idx: Tensor, storage_type: StorageType) !*ArrayFireTensor {
-        _ = storage_type;
-        _ = col_idx;
-        _ = row_idx;
-        _ = values;
-        _ = n_cols;
-        _ = n_rows;
-        _ = allocator;
+    pub fn initSparse(
+        allocator: std.mem.Allocator,
+        n_rows: Dim,
+        n_cols: Dim,
+        values: Tensor,
+        row_idx: Tensor,
+        col_idx: Tensor,
+        storage_type: StorageType,
+    ) !*ArrayFireTensor {
+        var self = try allocator.create(ArrayFireTensor);
+        var sparse = try af.ops.createSparseArray(
+            allocator,
+            n_rows,
+            n_cols,
+            try toArray(allocator, values),
+            try toArray(allocator, row_idx),
+            try toArray(allocator, col_idx),
+            af.ops.ztToAfStorageType(storage_type),
+        );
+        var afDims = try sparse.getDims();
+        self.* = .{
+            .arrayHandle_ = try Arc(*af.Array).init(allocator, sparse),
+            // ArrayFire only supports 2D sparsity
+            .numDims_ = 2,
+            .allocator = allocator,
+        };
+        try self.afDimsToZtShape(&afDims);
+        return self;
     }
 
     pub fn deinit(self: *ArrayFireTensor) void {

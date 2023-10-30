@@ -75,6 +75,30 @@ pub const Tensor = struct {
         return new_tensor;
     }
 
+    pub fn initSparse(
+        allocator: std.mem.Allocator,
+        n_rows: Dim,
+        n_cols: Dim,
+        values: Tensor,
+        row_idx: Tensor,
+        col_idx: Tensor,
+        storage_type: StorageType,
+    ) !Tensor {
+        return Tensor.init(
+            TensorAdapterBase.init(
+                try DefaultTensorType_t.initSparse(
+                    allocator,
+                    n_rows,
+                    n_cols,
+                    values,
+                    row_idx,
+                    col_idx,
+                    storage_type,
+                ),
+            ),
+        );
+    }
+
     pub fn fromSlice(allocator: std.mem.Allocator, s: Shape, comptime T: type, data: []const T, data_type: DType) !Tensor {
         var backend_ = try defaultTensorBackend(allocator);
         return switch (T) {
