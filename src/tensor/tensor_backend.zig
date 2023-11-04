@@ -349,6 +349,14 @@ pub const TensorBackend = struct {
     }
 
     pub fn indexAssign(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []const Index) !void {
+        // if indexing with a bool Tensor, return early if no true values
+        if (indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == try lhs.elements(allocator) and try indices[0].index_.Tensor.dtype(allocator) == .b8) {
+            var any_check = try tensor_.any(allocator, indices[0].index_.Tensor, &.{}, false);
+            defer any_check.deinit();
+            if (try any_check.scalar(allocator, i8) == 0) {
+                return;
+            }
+        }
         var init_rhs_tensor = false;
         var rhsTensor: Tensor = undefined;
         defer if (init_rhs_tensor) rhsTensor.deinit();
@@ -370,6 +378,14 @@ pub const TensorBackend = struct {
     }
 
     pub fn indexAdd(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []const Index) !void {
+        // if indexing with a bool Tensor, return early if no true values
+        if (indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == try lhs.elements(allocator) and try indices[0].index_.Tensor.dtype(allocator) == .b8) {
+            var any_check = try tensor_.any(allocator, indices[0].index_.Tensor, &.{}, false);
+            defer any_check.deinit();
+            if (try any_check.scalar(allocator, i8) == 0) {
+                return;
+            }
+        }
         var init_rhs_tensor = false;
         var rhsTensor: Tensor = undefined;
         defer if (init_rhs_tensor) rhsTensor.deinit();
@@ -391,6 +407,14 @@ pub const TensorBackend = struct {
     }
 
     pub fn indexSub(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []const Index) !void {
+        // if indexing with a bool Tensor, return early if no true values
+        if (indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == try lhs.elements(allocator) and try indices[0].index_.Tensor.dtype(allocator) == .b8) {
+            var any_check = try tensor_.any(allocator, indices[0].index_.Tensor, &.{}, false);
+            defer any_check.deinit();
+            if (try any_check.scalar(allocator, i8) == 0) {
+                return;
+            }
+        }
         var init_rhs_tensor = false;
         var rhsTensor: Tensor = undefined;
         defer if (init_rhs_tensor) rhsTensor.deinit();
@@ -412,6 +436,14 @@ pub const TensorBackend = struct {
     }
 
     pub fn indexMul(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []const Index) !void {
+        // if indexing with a bool Tensor, return early if no true values
+        if (indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == try lhs.elements(allocator) and try indices[0].index_.Tensor.dtype(allocator) == .b8) {
+            var any_check = try tensor_.any(allocator, indices[0].index_.Tensor, &.{}, false);
+            defer any_check.deinit();
+            if (try any_check.scalar(allocator, i8) == 0) {
+                return;
+            }
+        }
         var init_rhs_tensor = false;
         var rhsTensor: Tensor = undefined;
         defer if (init_rhs_tensor) rhsTensor.deinit();
@@ -433,6 +465,14 @@ pub const TensorBackend = struct {
     }
 
     pub fn indexDiv(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []const Index) !void {
+        // if indexing with a bool Tensor, return early if no true values
+        if (indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == try lhs.elements(allocator) and try indices[0].index_.Tensor.dtype(allocator) == .b8) {
+            var any_check = try tensor_.any(allocator, indices[0].index_.Tensor, &.{}, false);
+            defer any_check.deinit();
+            if (try any_check.scalar(allocator, i8) == 0) {
+                return;
+            }
+        }
         var init_rhs_tensor = false;
         var rhsTensor: Tensor = undefined;
         defer if (init_rhs_tensor) rhsTensor.deinit();

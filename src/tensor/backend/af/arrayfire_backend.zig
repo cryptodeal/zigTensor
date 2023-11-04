@@ -354,11 +354,12 @@ pub const ArrayFireBackend = struct {
     }
 
     pub fn full(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: Shape, value: f64, dtype: DType) !Tensor {
+        var af_dims = try af.ops.ztToAfDims(shape);
         var arr: *af.Array = try af.Array.constant(
             allocator,
             value,
-            @intCast(zt_shape.ndim(shape)),
-            try af.ops.ztToAfDims(shape),
+            @intCast(af_dims.ndims()),
+            af_dims,
             af.ops.ztToAfType(dtype),
         );
         return Tensor.init(
@@ -2313,15 +2314,6 @@ pub const ArrayFireBackend = struct {
         // filter-based index (for example: a(a < 5)).
         const completeTensorIndex = indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try toArray(allocator, lhs)).getElements()));
         var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
-        if (completeTensorIndex) {
-            // TODO: verify this is correct; needs tests
-            try af.ops.setSeqParamIndexer(afIndices, 0, 0, 1, 0, false);
-        }
-
-        if (indices.len > afIndices.len) {
-            std.log.debug("ArrayFireTensor.indexAssign internal error - passed indices is larger than the number of af indices.\n", .{});
-            return error.PassedIndicesLargerThanAfIndices;
-        }
 
         // Fill in corresponding index types for each af index
         var i: usize = 0;
@@ -2354,15 +2346,6 @@ pub const ArrayFireBackend = struct {
         // filter-based index (for example: a(a < 5)).
         const completeTensorIndex = indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try toArray(allocator, lhs)).getElements()));
         var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
-        if (completeTensorIndex) {
-            // TODO: verify this is correct; needs tests
-            try af.ops.setSeqParamIndexer(afIndices, 0, 0, 1, 0, false);
-        }
-
-        if (indices.len > afIndices.len) {
-            std.log.debug("ArrayFireTensor.indexAdd internal error - passed indices is larger than the number of af indices.\n", .{});
-            return error.PassedIndicesLargerThanAfIndices;
-        }
 
         // Fill in corresponding index types for each af index
         var i: usize = 0;
@@ -2396,15 +2379,6 @@ pub const ArrayFireBackend = struct {
         // filter-based index (for example: a(a < 5)).
         const completeTensorIndex = indices.len == 1 and indices[0].idxType() == .Tensor and (try indices[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try toArray(allocator, lhs)).getElements())) or try indices[0].index_.Tensor.dtype(allocator) == .b8);
         var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
-        if (completeTensorIndex) {
-            // TODO: verify this is correct; needs tests
-            try af.ops.setSeqParamIndexer(afIndices, 0, 0, 1, 0, false);
-        }
-
-        if (indices.len > afIndices.len) {
-            std.log.debug("ArrayFireTensor.indexSub internal error - passed indices is larger than the number of af indices.\n", .{});
-            return error.PassedIndicesLargerThanAfIndices;
-        }
 
         // Fill in corresponding index types for each af index
         var i: usize = 0;
@@ -2438,15 +2412,6 @@ pub const ArrayFireBackend = struct {
         // filter-based index (for example: a(a < 5)).
         const completeTensorIndex = indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try toArray(allocator, lhs)).getElements()));
         var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
-        if (completeTensorIndex) {
-            // TODO: verify this is correct; needs tests
-            try af.ops.setSeqParamIndexer(afIndices, 0, 0, 1, 0, false);
-        }
-
-        if (indices.len > afIndices.len) {
-            std.log.debug("ArrayFireTensor.indexMul internal error - passed indices is larger than the number of af indices.\n", .{});
-            return error.PassedIndicesLargerThanAfIndices;
-        }
 
         // Fill in corresponding index types for each af index
         var i: usize = 0;
@@ -2480,15 +2445,6 @@ pub const ArrayFireBackend = struct {
         // filter-based index (for example: a(a < 5)).
         const completeTensorIndex = indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try toArray(allocator, lhs)).getElements()));
         var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
-        if (completeTensorIndex) {
-            // TODO: verify this is correct; needs tests
-            try af.ops.setSeqParamIndexer(afIndices, 0, 0, 1, 0, false);
-        }
-
-        if (indices.len > afIndices.len) {
-            std.log.debug("ArrayFireTensor.indexDiv internal error - passed indices is larger than the number of af indices.\n", .{});
-            return error.PassedIndicesLargerThanAfIndices;
-        }
 
         // Fill in corresponding index types for each af index
         var i: usize = 0;

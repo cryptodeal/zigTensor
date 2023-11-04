@@ -550,15 +550,6 @@ pub const ArrayFireTensor = struct {
         // filter-based index (for example: a(a < 5)).
         const completeTensorIndex = indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == @as(usize, @intCast(try (try self.getHandle(allocator)).getElements()));
         var afIndices = try af.ops.createIndexers(); // this creates implicit spans for up to maxDims
-        if (completeTensorIndex) {
-            // TODO: verify this is correct; needs tests
-            try af.ops.setSeqParamIndexer(afIndices, 0, 0, 1, 0, false);
-        }
-
-        if (indices.len > afIndices.len) {
-            std.log.debug("ArrayFireTensor.index internal error - passed indices is larger than the number of af indices.\n", .{});
-            return error.PassedIndicesLargerThanAfIndices;
-        }
 
         // Fill in corresponding index types for each af index
         var indexTypes = try std.ArrayList(IndexType).initCapacity(allocator, afIndices.len);

@@ -728,8 +728,8 @@ pub const Dim4 = struct {
         try writer.print("(", .{});
         for (value.dims, 0..) |v, i| {
             try writer.print("{d}", .{v});
-            if (i < value.ndims() - 1) try writer.print(", ", .{});
-            if (i == value.ndims() - 1) break;
+            if (i < if (value.ndims() > 0) value.ndims() - 1 else value.ndims()) try writer.print(", ", .{});
+            if (i == if (value.ndims() > 0) value.ndims() - 1 else value.ndims()) break;
         }
         return writer.print(")", .{});
     }

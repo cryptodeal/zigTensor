@@ -161,20 +161,49 @@ pub const Variable = struct {
 
     pub fn index(self: *Variable, allocator: std.mem.Allocator, indices: []const Index) !*Variable {
         var result = try self.tensor().index(allocator, indices);
-        var idx_ctx = try allocator.create(IndexCtx);
+        const IndexCtx = struct { indices: []Index, in_dims: []Dim, in_type: DType };
+        const freeCtx = (struct {
+            pub fn call(alloc: std.mem.Allocator, c: *anyopaque) void {
+                var idx_ctx: *IndexCtx = @ptrCast(@alignCast(c));
+                alloc.free(idx_ctx.indices);
+                alloc.free(idx_ctx.in_dims);
+                alloc.destroy(idx_ctx);
+            }
+        }).call;
+        var ctx = try allocator.create(IndexCtx);
         var in_dims = try self.shape(allocator);
-        idx_ctx.* = .{
+        ctx.* = .{
             .indices = try allocator.alloc(Index, indices.len),
             .in_dims = try allocator.alloc(Dim, in_dims.len),
             .in_type = try self.dtype(allocator),
         };
-        @memcpy(idx_ctx.indices, indices);
-        @memcpy(idx_ctx.in_dims, in_dims);
-        return Variable.initWithInputs(allocator, result, &.{try self.withoutData(allocator)}, indexGradFunc, idx_ctx, freeIndexCtx);
+        @memcpy(ctx.indices, indices);
+        @memcpy(ctx.in_dims, in_dims);
+        const gradFunc = (struct {
+            pub fn call(alloc: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, c: ?*anyopaque) !void {
+                var idx_ctx: *IndexCtx = @ptrCast(@alignCast(c));
+                if (!inputs[0].isGradAvailable()) {
+                    var grad_var = try Variable.init(alloc, try zt.tensor.full(alloc, idx_ctx.in_dims, i8, 0, idx_ctx.in_type), false);
+                    defer grad_var.deinit();
+                    try inputs[0].addGrad(alloc, grad_var);
+                }
+                var grad_ = (try inputs[0].grad()).tensor();
+                try grad_.indexAdd(alloc, Tensor, grad_output.tensor(), idx_ctx.indices);
+            }
+        }).call;
+        return Variable.initWithInputs(allocator, result, &.{try self.withoutData(allocator)}, gradFunc, ctx, freeCtx);
     }
 
     pub fn flat(self: *Variable, allocator: std.mem.Allocator, idx: Index) !*Variable {
         var result = try self.tensor().flat(allocator, idx);
+        const FlatCtx = struct { index: Index, in_dims: []Dim, in_type: DType };
+        const freeCtx = (struct {
+            pub fn call(alloc: std.mem.Allocator, ctx: *anyopaque) void {
+                var flat_ctx: *FlatCtx = @ptrCast(@alignCast(ctx));
+                alloc.free(flat_ctx.in_dims);
+                alloc.destroy(flat_ctx);
+            }
+        }).call;
         var flat_ctx = try allocator.create(FlatCtx);
         var in_dims = try self.shape(allocator);
         flat_ctx.* = .{
@@ -183,7 +212,23 @@ pub const Variable = struct {
             .in_type = try self.dtype(allocator),
         };
         @memcpy(flat_ctx.in_dims, in_dims);
-        return Variable.initWithInputs(allocator, result, &.{try self.withoutData(allocator)}, flatGradFunc, flat_ctx, freeFlatCtx);
+        const gradFunc = (struct {
+            pub fn call(alloc: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, c: ?*anyopaque) !void {
+                var idx_ctx: *FlatCtx = @ptrCast(@alignCast(c));
+                if (!inputs[0].isGradAvailable()) {
+                    var tmp_var = try Variable.init(
+                        alloc,
+                        try zt.tensor.full(alloc, idx_ctx.in_dims, i8, 0, idx_ctx.in_type),
+                        false,
+                    );
+                    defer tmp_var.deinit();
+                    try inputs[0].addGrad(alloc, tmp_var);
+                }
+                var grad_ = (try inputs[0].grad()).tensor();
+                try grad_.flatAdd(alloc, Tensor, grad_output.tensor(), idx_ctx.index);
+            }
+        }).call;
+        return Variable.initWithInputs(allocator, result, &.{try self.withoutData(allocator)}, gradFunc, flat_ctx, freeCtx);
     }
 
     pub fn tensor(self: *const Variable) Tensor {
@@ -192,7 +237,16 @@ pub const Variable = struct {
 
     pub fn astype(self: *Variable, allocator: std.mem.Allocator, new_type: DType) !*Variable {
         var output = try self.tensor().astype(allocator, new_type);
-        return Variable.initWithInputs(allocator, output, &.{try self.withoutData(allocator)}, astypeGradFunc, null, null);
+        const gradFunc = (struct {
+            pub fn call(alloc: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, _: ?*anyopaque) !void {
+                var input = inputs[0];
+                // Cast the grad output to match the type of the input's grad
+                var tmp_var = try Variable.init(alloc, try grad_output.tensor().astype(alloc, try input.dtype(alloc)), false);
+                defer tmp_var.deinit();
+                try input.addGrad(alloc, tmp_var);
+            }
+        }).call;
+        return Variable.initWithInputs(allocator, output, &.{try self.withoutData(allocator)}, gradFunc, null, null);
     }
 
     pub fn grad(self: *const Variable) !*Variable {
@@ -417,63 +471,4 @@ fn recurse(allocator: std.mem.Allocator, variable: *Variable, cache: *std.AutoHa
     }
     try cache.put(id, {});
     try dag.append(try variable.clone(allocator));
-}
-
-const IndexCtx = struct {
-    indices: []Index,
-    in_dims: []Dim,
-    in_type: DType,
-};
-
-const FlatCtx = struct {
-    index: Index,
-    in_dims: []Dim,
-    in_type: DType,
-};
-
-fn freeIndexCtx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
-    var idx_ctx: *IndexCtx = @ptrCast(@alignCast(ctx));
-    allocator.free(idx_ctx.indices);
-    allocator.free(idx_ctx.in_dims);
-    allocator.destroy(idx_ctx);
-}
-
-fn freeFlatCtx(allocator: std.mem.Allocator, ctx: *anyopaque) void {
-    var flat_ctx: *FlatCtx = @ptrCast(@alignCast(ctx));
-    allocator.free(flat_ctx.in_dims);
-    allocator.destroy(flat_ctx);
-}
-
-fn indexGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
-    var idx_ctx: *IndexCtx = @ptrCast(@alignCast(ctx));
-    if (!inputs[0].isGradAvailable()) {
-        var grad_var = try Variable.init(allocator, try zt.tensor.full(allocator, idx_ctx.in_dims, i8, 0, idx_ctx.in_type), false);
-        defer grad_var.deinit();
-        try inputs[0].addGrad(allocator, grad_var);
-    }
-    var grad = (try inputs[0].grad()).tensor();
-    try grad.indexAdd(allocator, Tensor, grad_output.tensor(), idx_ctx.indices);
-}
-
-fn flatGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, ctx: ?*anyopaque) !void {
-    var idx_ctx: *FlatCtx = @ptrCast(@alignCast(ctx));
-    if (!inputs[0].isGradAvailable()) {
-        var tmp_var = try Variable.init(
-            allocator,
-            try zt.tensor.full(allocator, idx_ctx.in_dims, i8, 0, idx_ctx.in_type),
-            false,
-        );
-        defer tmp_var.deinit();
-        try inputs[0].addGrad(allocator, tmp_var);
-    }
-    var grad = (try inputs[0].grad()).tensor();
-    try grad.flatAdd(allocator, Tensor, grad_output.tensor(), idx_ctx.index);
-}
-
-fn astypeGradFunc(allocator: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, _: ?*anyopaque) !void {
-    var input = inputs[0];
-    // Cast the grad output to match the type of the input's grad
-    var tmp_var = try Variable.init(allocator, try grad_output.tensor().astype(allocator, try input.dtype(allocator)), false);
-    defer tmp_var.deinit();
-    try input.addGrad(allocator, tmp_var);
 }
