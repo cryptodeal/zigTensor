@@ -4,6 +4,7 @@ const init_ = @import("init.zig");
 const base = @import("tensor_base.zig");
 const types = @import("types.zig");
 const tensor_backend = @import("tensor_backend.zig");
+const tensor_extension = @import("tensor_extension.zig");
 
 // default_tensor_type.zig exports
 pub const DefaultTensorType_t = default_tensor_type.DefaultTensorType_t;
@@ -47,6 +48,12 @@ pub const shape = @import("shape.zig");
 pub const DTypeError = types.DTypeError;
 pub const DType = types.DType;
 pub const dtypeTraits = types.dtypeTraits;
+
+// tensor_extension.zig exports
+pub const TensorExtension = tensor_extension.TensorExtension;
+pub const TensorExtensionType = tensor_extension.TensorExtensionType;
+pub const TensorExtensionRegistrar = tensor_extension.TensorExtensionRegistrar;
+pub const deinitExtensionRegistrar = tensor_extension.deinitExtensionRegistrar;
 
 pub usingnamespace @import("random.zig");
 pub usingnamespace @import("tensor_ops.zig");

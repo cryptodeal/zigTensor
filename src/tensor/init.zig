@@ -1,13 +1,13 @@
 const std = @import("std");
 const build_options = @import("build_options");
+const zt = @import("../zt.zig");
 
-const defaultTensorBackend = @import("tensor.zig").defaultTensorBackend;
+const defaultTensorBackend = zt.tensor.defaultTensorBackend;
 
 const ZT_USE_ARRAYFIRE = build_options.ZT_USE_ARRAYFIRE;
 
 // TODO: update import paths imports
 const deinitBackend = if (ZT_USE_ARRAYFIRE) @import("backend/af/arrayfire_backend.zig").deinitBackend else @compileError("Must specify backend as build argument.");
-const deinitDeviceManager = @import("../runtime/device_manager.zig").deinitDeviceManager;
 
 pub fn Once(comptime f: fn (allocator: std.mem.Allocator) void) type {
     return struct {
@@ -48,7 +48,8 @@ pub fn init(allocator: std.mem.Allocator) void {
 
 pub fn deinit() void {
     deinitBackend();
-    deinitDeviceManager();
+    zt.runtime.deinitDeviceManager();
+    zt.tensor.deinitExtensionRegistrar();
 }
 
 fn initFn(allocator: std.mem.Allocator) void {

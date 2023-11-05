@@ -1,16 +1,9 @@
 const std = @import("std");
 const af = @import("../../../bindings/af/arrayfire.zig");
-const base = @import("../../tensor_base.zig");
-const zt_shape = @import("../../shape.zig");
-const zt_types = @import("../../types.zig");
-const build_options = @import("build_options");
-const rt_stream = @import("../../../runtime/stream.zig");
-const rt_device_manager = @import("../../../runtime/device_manager.zig");
+const zt = @import("../../../zt.zig");
 const zigrc = @import("zigrc");
-const rt_device_type = @import("../../../runtime/device_type.zig");
+const build_options = @import("build_options");
 const reductions = @import("reductions.zig");
-const zt_backend = @import("../../tensor_backend.zig");
-const zt_index = @import("../../index.zig");
 const af_utils = @import("utils.zig");
 
 const assert = std.debug.assert;
@@ -19,9 +12,8 @@ const batchFunc = af.batchFunc;
 const batchFunc_t = af.batchFunc_t;
 const inPlaceBatchFunc_t = af.inPlaceBatchFunc_t;
 const inPlaceBatchFunc = af.inPlaceBatchFunc;
-const Index = zt_index.Index;
-const IndexType = zt_index.IndexType;
-const deinit = @import("../../init.zig").deinit;
+const Index = zt.tensor.Index;
+const IndexType = zt.tensor.IndexType;
 const condenseIndices = af_utils.condenseIndices;
 const gForDim = af_utils.gForDim;
 const seqToDims = af_utils.seqToDims;
@@ -30,7 +22,7 @@ const isAllAxisReduction = reductions.isAllAxisReduction;
 const afReduceAxes = reductions.afReduceAxes;
 const reduceFunc_t = reductions.reduceFunc_t;
 const getReducedNumDims = reductions.getReducedNumDims;
-const getDeviceTypes = rt_device_type.getDeviceTypes;
+const getDeviceTypes = zt.runtime.getDeviceTypes;
 const ArrayFireCPUStream = @import("arrayfire_cpu_stream.zig").ArrayFireCPUStream;
 const Arc = zigrc.Arc;
 const ArrayFireTensor = @import("arrayfire_tensor.zig").ArrayFireTensor;
@@ -39,17 +31,20 @@ const ZT_BACKEND_CUDA = build_options.ZT_BACKEND_CUDA;
 const ZT_BACKEND_CPU = build_options.ZT_BACKEND_CPU;
 const ZT_ARRAYFIRE_USE_CUDA = build_options.ZT_ARRAYFIRE_USE_CUDA;
 const ZT_ARRAYFIRE_USE_CPU = build_options.ZT_ARRAYFIRE_USE_CPU;
-const SortMode = base.SortMode;
-const PadType = base.PadType;
-const MatrixProperty = base.MatrixProperty;
-const TensorBackendType = base.TensorBackendType;
-const TensorAdapterBase = @import("../../tensor_adapter.zig").TensorAdapterBase;
-const Stream = rt_stream.Stream;
-const DType = zt_types.DType;
-const DeviceManager = rt_device_manager.DeviceManager;
-const Tensor = base.Tensor;
-const Shape = zt_shape.Shape;
-const Dim = zt_shape.Dim;
+const SortMode = zt.tensor.SortMode;
+const PadType = zt.tensor.PadType;
+const MatrixProperty = zt.tensor.MatrixProperty;
+const TensorBackendType = zt.tensor.TensorBackendType;
+const TensorAdapterBase = zt.tensor.TensorAdapterBase;
+const Stream = zt.runtime.Stream;
+const DType = zt.tensor.DType;
+const DeviceManager = zt.runtime.DeviceManager;
+const Tensor = zt.tensor.Tensor;
+const TensorExtensionType = zt.tensor.TensorExtensionType;
+const TensorExtension = zt.tensor.TensorExtension;
+const TensorExtensionRegistrar = zt.tensor.TensorExtensionRegistrar;
+const Shape = zt.tensor.shape.Shape;
+const Dim = zt.tensor.shape.Dim;
 
 var memoryInitFlag = std.once(init);
 
@@ -130,6 +125,8 @@ pub const ArrayFireBackend = struct {
     /// in setActive callback; see constructor for details.
     afIdToStream_: Arc(std.AutoHashMap(i32, Arc(Stream))),
 
+    extensions_: std.EnumMap(TensorExtensionType, TensorExtension) = .{},
+
     /// Private function to initialize a new ArrayFireBackend instance.
     /// Should not be called directly as only one instance should exist;
     /// use `ArrayFireBackend.getInstance` instead.
@@ -178,6 +175,8 @@ pub const ArrayFireBackend = struct {
 
     /// Frees all associated memory.
     pub fn deinit(self: *ArrayFireBackend) void {
+        var ext_iterator = self.extensions_.iterator();
+        while (ext_iterator.next()) |p| p.value.deinit();
         self.idToNativeId_.deinit();
         self.nativeIdToId_.deinit();
         var map = self.afIdToStream_.tryUnwrap().?;
@@ -223,7 +222,7 @@ pub const ArrayFireBackend = struct {
         return getOrWrapAfDeviceStream(allocator, afId, nativeId, self.afIdToStream_.value);
     }
 
-    pub fn supportsDataType(_: *const ArrayFireBackend, dtype: DType) !bool {
+    fn supportsDataType(_: *const ArrayFireBackend, dtype: DType) !bool {
         return switch (dtype) {
             .f16 => {
                 var half_support: bool = try af.ops.getHalfSupport(try af.ops.getDevice());
@@ -233,6 +232,26 @@ pub const ArrayFireBackend = struct {
             },
             else => true,
         };
+    }
+
+    pub fn isDataTypeSupported(self: *ArrayFireBackend, dtype: DType) !bool {
+        var supported = @intFromBool(try self.supportsDataType(dtype));
+        var iterator = self.extensions_.iterator();
+        while (iterator.next()) |p| {
+            supported &= @intFromBool(p.value.isDataTypeSupported(dtype));
+        }
+        return supported != 0;
+    }
+
+    pub fn getExtension(self: *ArrayFireBackend, allocator: std.mem.Allocator, extension_type: TensorExtensionType) !TensorExtension {
+        // If an extension isn't present, instantiate it via its registered
+        // creation function - only do this once per extension.
+        if (!self.extensions_.contains(extension_type)) {
+            var registrar = try TensorExtensionRegistrar.getInstance(allocator);
+            var creation_func = try registrar.getTensorExtensionCreationFunc(self.backendType(), extension_type);
+            self.extensions_.put(extension_type, try creation_func(allocator));
+        }
+        return self.extensions_.get(extension_type).?;
     }
 
     // TODO: pub fn getMemMgrInfo()
@@ -250,7 +269,7 @@ pub const ArrayFireBackend = struct {
 
     pub fn randn(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: Shape, dtype: DType) !Tensor {
         var dims = try af.ops.ztToAfDims(shape);
-        const ndims = zt_shape.ndim(shape);
+        const ndims = zt.tensor.shape.ndim(shape);
         var arr = try af.Array.randn(allocator, @intCast(ndims), dims, af.ops.ztToAfType(dtype));
         return Tensor.init(
             TensorAdapterBase.init(
@@ -265,7 +284,7 @@ pub const ArrayFireBackend = struct {
 
     pub fn rand(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: Shape, dtype: DType) !Tensor {
         var dims = try af.ops.ztToAfDims(shape);
-        const ndims = zt_shape.ndim(shape);
+        const ndims = zt.tensor.shape.ndim(shape);
         var arr = try af.Array.randu(allocator, @intCast(ndims), dims, af.ops.ztToAfType(dtype));
         return Tensor.init(
             TensorAdapterBase.init(
@@ -338,7 +357,7 @@ pub const ArrayFireBackend = struct {
         var arr: *af.Array = try af.ops.createArray(
             allocator,
             data,
-            @intCast(zt_shape.ndim(s)),
+            @intCast(zt.tensor.shape.ndim(s)),
             try af.ops.ztToAfDims(s),
             af.ops.ztToAfType(dtype),
         );
@@ -347,7 +366,7 @@ pub const ArrayFireBackend = struct {
                 try ArrayFireTensor.initFromArray(
                     allocator,
                     arr,
-                    zt_shape.ndim(s),
+                    zt.tensor.shape.ndim(s),
                 ),
             ),
         );
@@ -367,7 +386,7 @@ pub const ArrayFireBackend = struct {
                 try ArrayFireTensor.initFromArray(
                     allocator,
                     arr,
-                    zt_shape.ndim(shape),
+                    zt.tensor.shape.ndim(shape),
                 ),
             ),
         );
@@ -377,7 +396,7 @@ pub const ArrayFireBackend = struct {
         var arr: *af.Array = try af.Array.constantI64(
             allocator,
             value,
-            @intCast(zt_shape.ndim(shape)),
+            @intCast(zt.tensor.shape.ndim(shape)),
             try af.ops.ztToAfDims(shape),
         );
         return Tensor.init(
@@ -385,7 +404,7 @@ pub const ArrayFireBackend = struct {
                 try ArrayFireTensor.initFromArray(
                     allocator,
                     arr,
-                    zt_shape.ndim(shape),
+                    zt.tensor.shape.ndim(shape),
                 ),
             ),
         );
@@ -395,7 +414,7 @@ pub const ArrayFireBackend = struct {
         var arr: *af.Array = try af.Array.constantU64(
             allocator,
             value,
-            @intCast(zt_shape.ndim(shape)),
+            @intCast(zt.tensor.shape.ndim(shape)),
             try af.ops.ztToAfDims(shape),
         );
         return Tensor.init(
@@ -403,7 +422,7 @@ pub const ArrayFireBackend = struct {
                 try ArrayFireTensor.initFromArray(
                     allocator,
                     arr,
-                    zt_shape.ndim(shape),
+                    zt.tensor.shape.ndim(shape),
                 ),
             ),
         );
@@ -425,7 +444,7 @@ pub const ArrayFireBackend = struct {
 
     pub fn arange(_: *const ArrayFireBackend, allocator: std.mem.Allocator, shape: Shape, seq_dim: Dim, dtype: DType) !Tensor {
         var dims = try af.ops.ztToAfDims(shape);
-        const ndims = zt_shape.ndim(shape);
+        const ndims = zt.tensor.shape.ndim(shape);
         var arr = try af.ops.range(
             allocator,
             @intCast(ndims),
@@ -672,7 +691,7 @@ pub const ArrayFireBackend = struct {
                 try ArrayFireTensor.initFromArray(
                     allocator,
                     arr,
-                    zt_shape.ndim(shape),
+                    zt.tensor.shape.ndim(shape),
                 ),
             ),
         );
@@ -682,7 +701,7 @@ pub const ArrayFireBackend = struct {
         var currentDims = try tensor.ndim(allocator);
         if (currentDims == 1) {
             return tensor;
-        } else if (currentDims == 2 and (zt_shape.ndim(axes) == 0 or (axes.len == 2 and axes[0] == 1 and axes[1] == 0))) {
+        } else if (currentDims == 2 and (zt.tensor.shape.ndim(axes) == 0 or (axes.len == 2 and axes[0] == 1 and axes[1] == 0))) {
             // fastpath for matrices
             var arr = try af.ops.transpose(allocator, try toArray(allocator, tensor), false);
             return Tensor.init(
@@ -694,7 +713,7 @@ pub const ArrayFireBackend = struct {
                     ),
                 ),
             );
-        } else if (zt_shape.ndim(axes) == 0) {
+        } else if (zt.tensor.shape.ndim(axes) == 0) {
             var dims = std.simd.iota(u32, @intCast(af.AF_MAX_DIMS));
             // Compute the reversed dimensions for as many ndims as are in the input
             for (0..currentDims) |i| dims[i] = @intCast(currentDims - 1 - i);
@@ -711,17 +730,17 @@ pub const ArrayFireBackend = struct {
                 ),
             );
         } else {
-            if (zt_shape.ndim(axes) > @as(usize, @intCast(af.AF_MAX_DIMS))) {
+            if (zt.tensor.shape.ndim(axes) > @as(usize, @intCast(af.AF_MAX_DIMS))) {
                 std.log.debug("ArrayFire tensor transpose was given permutation dims with > 4 axes\n", .{});
                 return error.ArrayFireTransposeFailed;
             }
-            if (zt_shape.ndim(axes) != currentDims) {
+            if (zt.tensor.shape.ndim(axes) != currentDims) {
                 std.log.debug("ArrayFire tensor transpose axes don't match tensor's for permutation - axes must have the same number of dimensions as the tensor\n", .{});
                 return error.ArrayFireTransposeFailed;
             }
             // reorder based on specified dimensions
             var d = std.simd.iota(u32, @intCast(af.AF_MAX_DIMS));
-            for (0..zt_shape.ndim(axes)) |i| {
+            for (0..zt.tensor.shape.ndim(axes)) |i| {
                 if (axes[i] > currentDims - 1) {
                     std.log.debug("ArrayFireBackend.transpose - given dimension is larger than the number of dimensions in the tensor\n", .{});
                     return error.ArrayFireTransposeFailed;
@@ -756,7 +775,7 @@ pub const ArrayFireBackend = struct {
                 try ArrayFireTensor.initFromArray(
                     allocator,
                     arr,
-                    @max(try tensor.ndim(allocator), zt_shape.ndim(shape)), // TODO: check
+                    @max(try tensor.ndim(allocator), zt.tensor.shape.ndim(shape)), // TODO: check
                 ),
             ),
         );
@@ -2571,9 +2590,9 @@ pub const ArrayFireBackend = struct {
 };
 
 pub fn canBroadcast(lhs: Shape, rhs: Shape) bool {
-    var nDim: usize = @max(zt_shape.ndim(lhs), zt_shape.ndim(rhs));
+    var nDim: usize = @max(zt.tensor.shape.ndim(lhs), zt.tensor.shape.ndim(rhs));
     for (0..nDim) |i| {
-        if (i + 1 > zt_shape.ndim(lhs) or i + 1 > zt_shape.ndim(rhs)) {
+        if (i + 1 > zt.tensor.shape.ndim(lhs) or i + 1 > zt.tensor.shape.ndim(rhs)) {
             // One Shape has more dimensions than the other - will broadcast to the
             // smaller tensor
             continue;
@@ -2590,7 +2609,7 @@ pub fn doBinaryOpOrBroadcast(allocator: std.mem.Allocator, lhs: Tensor, rhs: Ten
     var rhsShape = try rhs.shape(allocator);
 
     // Dims are the same or scalar <> 1-el tensor - no broadcasting
-    if (zt_shape.eql(lhsShape, rhsShape) or (zt_shape.elements(lhsShape) <= 1 and zt_shape.elements(rhsShape) <= 1)) {
+    if (zt.tensor.shape.eql(lhsShape, rhsShape) or (zt.tensor.shape.elements(lhsShape) <= 1 and zt.tensor.shape.elements(rhsShape) <= 1)) {
         var arr = try func(allocator, try toArray(allocator, lhs), try toArray(allocator, rhs), gforGet());
         return Tensor.init(
             TensorAdapterBase.init(
@@ -2628,7 +2647,7 @@ pub fn doBinaryOpOrBroadcastInPlace(allocator: std.mem.Allocator, lhs: Tensor, r
     var rhsShape = try rhs.shape(allocator);
 
     // Dims are the same or scalar <> 1-el tensor - no broadcasting
-    if (zt_shape.eql(lhsShape, rhsShape) or (zt_shape.elements(lhsShape) <= 1 and zt_shape.elements(rhsShape) <= 1)) {
+    if (zt.tensor.shape.eql(lhsShape, rhsShape) or (zt.tensor.shape.elements(lhsShape) <= 1 and zt.tensor.shape.elements(rhsShape) <= 1)) {
         try func(try toArray(allocator, lhs), try toArray(allocator, rhs), gforGet());
         return;
     }
@@ -2645,7 +2664,7 @@ pub fn doBinaryOpOrBroadcastInPlace(allocator: std.mem.Allocator, lhs: Tensor, r
     }
 }
 
-test "ArrayFireBackend supportsDataType" {
+test "ArrayFireBackend -> isDataTypeSupported" {
     var allocator = std.testing.allocator;
     var backend = try ArrayFireBackend.getInstance(allocator);
 
@@ -2653,7 +2672,7 @@ test "ArrayFireBackend supportsDataType" {
     var mgr = try DeviceManager.getInstance(allocator);
 
     // frees both backend and mgr
-    defer deinit();
+    defer zt.tensor.deinit();
 
     var device_types = getDeviceTypes();
     var iterator = device_types.iterator();
@@ -2667,15 +2686,15 @@ test "ArrayFireBackend supportsDataType" {
         }
     }
 
-    try std.testing.expect(try backend.supportsDataType(.f16));
+    try std.testing.expect(try backend.isDataTypeSupported(.f16));
 }
 
-test "ArrayFireBackend getInstance (singleton)" {
+test "ArrayFireBackend -> getInstance" {
     const allocator = std.testing.allocator;
     var b1 = try ArrayFireBackend.getInstance(allocator);
 
     // frees both backend and mgr
-    defer deinit();
+    defer zt.tensor.deinit();
 
     // b2 doesn't need `deinit` called as it's a singleton
     var b2 = try ArrayFireBackend.getInstance(allocator);

@@ -1,17 +1,15 @@
 const std = @import("std");
 const zigrc = @import("zigrc");
+const zt = @import("../../../zt.zig");
 const af = @import("../../../bindings/af/arrayfire.zig");
-const rt_stream = @import("../../../runtime/stream.zig");
-const rt_device = @import("../../../runtime/device.zig");
-const rt_sync_stream = @import("../../../runtime/synchronous_stream.zig");
 
 const Arc = zigrc.Arc;
-const SynchronousStream = rt_sync_stream.SynchronousStream;
-const StreamType = rt_stream.StreamType;
-const Stream = rt_stream.Stream;
-const StreamErrors = rt_stream.StreamErrors;
-const Device = rt_device.Device;
-const X64Device = rt_device.X64Device;
+const SynchronousStream = zt.runtime.SynchronousStream;
+const StreamType = zt.runtime.StreamType;
+const Stream = zt.runtime.Stream;
+const StreamErrors = zt.runtime.StreamErrors;
+const Device = zt.runtime.Device;
+const X64Device = zt.runtime.X64Device;
 
 pub const ArrayFireCPUStream = @This();
 

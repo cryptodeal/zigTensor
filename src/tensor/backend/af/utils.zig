@@ -1,9 +1,9 @@
 const std = @import("std");
+const zt = @import("../../../zt.zig");
 const af = @import("../../../bindings/af/arrayfire.zig");
-const zt_idx = @import("../../index.zig");
-const assert = std.debug.assert;
 
-const IndexType = zt_idx.IndexType;
+const assert = std.debug.assert;
+const IndexType = zt.tensor.IndexType;
 
 pub fn condenseIndices(
     allocator: std.mem.Allocator,

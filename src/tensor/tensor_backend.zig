@@ -5,6 +5,8 @@ const tensor_ = @import("tensor.zig");
 
 const assert = std.debug.assert;
 const Tensor = tensor_.Tensor;
+const TensorExtensionType = tensor_.TensorExtensionType;
+const TensorExtension = tensor_.TensorExtension;
 const TensorBackendType = tensor_.TensorBackendType;
 const DType = tensor_.DType;
 const Shape = tensor_.shape.Shape;
@@ -39,7 +41,8 @@ pub const TensorBackend = struct {
         deinit: *const fn (ctx: *anyopaque) void,
         backendType: *const fn (ctx: *anyopaque) TensorBackendType,
         eval: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, tensor: Tensor) anyerror!void,
-        supportsDataType: *const fn (ctx: *anyopaque, data_type: DType) anyerror!bool,
+        isDataTypeSupported: *const fn (ctx: *anyopaque, data_type: DType) anyerror!bool,
+        getExtension: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator, extension_type: TensorExtensionType) anyerror!TensorExtension,
         // TODO: getMemMgrInfo: *const fn (ctx: *anyopaque) ,
         // TODO: setMemMgrLogStream: *const fn (ctx: *anyopaque) ,
         // TODO: setMemMgrLoggingEnabled: *const fn (ctx: *anyopaque) ,
@@ -159,8 +162,15 @@ pub const TensorBackend = struct {
         return self.vtable.eval(self.ptr, allocator, tensor);
     }
 
-    pub fn supportsDataType(self: *const Self, data_type: DType) !bool {
-        return self.vtable.supportsDataType(self.ptr, data_type);
+    pub fn isDataTypeSupported(self: *const Self, dtype: DType) !bool {
+        return self.vtable.isDataTypeSupported(self.ptr, dtype);
+    }
+
+    pub fn getExtension(self: *const Self, allocator: std.mem.Allocator, comptime T: type) !T {
+        assert(@typeInfo(T) == .Struct);
+        var e = try T.getExtensionType();
+        var extension = self.vtable.getExtension(self.ptr, allocator, e);
+        return T.init(extension.getUnderlyingPtr());
     }
 
     // TODO: pub fn getMemMgrInfo()
@@ -835,9 +845,14 @@ pub const TensorBackend = struct {
                 return self.eval(allocator, tensor);
             }
 
-            fn supportsDataType(ctx: *anyopaque, data_type: DType) !bool {
+            fn isDataTypeSupported(ctx: *anyopaque, dtype: DType) !bool {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.supportsDataType(data_type);
+                return self.isDataTypeSupported(dtype);
+            }
+
+            fn getExtension(ctx: *anyopaque, allocator: std.mem.Allocator, extension_type: TensorExtensionType) !TensorExtension {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.getExtension(allocator, extension_type);
             }
 
             // TODO: fn getMemMgrInfo()
@@ -1359,7 +1374,8 @@ pub const TensorBackend = struct {
                 .deinit = impl.deinit,
                 .backendType = impl.backendType,
                 .eval = impl.eval,
-                .supportsDataType = impl.supportsDataType,
+                .isDataTypeSupported = impl.isDataTypeSupported,
+                .getExtension = impl.getExtension,
                 // TODO: .getMemMgrInfo = impl.getMemMgrInfo,
                 // TODO: .setMemMgrLogStream = impl.setMemMgrLogStream,
                 // TODO: .setMemMgrLoggingEnabled = impl.setMemMgrLoggingEnabled,
