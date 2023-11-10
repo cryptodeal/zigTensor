@@ -110,7 +110,7 @@ pub const TensorAdapterBase = struct {
     }
 
     /// Returns a pointer to the tensor in device memory.
-    pub fn device(self: *const Self, allocator: std.mem.Allocator, out: *?*anyopaque) void {
+    pub fn device(self: *const Self, allocator: std.mem.Allocator, out: *?*anyopaque) !void {
         return self.vtable.device(self.ptr, allocator, out);
     }
 

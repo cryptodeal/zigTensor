@@ -142,5 +142,6 @@ fn linkBackend(compile: *std.Build.Step.Compile, opts: LinkBackendCtx) !void {
             }
         }
     }
+    // compile.linkSystemLibrary("dnnl");
     compile.linkSystemLibrary("afcpu");
 }

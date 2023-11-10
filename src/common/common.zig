@@ -1,9 +1,8 @@
-const defines = @import("defines.zig");
 const types = @import("types.zig");
 
-pub const OptimMode = defines.OptimMode;
-pub const OptimLevel = defines.OptimLevel;
-pub const ReduceMode = defines.ReduceMode;
+pub usingnamespace @import("defines.zig");
 pub const kOptimLevelTypeExclusionMappings = types.kOptimLevelTypeExclusionMappings;
 
 pub usingnamespace @import("utils.zig");
+pub usingnamespace @import("dynamic_benchmark.zig");
+pub usingnamespace @import("device_ptr.zig");

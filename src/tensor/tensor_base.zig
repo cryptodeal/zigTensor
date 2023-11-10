@@ -203,8 +203,6 @@ pub const Tensor = struct {
         return self.impl_.backend(allocator);
     }
 
-    // TODO: FL_CREATE_MEMORY_OPS macro equivalent
-
     pub fn scalar(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type) !T {
         if (try self.isEmpty(allocator)) {
             std.log.debug("Tensor.scalar called on empty tensor\n", .{});
@@ -220,6 +218,12 @@ pub const Tensor = struct {
             return error.ScalarFailedTypeMismatch;
         }
         return self.impl_.scalar(allocator, T);
+    }
+
+    pub fn device(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type) !T {
+        var ptr: ?*anyopaque = null;
+        try self.impl_.device(allocator, &ptr);
+        return @ptrCast(@alignCast(ptr));
     }
 
     pub fn allocHost(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type) !?[]T {

@@ -13,13 +13,13 @@ pub const detail = struct {
     /// sufficient precision are automatically upcast to f32 before computation.
     /// These are typically operations that require accumulations or reductions.
     pub fn adjustInputType(allocator: std.mem.Allocator, comptime T: type, in: T, func_name: []const u8) !struct { res: T, allocated: bool } {
-        const optim_level: zt.OptimLevel = zt.OptimMode.get().getOptimLevel();
+        const optim_level: zt.common.OptimLevel = zt.common.OptimMode.get().getOptimLevel();
         // Fastpath - Default mode never casts tensors
         if (optim_level == .Default) {
             return .{ .res = in, .allocated = false };
         }
 
-        if (!zt.kOptimLevelTypeExclusionMappings(optim_level, func_name)) {
+        if (!zt.common.kOptimLevelTypeExclusionMappings(optim_level, func_name)) {
             // Not in the excluded list - cast to f16
             return .{ .res = try in.astype(allocator, .f16), .allocated = true };
         } else {
@@ -2553,7 +2553,7 @@ test "AutogradTest -> AutogradVariableIndex" {
 test "AutogradTest -> AutogradOperatorTypeCompatibility" {
     const allocator = std.testing.allocator;
     defer zt.tensor.deinit(); // deinit global singletons
-    if (!try zt.f16Supported(allocator)) {
+    if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
 
@@ -2628,7 +2628,7 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
 test "AutogradTest -> CastingAsDifferentGradTypes" {
     const allocator = std.testing.allocator;
     defer zt.tensor.deinit(); // deinit global singletons
-    if (!try zt.f16Supported(allocator)) {
+    if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
     var half = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 5 }, .f16), true);
@@ -2642,7 +2642,7 @@ test "AutogradTest -> CastingAsDifferentGradTypes" {
 test "AutogradTest -> CastingAs" {
     const allocator = std.testing.allocator;
     defer zt.tensor.deinit(); // deinit global singletons
-    if (!try zt.f16Supported(allocator)) {
+    if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
 
@@ -2660,7 +2660,7 @@ test "AutogradTest -> CastingAs" {
 test "AutogradTest -> CastingAsBackward" {
     const allocator = std.testing.allocator;
     defer zt.tensor.deinit(); // deinit global singletons
-    if (!try zt.f16Supported(allocator)) {
+    if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
 
@@ -2681,7 +2681,7 @@ test "AutogradTest -> CastingAsBackward" {
 test "AutogradTest -> CastingAsGrad" {
     const allocator = std.testing.allocator;
     defer zt.tensor.deinit(); // deinit global singletons
-    if (!try zt.f16Supported(allocator)) {
+    if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
 
@@ -2935,7 +2935,7 @@ test "AutogradTest -> TileAs" {
 
 test "AutogradTestF16 -> TileAsF16" {
     const allocator = std.testing.allocator;
-    if (!try zt.f16Supported(allocator)) {
+    if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
     AutogradTestF16.setUp(); // set optim mode
@@ -3393,7 +3393,7 @@ test "AutogradBinaryOpsTest -> Linear" {
 
 test "AutogradTestF16 -> LinearF16" {
     const allocator = std.testing.allocator;
-    if (!try zt.f16Supported(allocator)) {
+    if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
     const LinkCtx = struct { in: *Variable, wt: *Variable, bs: *Variable };
@@ -4344,7 +4344,7 @@ test "AutogradUnaryOpsTest -> Softmax" {
 
 test "AutogradTestF16 -> SoftmaxF16" {
     const allocator = std.testing.allocator;
-    if (!try zt.f16Supported(allocator)) {
+    if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
     AutogradTestF16.setUp(); // set optim mode
@@ -4377,7 +4377,7 @@ test "AutogradUnaryOpsTest -> LogSoftmax" {
 
 test "AutogradTestF16 -> LogSoftmaxF16" {
     const allocator = std.testing.allocator;
-    if (!try zt.f16Supported(allocator)) {
+    if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
     AutogradTestF16.setUp(); // set optim mode

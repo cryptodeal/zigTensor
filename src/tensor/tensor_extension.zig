@@ -42,7 +42,6 @@ pub const TensorExtensionRegistrar = struct {
     pub fn deinit(self: *TensorExtensionRegistrar) void {
         var iterator = self.extensions_.valueIterator();
         while (iterator.next()) |m| {
-            // TODO: iterate through inner map, exec callback and deinit each value?
             m.deinit();
         }
         self.extensions_.deinit();
@@ -89,7 +88,7 @@ pub const TensorExtensionRegistrar = struct {
 
 pub const TensorExtension = struct {
     const Self = @This();
-    // The type erased pointer to the DynamicBenchmarkOptions implementation
+
     ptr: *anyopaque,
     vtable: *const VTable,
 
