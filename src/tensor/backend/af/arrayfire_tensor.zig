@@ -1556,7 +1556,21 @@ test "ArrayFireTensorBaseTest -> concatenate" {
     );
 }
 
-// TODO: test "ArrayFireTensorBaseTest -> device" {}
+test "ArrayFireTensorBaseTest -> device" {
+    const allocator = std.testing.allocator;
+    const rand = zt.tensor.rand;
+    defer zt.tensor.deinit(); // deinit global singletons
+
+    var a = try rand(allocator, &.{ 5, 5 }, .f32);
+    defer a.deinit();
+    var zt_ptr = try a.device(allocator, []f32);
+    var arr = try toArray(allocator, a);
+    var tmp_ptr: [*c]f32 = @ptrCast(@alignCast(try arr.getDevicePtr()));
+    var af_ptr = tmp_ptr[0..@intCast(try a.elements(allocator))];
+    try std.testing.expect(zt_ptr.ptr == af_ptr.ptr);
+    try a.unlock(allocator);
+    try af.AF_CHECK(af.af_unlock_array(arr.get()), @src()); // safety
+}
 
 // TODO: test "ArrayFireTensorBaseTest -> defaultConstructor" {}
 

@@ -168,9 +168,9 @@ pub const TensorBackend = struct {
 
     pub fn getExtension(self: *const Self, allocator: std.mem.Allocator, comptime T: type) !T {
         assert(@typeInfo(T) == .Struct);
-        var e = try T.getExtensionType();
-        var extension = self.vtable.getExtension(self.ptr, allocator, e);
-        return T.init(extension.getUnderlyingPtr());
+        assert(@hasField(T, "getExtensionType"));
+        var extension = try self.vtable.getExtension(self.ptr, allocator, T.getExtensionType());
+        return extension.getExtension(T);
     }
 
     // TODO: pub fn getMemMgrInfo()

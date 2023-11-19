@@ -1,12 +1,19 @@
 const zt = @import("../zt.zig");
+const zigrc = @import("zigrc");
 const std = @import("std");
 
-const Variable = @import("autograd.zig").Variable;
+const ConvBenchmarks = zt.common.ConvBenchmarks;
+const DynamicBenchmark = zt.common.DynamicBenchmark;
 const Index = zt.tensor.Index;
 const Range = zt.tensor.Range;
 const Tensor = zt.tensor.Tensor;
 const Shape = zt.tensor.shape.Shape;
 const Dim = zt.tensor.shape.Dim;
+const PoolingMode = zt.common.PoolingMode;
+const AutogradPayload = zt.autograd.AutogradPayload;
+const AutogradPayloadData = zt.autograd.AutogradPayloadData;
+const Variable = zt.autograd.Variable;
+const AutogradExtension = zt.autograd.AutogradExtension;
 
 pub const detail = struct {
     /// Performs type conversion based on the optim level. Operations that lack
@@ -30,6 +37,15 @@ pub const detail = struct {
                 return .{ .res = in, .allocated = false };
             }
         }
+    }
+
+    pub fn createAutogradPayload(allocator: std.mem.Allocator, args: []const *Variable) !?zigrc.Arc(AutogradPayload) {
+        for (args) |a| {
+            if (a.isCalcGrad()) {
+                return try zigrc.Arc(AutogradPayload).init(allocator, .{ .data = try zigrc.Arc(AutogradPayloadData).init(allocator, null) });
+            }
+        }
+        return null;
     }
 
     pub fn tileAs(allocator: std.mem.Allocator, input: Tensor, rdims: Shape) !Tensor {
@@ -2063,11 +2079,209 @@ pub fn linear(allocator: std.mem.Allocator, in: *Variable, wt: *Variable, bs: *V
     return Variable.initWithInputs(allocator, output, &.{ try input.clone(allocator), try weight.clone(allocator) }, gradFunc, ctx, freeCtx);
 }
 
-// TODO: pub fn conv2dNoBias() !*Variable {}
+pub fn conv2dNoBias(
+    allocator: std.mem.Allocator,
+    in: *Variable,
+    wt: *Variable,
+    sx: i64,
+    sy: i64,
+    px: i64,
+    py: i64,
+    dx: i64,
+    dy: i64,
+    groups: i64,
+    benchmarks: ?zigrc.Arc(ConvBenchmarks),
+) !*Variable {
+    var dummy_bias = try Variable.init(allocator, try Tensor.initHandle(allocator, &.{0}, try in.dtype(allocator)), false);
+    defer dummy_bias.deinit();
+    return conv2d(allocator, in, wt, dummy_bias, sx, sy, px, py, dx, dy, groups, benchmarks);
+}
 
-// TODO: pub fn conv2d() !*Variable {}
+pub fn conv2d(
+    allocator: std.mem.Allocator,
+    in: *Variable,
+    wt: *Variable,
+    bs: *Variable,
+    sx: i64,
+    sy: i64,
+    px: i64,
+    py: i64,
+    dx: i64,
+    dy: i64,
+    groups: i64,
+    benchmarks: ?zigrc.Arc(ConvBenchmarks),
+) !*Variable {
+    try ztVariableDTypesMatch(allocator, @src().fn_name, &.{ in, wt, bs });
 
-// TODO: pub fn pool2d() !*Variable {}
+    var payload = try detail.createAutogradPayload(allocator, &.{ in, wt, bs });
+    // TODO: defer release payload
+
+    const has_bias = try bs.isEmpty(allocator);
+
+    var adj_in = try detail.adjustInputType(allocator, *Variable, in, @src().fn_name);
+    defer if (adj_in.allocated) adj_in.res.deinit();
+    var input = adj_in.res;
+    var adj_wt = try detail.adjustInputType(allocator, *Variable, wt, @src().fn_name);
+    defer if (adj_wt.allocated) adj_wt.res.deinit();
+    var weights = adj_wt.res;
+    var adj_bs = try detail.adjustInputType(allocator, *Variable, bs, @src().fn_name);
+    defer if (adj_bs.allocated) adj_bs.res.deinit();
+    var bias = adj_bs.res;
+    std.debug.print("start executing `autograd_ops.detail.conv2d`\n", .{});
+
+    var output = try zt.autograd.op_details.conv2d(
+        allocator,
+        input.tensor(),
+        weights.tensor(),
+        bias.tensor(),
+        sx,
+        sy,
+        px,
+        py,
+        dx,
+        dy,
+        groups,
+        payload,
+    );
+    std.debug.print("finished executing `autograd_ops.detail.conv2d`\n", .{});
+    const Ctx = struct { sx: i64, sy: i64, px: i64, py: i64, dx: i64, dy: i64, has_bias: bool, groups: i64, benchmarks: ?zigrc.Arc(ConvBenchmarks), payload: ?zigrc.Arc(AutogradPayload) };
+    var ctx = try allocator.create(Ctx);
+    ctx.* = .{ .sx = sx, .sy = sy, .px = px, .py = py, .dx = dx, .dy = dy, .has_bias = has_bias, .groups = groups, .benchmarks = benchmarks, .payload = payload };
+    const freeCtx = (struct {
+        pub fn call(alloc: std.mem.Allocator, c: *anyopaque) void {
+            var context: *Ctx = @ptrCast(@alignCast(c));
+            defer alloc.destroy(context);
+        }
+    }).call;
+    const gradFunc = (struct {
+        pub fn call(alloc: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, c: ?*anyopaque) !void {
+            var context: *Ctx = @ptrCast(@alignCast(c));
+
+            // TODO: get instance via tensor.backend.getExtension()
+            var autograd_extension = try (try inputs[0].tensor().backend(alloc)).getExtension(alloc, AutogradExtension);
+            defer autograd_extension.deinit();
+
+            // TODO: Create benchmarks if needed
+            var data_bench: ?zigrc.Arc(DynamicBenchmark) = null;
+            var filter_bench: ?zigrc.Arc(DynamicBenchmark) = null;
+            var bias_bench: ?zigrc.Arc(DynamicBenchmark) = null;
+
+            // Bias gradients
+            const compute_bias_grad = inputs.len > 2 and inputs[2].isCalcGrad();
+            var bs_ = if (context.has_bias and compute_bias_grad) inputs[2].tensor() else try Tensor.initEmpty(alloc);
+            defer if (!(context.has_bias and compute_bias_grad)) bs_.deinit();
+
+            var in_ = inputs[0].tensor();
+            var wt_ = inputs[1].tensor();
+
+            // Data (input) gradients
+            if (inputs[0].isCalcGrad()) {
+                var data_grad = try autograd_extension.conv2dBackwardData(
+                    alloc,
+                    grad_output.tensor(),
+                    in_,
+                    wt_,
+                    context.sx,
+                    context.sy,
+                    context.px,
+                    context.py,
+                    context.dx,
+                    context.dy,
+                    context.groups,
+                    data_bench,
+                    context.payload,
+                );
+                std.debug.print("finished executing `autograd_extension_instance.conv2dBackwardData`\n", .{});
+                var tmp_var = try Variable.init(alloc, data_grad, false);
+                defer tmp_var.deinit();
+                try inputs[0].addGrad(alloc, tmp_var);
+            }
+
+            // Filter (weight) and bias gradients
+            if (inputs[1].isCalcGrad() or compute_bias_grad) {
+                var tmp_res = try autograd_extension.conv2dBackwardFilterBias(
+                    alloc,
+                    grad_output.tensor(),
+                    in_,
+                    wt_,
+                    bs_,
+                    context.sx,
+                    context.sy,
+                    context.px,
+                    context.py,
+                    context.dx,
+                    context.dy,
+                    context.groups,
+                    filter_bench,
+                    bias_bench,
+                    context.payload,
+                );
+                std.debug.print("finished executing `autograd_extension_instance.conv2dBackwardFilterBias`\n", .{});
+                var filter_grad = tmp_res[0];
+                var bias_grad = tmp_res[1];
+                if (inputs[1].isCalcGrad()) {
+                    var tmp_var = try Variable.init(alloc, filter_grad, false); // filter/weight
+                    defer tmp_var.deinit();
+                    try inputs[1].addGrad(alloc, tmp_var);
+                } else {
+                    filter_grad.deinit();
+                }
+                if (compute_bias_grad) {
+                    var tmp_var = try Variable.init(alloc, bias_grad, false); // filter/weight
+                    defer tmp_var.deinit();
+                    try inputs[2].addGrad(alloc, tmp_var);
+                } else {
+                    bias_grad.deinit();
+                }
+            }
+        }
+    }).call;
+    if (has_bias) {
+        return Variable.initWithInputs(allocator, output, &.{ try input.clone(allocator), try weights.clone(allocator), try bias.clone(allocator) }, gradFunc, ctx, freeCtx);
+    }
+    return Variable.initWithInputs(allocator, output, &.{ try input.clone(allocator), try weights.clone(allocator) }, gradFunc, ctx, freeCtx);
+}
+
+pub fn pool2d(
+    allocator: std.mem.Allocator,
+    input: *Variable,
+    wx: i64,
+    wy: i64,
+    sx: i64,
+    sy: i64,
+    px: i64,
+    py: i64,
+    mode: PoolingMode,
+) !*Variable {
+    var payload = try detail.createAutogradPayload(allocator, &.{input});
+    var output = try zt.autograd.op_details.pool2d(allocator, input.tensor(), wx, wy, sx, sy, px, py, mode, payload);
+    const Ctx = struct { wx: i64, wy: i64, sx: i64, sy: i64, px: i64, py: i64, mode: PoolingMode, output: Tensor, payload: ?zigrc.Arc(AutogradPayload) };
+    const freeCtx = (struct {
+        pub fn call(alloc: std.mem.Allocator, context: *anyopaque) void {
+            var c: *Ctx = @ptrCast(@alignCast(context));
+            alloc.destroy(c);
+        }
+    }).call;
+    var ctx = try allocator.create(Ctx);
+    ctx.* = .{ .wx = wx, .wy = wy, .sx = sx, .sy = sy, .px = px, .py = py, .mode = mode, .output = output, .payload = payload };
+    const gradFunc = (struct {
+        pub fn call(alloc: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, context: ?*anyopaque) !void {
+            var in = inputs[0];
+            if (!in.isCalcGrad()) {
+                return;
+            }
+
+            var c: *Ctx = @ptrCast(@alignCast(context));
+
+            var autograd_extension = try (try in.tensor().backend(alloc)).getExtension(alloc, AutogradExtension);
+            defer autograd_extension.deinit();
+            var tmp_var = try Variable.init(alloc, try autograd_extension.pool2dBackward(alloc, grad_output.tensor(), in.tensor(), c.output, c.wx, c.wy, c.sx, c.sy, c.px, c.py, c.mode, c.payload), false);
+            defer tmp_var.deinit();
+            try in.addGrad(alloc, tmp_var);
+        }
+    }).call;
+    return Variable.initWithInputs(allocator, output, &.{try input.clone(allocator)}, gradFunc, ctx, freeCtx);
+}
 
 // TODO: pub fn batchnorm() !*Variable {}
 
@@ -2593,7 +2807,9 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
     var res2 = try categoricalCrossEntropy(allocator, cat_input, cat_target, .Mean, -1);
     res2.deinit();
 
-    // TODO: test `pool2d` doesn't throw
+    // TODO: on aarch64 osx, this throws `dnnl.dnnl_unimplemented`
+    // var pool2d_res = try pool2d(allocator, f16_, 1, 1, 1, 1, 1, 1, .Max);
+    // pool2d_res.deinit();
 
     var res3 = try embedding(allocator, f16_, f32_);
     res3.deinit();
@@ -2614,7 +2830,7 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
 
     // TODO: test `batchnorm` throws
 
-    // TODO: test `conv2d` throws
+    // TODO: try std.testing.expectError(error.VariableDTypeMismatch, conv2d(allocator, f16_, f32_, f16_2, 1, 1, 0, 0, 1, 1, 1, null));
 
     // Quaternary operators
 
@@ -3777,7 +3993,47 @@ test "AutogradBinaryOpsTest -> WeightNormLinear" {
     try std.testing.expect(try jacobianTestImpl(allocator, funcWeightNormG, g, ctx, 5e-3, 1e-4));
 }
 
-// TODO: test "AutogradConv2DTest -> Convolve" {}
+// TODO: debug - test hangs/never finished
+// test "AutogradConv2DTest -> Convolve" {
+// const allocator = std.testing.allocator;
+// defer zt.tensor.deinit(); // deinit global singletons
+
+// var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 10, 9, 8, 7 }, .f32), true);
+// defer in.deinit();
+// var wt = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 4, 3, 8, 6 }, .f32), true);
+// defer wt.deinit();
+// var bs = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 1, 1, 6, 1 }, .f32), true);
+// defer bs.deinit();
+// const px: i64 = 2;
+// const py: i64 = 1;
+// const sx: i64 = 1;
+// const sy: i64 = 1;
+// const dx: i64 = 1;
+// const dy: i64 = 1;
+// var benchmarks: ?zigrc.Arc(ConvBenchmarks) = null;
+// const Ctx = struct {
+// wt: *Variable,
+// bs: *Variable = undefined,
+// sx: i64,
+// sy: i64,
+// dx: i64,
+// dy: i64,
+// px: i64,
+// py: i64,
+// benchmarks: ?zigrc.Arc(ConvBenchmarks) = null,
+// };
+// var ctx = try allocator.create(Ctx);
+// ctx.* = .{ .wt = wt, .bs = bs, .sx = sx, .sy = sy, .dx = dx, .dy = dy, .px = px, .py = py, .benchmarks = benchmarks };
+// defer allocator.destroy(ctx);
+// const funcConvIn = (struct {
+// pub fn call(alloc: std.mem.Allocator, input: *Variable, context: ?*anyopaque) !*Variable {
+// var c: *Ctx = @ptrCast(@alignCast(context.?));
+// return conv2dNoBias(alloc, input, c.wt, c.sx, c.sy, c.px, c.py, c.dx, c.dy, 1, c.benchmarks);
+// }
+// }).call;
+// std.debug.print("AutogradConv2DTest -> Convolve\n", .{});
+// try std.testing.expect(try jacobianTestImpl(allocator, funcConvIn, in, ctx, 0.06, 1e-4));
+// }
 
 // TODO: test "AutogradTestF16 -> ConvolveF16" {}
 

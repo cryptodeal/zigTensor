@@ -4,6 +4,7 @@ const assert = std.debug.assert;
 
 const DType = zt.tensor.DType;
 const TensorBackendType = zt.tensor.TensorBackendType;
+const AutogradExtension = zt.autograd.AutogradExtension;
 
 /// A runtime type denoting the tensor extension.
 pub const TensorExtensionType = enum(u8) {
@@ -55,13 +56,17 @@ pub const TensorExtensionRegistrar = struct {
         return tensorExtensionRegistrarSingleton.?;
     }
 
-    pub fn registerTensorExtension(self: *TensorExtensionRegistrar, allocator: std.mem.Allocator, backend: TensorBackendType, extension_type: TensorExtensionType, creation_func: TensorExtensionCallback) !bool {
-        var inner_map: TensorExtensionRegistrar.CallbackMap = undefined;
-        if (!self.extensions_.contains(backend)) {
-            inner_map = CallbackMap.init(allocator);
-        } else {
-            inner_map = self.extensions_.get(backend).?;
+    pub fn releaseInstance() void {
+        if (tensorExtensionRegistrarSingleton != null) {
+            tensorExtensionRegistrarSingleton.?.deinit();
         }
+    }
+
+    pub fn registerTensorExtension(self: *TensorExtensionRegistrar, allocator: std.mem.Allocator, backend: TensorBackendType, extension_type: TensorExtensionType, creation_func: TensorExtensionCallback) !bool {
+        if (!self.extensions_.contains(backend)) {
+            try self.extensions_.put(backend, CallbackMap.init(allocator));
+        }
+        var inner_map = self.extensions_.get(backend).?;
         // Add extension to registry
         try inner_map.putNoClobber(extension_type, creation_func);
         return true;
@@ -96,6 +101,7 @@ pub const TensorExtension = struct {
         deinit: *const fn (ctx: *anyopaque) void,
         getExtensionType: *const fn (ctx: *anyopaque) TensorExtensionType,
         isDataTypeSupported: *const fn (ctx: *anyopaque, dtype: DType) bool,
+        getAutogradExtension: *const fn (ctx: *anyopaque) anyerror!AutogradExtension,
     };
 
     /// Free all associated memory.
@@ -112,12 +118,22 @@ pub const TensorExtension = struct {
         return self.vtable.isDataTypeSupported(self.ptr, dtype);
     }
 
+    pub fn getExtension(self: *const Self, comptime T: type) !T {
+        return switch (T) {
+            AutogradExtension => self.vtable.getAutogradExtension(self.ptr),
+            // TODO: VisionExtension => self.vtable.getVisionExtension(self.ptr),
+            // TODO: JitOptimizerExtension => self.vtable.getJitOptimizerExtension(self.ptr),
+            else => @compileError("TensorExtension.getExtension: must be of type `AutogradExtension`, `VisionExtension`, or `JitOptimizerExtension`.\n"),
+        };
+    }
+
     pub fn init(ext_impl: anytype) Self {
         const Ptr = @TypeOf(ext_impl);
         const PtrInfo = @typeInfo(Ptr);
         assert(PtrInfo == .Pointer); // Must be a pointer
         assert(PtrInfo.Pointer.size == .One); // Must be a single-item pointer
-        assert(@typeInfo(PtrInfo.Pointer.child) == .Struct); // Must point to a struct
+        const PtrChild = PtrInfo.Pointer.child;
+        assert(@typeInfo(PtrChild) == .Struct); // Must point to a struct
         const impl = struct {
             fn deinit(ctx: *anyopaque) void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
@@ -134,8 +150,12 @@ pub const TensorExtension = struct {
                 return self.isDataTypeSupported(dtype);
             }
 
-            fn getUnderlyingPtr(ctx: *anyopaque) Ptr {
-                return @ptrCast(@alignCast(ctx));
+            fn getAutogradExtension(ctx: *anyopaque) !AutogradExtension {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                if (self.getExtensionType() != .Autograd) {
+                    return error.WrongExtensionType;
+                }
+                return AutogradExtension.init(self);
             }
         };
         return .{
@@ -144,8 +164,8 @@ pub const TensorExtension = struct {
                 .deinit = impl.deinit,
                 .getExtensionType = impl.getExtensionType,
                 .isDataTypeSupported = impl.isDataTypeSupported,
+                .getAutogradExtension = impl.getAutogradExtension,
             },
-            .getUnderlyingPtr = impl.getUnderlyingPtr,
         };
     }
 };

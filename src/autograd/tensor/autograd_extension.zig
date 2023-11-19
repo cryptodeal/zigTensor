@@ -10,9 +10,9 @@ const TensorExtensionType = zt.tensor.TensorExtensionType;
 const Tensor = zt.tensor.Tensor;
 const PoolingMode = zt.common.PoolingMode;
 const RnnMode = zt.common.RnnMode;
-const RnnGradData = @import("autograd_ops.zig").RnnGradData;
+const RnnGradData = zt.autograd.RnnGradData;
 
-pub const AutogradPayloadData = *anyopaque;
+pub const AutogradPayloadData = ?*anyopaque;
 
 pub const AutogradPayload = struct { data: zigrc.Arc(AutogradPayloadData) };
 
@@ -24,8 +24,8 @@ pub const AutogradExtension = struct {
 
     pub const VTable = struct {
         deinit: *const fn (ctx: *anyopaque) void,
-        getExtensionType: *const fn (ctx: *anyopaque) TensorExtensionType,
         isDataTypeSupported: *const fn (ctx: *anyopaque, dtype: DType) bool,
+        getExtensionType: *const fn (ctx: *anyopaque) TensorExtensionType,
         //**************************** Forward ****************************//
         conv2d: *const fn (
             ctx: *anyopaque,
@@ -40,7 +40,7 @@ pub const AutogradExtension = struct {
             dx: i64,
             dy: i64,
             groups: i64,
-            payload: zigrc.Arc(AutogradPayload),
+            payload: ?zigrc.Arc(AutogradPayload),
         ) anyerror!Tensor,
         pool2d: *const fn (
             ctx: *anyopaque,
@@ -53,7 +53,7 @@ pub const AutogradExtension = struct {
             px: i64,
             py: i64,
             mode: PoolingMode,
-            payload: zigrc.Arc(AutogradPayload),
+            payload: ?zigrc.Arc(AutogradPayload),
         ) anyerror!Tensor,
         batchnorm: *const fn (
             ctx: *anyopaque,
@@ -69,7 +69,7 @@ pub const AutogradExtension = struct {
             train: bool,
             momentum: f64,
             epsilon: f64,
-            payload: zigrc.Arc(AutogradPayload),
+            payload: ?zigrc.Arc(AutogradPayload),
         ) anyerror!Tensor,
         rnn: *const fn (
             ctx: *anyopaque,
@@ -83,7 +83,7 @@ pub const AutogradExtension = struct {
             mode: RnnMode,
             bidirectional: bool,
             dropout: f32,
-            payload: zigrc.Arc(AutogradPayload),
+            payload: ?zigrc.Arc(AutogradPayload),
         ) anyerror!std.meta.Tuple(&.{ Tensor, Tensor, Tensor }),
         //**************************** Backward ****************************//
         // ]----- conv2d
@@ -100,8 +100,8 @@ pub const AutogradExtension = struct {
             dx: i64,
             dy: i64,
             groups: i64,
-            data_grad_benchmark: zigrc.Arc(DynamicBenchmark),
-            payload: zigrc.Arc(AutogradPayload),
+            data_grad_benchmark: ?zigrc.Arc(DynamicBenchmark),
+            payload: ?zigrc.Arc(AutogradPayload),
         ) anyerror!Tensor,
         conv2dBackwardFilterBias: *const fn (
             ctx: *anyopaque,
@@ -117,9 +117,9 @@ pub const AutogradExtension = struct {
             dx: i64,
             dy: i64,
             groups: i64,
-            filter_bench: zigrc.Arc(DynamicBenchmark),
-            bias_bench: zigrc.Arc(DynamicBenchmark),
-            autograd_payload: zigrc.Arc(AutogradPayload),
+            filter_bench: ?zigrc.Arc(DynamicBenchmark),
+            bias_bench: ?zigrc.Arc(DynamicBenchmark),
+            autograd_payload: ?zigrc.Arc(AutogradPayload),
         ) anyerror!std.meta.Tuple(&.{ Tensor, Tensor }),
         // ]----- pool2D
         pool2dBackward: *const fn (
@@ -149,7 +149,7 @@ pub const AutogradExtension = struct {
             axes: []const Dim,
             train: bool,
             epsilon: f32,
-            payload: zigrc.Arc(AutogradPayload),
+            payload: ?zigrc.Arc(AutogradPayload),
         ) anyerror!std.meta.Tuple(&.{ Tensor, Tensor, Tensor }),
         // ]----- rnn
         rnnBackward: *const fn (
@@ -199,7 +199,7 @@ pub const AutogradExtension = struct {
         dx: i64,
         dy: i64,
         groups: i64,
-        payload: zigrc.Arc(AutogradPayload),
+        payload: ?zigrc.Arc(AutogradPayload),
     ) !Tensor {
         return self.vtable.conv2d(
             self.ptr,
@@ -229,7 +229,7 @@ pub const AutogradExtension = struct {
         px: i64,
         py: i64,
         mode: PoolingMode,
-        payload: zigrc.Arc(AutogradPayload),
+        payload: ?zigrc.Arc(AutogradPayload),
     ) !Tensor {
         return self.vtable.pool2d(
             self.ptr,
@@ -325,8 +325,8 @@ pub const AutogradExtension = struct {
         dx: i64,
         dy: i64,
         groups: i64,
-        data_grad_benchmark: zigrc.Arc(DynamicBenchmark),
-        payload: zigrc.Arc(AutogradPayload),
+        data_grad_benchmark: ?zigrc.Arc(DynamicBenchmark),
+        payload: ?zigrc.Arc(AutogradPayload),
     ) !Tensor {
         return self.vtable.conv2dBackwardData(
             self.ptr,
@@ -360,9 +360,9 @@ pub const AutogradExtension = struct {
         dx: i64,
         dy: i64,
         groups: i64,
-        filter_bench: zigrc.Arc(DynamicBenchmark),
-        bias_bench: zigrc.Arc(DynamicBenchmark),
-        autograd_payload: zigrc.Arc(AutogradPayload),
+        filter_bench: ?zigrc.Arc(DynamicBenchmark),
+        bias_bench: ?zigrc.Arc(DynamicBenchmark),
+        payload: ?zigrc.Arc(AutogradPayload),
     ) anyerror!std.meta.Tuple(&.{ Tensor, Tensor }) {
         return self.vtable.conv2dBackwardFilterBias(
             self.ptr,
@@ -380,7 +380,7 @@ pub const AutogradExtension = struct {
             groups,
             filter_bench,
             bias_bench,
-            autograd_payload,
+            payload,
         );
     }
 
@@ -429,7 +429,7 @@ pub const AutogradExtension = struct {
         axes: []const Dim,
         train: bool,
         epsilon: f32,
-        payload: zigrc.Arc(AutogradPayload),
+        payload: ?zigrc.Arc(AutogradPayload),
     ) anyerror!std.meta.Tuple(&.{ Tensor, Tensor, Tensor }) {
         return self.vtable.batchnormBackward(
             self.ptr,
@@ -493,14 +493,14 @@ pub const AutogradExtension = struct {
                 self.deinit();
             }
 
-            fn getExtensionType(ctx: *anyopaque) TensorExtensionType {
-                const self: Ptr = @ptrCast(@alignCast(ctx));
-                return self.getExtensionType();
-            }
-
             fn isDataTypeSupported(ctx: *anyopaque, dtype: DType) bool {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.isDataTypeSupported(dtype);
+            }
+
+            fn getExtensionType(ctx: *anyopaque) TensorExtensionType {
+                const self: Ptr = @ptrCast(@alignCast(ctx));
+                return self.getExtensionType();
             }
 
             //**************************** Forward ****************************//
@@ -517,7 +517,7 @@ pub const AutogradExtension = struct {
                 dx: i64,
                 dy: i64,
                 groups: i64,
-                payload: zigrc.Arc(AutogradPayload),
+                payload: ?zigrc.Arc(AutogradPayload),
             ) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.conv2d(allocator, input, weights, bias, sx, sy, px, py, dx, dy, groups, payload);
@@ -534,7 +534,7 @@ pub const AutogradExtension = struct {
                 px: i64,
                 py: i64,
                 mode: PoolingMode,
-                payload: zigrc.Arc(AutogradPayload),
+                payload: ?zigrc.Arc(AutogradPayload),
             ) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.pool2d(
@@ -565,7 +565,7 @@ pub const AutogradExtension = struct {
                 train: bool,
                 momentum: f64,
                 epsilon: f64,
-                payload: zigrc.Arc(AutogradPayload),
+                payload: ?zigrc.Arc(AutogradPayload),
             ) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.batchnorm(
@@ -597,7 +597,7 @@ pub const AutogradExtension = struct {
                 mode: RnnMode,
                 bidirectional: bool,
                 dropout: f32,
-                payload: zigrc.Arc(AutogradPayload),
+                payload: ?zigrc.Arc(AutogradPayload),
             ) anyerror!std.meta.Tuple(&.{ Tensor, Tensor, Tensor }) {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.rnn(
@@ -630,8 +630,8 @@ pub const AutogradExtension = struct {
                 dx: i64,
                 dy: i64,
                 groups: i64,
-                data_grad_benchmark: zigrc.Arc(DynamicBenchmark),
-                payload: zigrc.Arc(AutogradPayload),
+                data_grad_benchmark: ?zigrc.Arc(DynamicBenchmark),
+                payload: ?zigrc.Arc(AutogradPayload),
             ) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.conv2dBackwardData(
@@ -665,9 +665,9 @@ pub const AutogradExtension = struct {
                 dx: i64,
                 dy: i64,
                 groups: i64,
-                filter_bench: zigrc.Arc(DynamicBenchmark),
-                bias_bench: zigrc.Arc(DynamicBenchmark),
-                autograd_payload: zigrc.Arc(AutogradPayload),
+                filter_bench: ?zigrc.Arc(DynamicBenchmark),
+                bias_bench: ?zigrc.Arc(DynamicBenchmark),
+                autograd_payload: ?zigrc.Arc(AutogradPayload),
             ) anyerror!std.meta.Tuple(&.{ Tensor, Tensor }) {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.conv2dBackwardFilterBias(
@@ -734,7 +734,7 @@ pub const AutogradExtension = struct {
                 axes: []const Dim,
                 train: bool,
                 epsilon: f32,
-                payload: zigrc.Arc(AutogradPayload),
+                payload: ?zigrc.Arc(AutogradPayload),
             ) anyerror!std.meta.Tuple(&.{ Tensor, Tensor, Tensor }) {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.batchnormBackward(

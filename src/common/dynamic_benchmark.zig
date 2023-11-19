@@ -217,20 +217,26 @@ pub const DynamicBenchmark = struct {
         self.options_.releaseWithFn(DynamicBenchmarkOptionsBase.deinit);
     }
 
-    pub fn audit(self: *Self, allocator: std.mem.Allocator, function: *const fn (ctx: ?*anyopaque) void, ctx: ?*anyopaque, increment_count: bool) !void {
+    pub fn audit(self: *Self, allocator: std.mem.Allocator, function: *const fn (ctx: ?*anyopaque) anyerror!void, ctx: ?*anyopaque, increment_count: bool) !void {
         // Only run the benchmarking components if some options are yet to be
         // fully-timed and benchmark mode is on - otherwise, only run the passed
         // lambda
         if (self.options_.value.timingsComplete() or !benchmark_mode) {
-            function(ctx);
+            try function(ctx);
         } else {
             try self.start(allocator);
-            function(ctx);
+            try function(ctx);
             try self.stop(allocator, increment_count);
         }
     }
 
-    // TODO: pub fn getOptions()
+    pub fn getOptions(self: *Self, comptime T: type) T {
+        // TODO: find a way to retain ref count for `self.options_` underlying value
+        // without preventing release of self.options_ itself, but ensuring no double free
+        // on underlying resource
+        // _ = self.options_.retain();
+        return @ptrCast(@alignCast(self.options_.value.ptr));
+    }
 
     pub fn start(self: *Self, allocator: std.mem.Allocator) !void {
         try zt.tensor.sync(allocator);
@@ -264,16 +270,16 @@ test "DynamicBenchmark -> OptionsStateBasic" {
     const max_count: usize = 5;
     const ops: []const i32 = &.{ 1, 2, 3, 4, 5 };
 
-    var options = try zigrc.Arc(*DynamicBenchmarkOptions(i32)).init(allocator, try DynamicBenchmarkOptions(i32).initFromSlice(allocator, ops, max_count));
-    defer options.releaseWithFn(DynamicBenchmarkOptions(i32).deinit);
+    var options = try DynamicBenchmarkOptions(i32).initFromSlice(allocator, ops, max_count);
+    defer options.deinit();
 
-    try std.testing.expect(options.value.*.timingsComplete() == false);
-    try std.testing.expect(options.value.*.currentOption() == 1);
+    try std.testing.expect(options.timingsComplete() == false);
+    try std.testing.expect(options.currentOption() == 1);
     for (0..max_count * ops.len) |_| {
-        try options.value.*.accumulateTimeToCurrentOption(1, true);
+        try options.accumulateTimeToCurrentOption(1, true);
     }
-    try std.testing.expect(options.value.*.timingsComplete());
-    try std.testing.expect(options.value.*.currentOption() == 1); // best idx should never have changed
+    try std.testing.expect(options.timingsComplete());
+    try std.testing.expect(options.currentOption() == 1); // best idx should never have changed
 }
 
 test "DynamicBenchmark -> OptionscurrentOptionUnchangedWithNoCountIncrement" {
@@ -281,13 +287,13 @@ test "DynamicBenchmark -> OptionscurrentOptionUnchangedWithNoCountIncrement" {
     const allocator = std.testing.allocator;
     const ops: []const i32 = &.{ 1, 2, 3, 4, 5 };
 
-    var options = try zigrc.Arc(*DynamicBenchmarkOptions(i32)).init(allocator, try DynamicBenchmarkOptions(i32).initFromSlice(allocator, ops, 3));
-    defer options.releaseWithFn(DynamicBenchmarkOptions(i32).deinit);
+    var options = try DynamicBenchmarkOptions(i32).initFromSlice(allocator, ops, 3);
+    defer options.deinit();
 
-    var state = options.value.*.currentOption();
-    try options.value.*.accumulateTimeToCurrentOption(3, false);
-    try options.value.*.accumulateTimeToCurrentOption(4, false);
-    try std.testing.expect(state == options.value.*.currentOption());
+    var state = options.currentOption();
+    try options.accumulateTimeToCurrentOption(3, false);
+    try options.accumulateTimeToCurrentOption(4, false);
+    try std.testing.expect(state == options.currentOption());
 }
 
 test "DynamicBenchmark -> OptionsStateTimed" {
@@ -296,21 +302,21 @@ test "DynamicBenchmark -> OptionsStateTimed" {
     const max_count: usize = 5;
     const ops: []const i32 = &.{ 1, 2, 3, 4, 5 };
 
-    var options = try zigrc.Arc(*DynamicBenchmarkOptions(i32)).init(allocator, try DynamicBenchmarkOptions(i32).initFromSlice(allocator, ops, max_count));
-    defer options.releaseWithFn(DynamicBenchmarkOptions(i32).deinit);
+    var options = try DynamicBenchmarkOptions(i32).initFromSlice(allocator, ops, max_count);
+    defer options.deinit();
 
     for (0..max_count * ops.len) |i| {
         // option 4 is faster
-        if (options.value.*.currentOption() == 4) {
-            try options.value.*.accumulateTimeToCurrentOption(1, true);
+        if (options.currentOption() == 4) {
+            try options.accumulateTimeToCurrentOption(1, true);
         } else {
-            try options.value.*.accumulateTimeToCurrentOption(10 * (@as(f64, @floatFromInt(i)) + 1), false);
-            try options.value.*.accumulateTimeToCurrentOption(10 * (@as(f64, @floatFromInt(i)) + 1), true);
+            try options.accumulateTimeToCurrentOption(10 * (@as(f64, @floatFromInt(i)) + 1), false);
+            try options.accumulateTimeToCurrentOption(10 * (@as(f64, @floatFromInt(i)) + 1), true);
         }
     }
-    try std.testing.expect(options.value.*.timingsComplete());
-    try std.testing.expect(options.value.*.currentOption() == 4); // fastest
-    try std.testing.expect(options.value.*.currentOption() == 4); // no state change (timings are complete)
+    try std.testing.expect(options.timingsComplete());
+    try std.testing.expect(options.currentOption() == 4); // fastest
+    try std.testing.expect(options.currentOption() == 4); // no state change (timings are complete)
 }
 
 test "DynamicBenchmark -> DynamicBenchmarkSimple" {
@@ -320,10 +326,8 @@ test "DynamicBenchmark -> DynamicBenchmarkSimple" {
     const max_count: usize = 5;
     const sleep_times: []const u64 = &.{ 4, 2, 6 };
 
-    var opts_base = try DynamicBenchmarkOptions(u64).initFromSlice(allocator, sleep_times, max_count);
-    var options = try zigrc.Arc(*DynamicBenchmarkOptions(u64)).init(allocator, opts_base);
-    defer options.release();
-    var dynamic_bench = try zigrc.Arc(DynamicBenchmark).init(allocator, DynamicBenchmark.init(try zigrc.Arc(DynamicBenchmarkOptionsBase).init(allocator, DynamicBenchmarkOptionsBase.init(opts_base))));
+    var options = try DynamicBenchmarkOptions(u64).initFromSlice(allocator, sleep_times, max_count);
+    var dynamic_bench = try zigrc.Arc(DynamicBenchmark).init(allocator, DynamicBenchmark.init(try zigrc.Arc(DynamicBenchmarkOptionsBase).init(allocator, DynamicBenchmarkOptionsBase.init(options))));
     defer dynamic_bench.releaseWithFn(DynamicBenchmark.deinit);
 
     const Ctx = struct { sleep_time: u64 };
@@ -331,18 +335,18 @@ test "DynamicBenchmark -> DynamicBenchmarkSimple" {
     defer allocator.destroy(ctx);
 
     for (0..max_count * sleep_times.len) |_| {
-        ctx.* = .{ .sleep_time = options.value.*.currentOption() * std.time.ns_per_ms };
+        ctx.* = .{ .sleep_time = options.currentOption() * std.time.ns_per_ms };
         const cb = (struct {
-            pub fn call(c: ?*anyopaque) void {
+            pub fn call(c: ?*anyopaque) !void {
                 var ctx_: *Ctx = @ptrCast(@alignCast(c));
                 std.time.sleep(ctx_.sleep_time);
             }
         }).call;
         try dynamic_bench.value.audit(allocator, cb, ctx, true);
     }
-    try std.testing.expect(options.value.*.timingsComplete());
+    try std.testing.expect(options.timingsComplete());
     // sleeping for fewer miliseconds is faster
-    try std.testing.expect(options.value.*.currentOption() == 2);
+    try std.testing.expect(options.currentOption() == 2);
 }
 
 test "DynamicBenchmark -> DynamicBenchmarkDisjointLambdas" {
@@ -352,10 +356,8 @@ test "DynamicBenchmark -> DynamicBenchmarkDisjointLambdas" {
     const max_count: usize = 5;
     const sleep_times: []const u64 = &.{ 4, 2, 6 };
 
-    var opts_base = try DynamicBenchmarkOptions(u64).initFromSlice(allocator, sleep_times, max_count);
-    var options = try zigrc.Arc(*DynamicBenchmarkOptions(u64)).init(allocator, opts_base);
-    defer options.release();
-    var dynamic_bench = try zigrc.Arc(DynamicBenchmark).init(allocator, DynamicBenchmark.init(try zigrc.Arc(DynamicBenchmarkOptionsBase).init(allocator, DynamicBenchmarkOptionsBase.init(opts_base))));
+    var options = try DynamicBenchmarkOptions(u64).initFromSlice(allocator, sleep_times, max_count);
+    var dynamic_bench = try zigrc.Arc(DynamicBenchmark).init(allocator, DynamicBenchmark.init(try zigrc.Arc(DynamicBenchmarkOptionsBase).init(allocator, DynamicBenchmarkOptionsBase.init(options))));
     defer dynamic_bench.releaseWithFn(DynamicBenchmark.deinit);
 
     const Ctx = struct { sleep_time: u64 };
@@ -363,10 +365,10 @@ test "DynamicBenchmark -> DynamicBenchmarkDisjointLambdas" {
     defer allocator.destroy(ctx);
 
     for (0..max_count * sleep_times.len) |_| {
-        var sleep_time: u64 = options.value.*.currentOption() * std.time.ns_per_ms;
+        var sleep_time: u64 = options.currentOption() * std.time.ns_per_ms;
         ctx.* = .{ .sleep_time = sleep_time };
         const cb = (struct {
-            pub fn call(c: ?*anyopaque) void {
+            pub fn call(c: ?*anyopaque) !void {
                 var ctx_: *Ctx = @ptrCast(@alignCast(c));
                 std.time.sleep(ctx_.sleep_time);
             }
@@ -377,11 +379,64 @@ test "DynamicBenchmark -> DynamicBenchmarkDisjointLambdas" {
         // 4, 2, 6 --> 18, 24, 12
         // total duration disregarding the audit is therefore:
         // 18 + 2 * 4, 24 + 2 * 2, 12 + 2 * 6 ---> 26, 28, 24
-        var intermediate_sleep_time: u64 = (30 - (3 * options.value.*.currentOption())) * std.time.ns_per_ms;
+        var intermediate_sleep_time: u64 = (30 - (3 * options.currentOption())) * std.time.ns_per_ms;
         std.time.sleep(intermediate_sleep_time);
         try dynamic_bench.value.audit(allocator, cb, ctx, true);
     }
-    try std.testing.expect(options.value.*.timingsComplete());
+    try std.testing.expect(options.timingsComplete());
     // option 2 is still fastest disregarding intermediate time
-    try std.testing.expect(options.value.*.currentOption() == 2);
+    try std.testing.expect(options.currentOption() == 2);
+}
+
+test "DynamicBenchmark -> DynamicBenchmarkMatmul" {
+    benchmark_mode = true;
+    const Dim = zt.tensor.shape.Dim;
+    const allocator = std.testing.allocator;
+    defer zt.tensor.deinit(); // deinit global singletons
+    const max_count: usize = 5;
+    // n x n arrays of different sizes
+    const array_sizes: []const Dim = &.{ 256, 8, 2048 };
+
+    var dynamic_bench = try zigrc.Arc(DynamicBenchmark).init(
+        allocator,
+        DynamicBenchmark.init(
+            try zigrc.Arc(DynamicBenchmarkOptionsBase).init(
+                allocator,
+                DynamicBenchmarkOptionsBase.init(
+                    try DynamicBenchmarkOptions(Dim).initFromSlice(
+                        allocator,
+                        array_sizes,
+                        max_count,
+                    ),
+                ),
+            ),
+        ),
+    );
+    defer dynamic_bench.releaseWithFn(DynamicBenchmark.deinit);
+
+    const Ctx = struct { size: Dim, allocator: std.mem.Allocator };
+    var ctx = try allocator.create(Ctx);
+    defer allocator.destroy(ctx);
+
+    for (0..max_count * array_sizes.len) |_| {
+        ctx.* = .{ .size = dynamic_bench.value.getOptions(*DynamicBenchmarkOptions(Dim)).currentOption(), .allocator = allocator };
+        const cb = (struct {
+            pub fn call(context: ?*anyopaque) !void {
+                var ctx_: *Ctx = @ptrCast(@alignCast(context));
+                const size = ctx_.size;
+                const alloc = ctx_.allocator;
+                var a = try zt.tensor.rand(alloc, &.{ size, size }, .f32);
+                defer a.deinit();
+                var b = try zt.tensor.rand(alloc, &.{ size, size }, .f32);
+                defer b.deinit();
+                var c = try zt.tensor.matmul(alloc, a, b, .None, .None);
+                defer c.deinit();
+                try zt.tensor.eval(allocator, c);
+            }
+        }).call;
+        try dynamic_bench.value.audit(allocator, cb, ctx, true);
+    }
+    var ops = dynamic_bench.value.getOptions(*DynamicBenchmarkOptions(Dim));
+    try std.testing.expect(ops.timingsComplete());
+    try std.testing.expect(ops.currentOption() == std.mem.min(Dim, array_sizes));
 }

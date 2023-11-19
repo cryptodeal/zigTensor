@@ -222,8 +222,18 @@ pub const Tensor = struct {
 
     pub fn device(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type) !T {
         var ptr: ?*anyopaque = null;
-        try self.impl_.device(allocator, &ptr);
-        return @ptrCast(@alignCast(ptr));
+        if (T == ?*anyopaque) {
+            try self.impl_.device(allocator, &ptr);
+            return ptr;
+        }
+        const TypeInfo = @typeInfo(T);
+        if (TypeInfo == .Pointer and TypeInfo.Pointer.size == .Slice and (@typeInfo(TypeInfo.Pointer.child) == .Int or @typeInfo(TypeInfo.Pointer.child) == .Float)) {
+            const ChildType = TypeInfo.Pointer.child;
+            try self.impl_.device(allocator, &ptr);
+            var tmp: [*c]ChildType = @ptrCast(@alignCast(ptr));
+            return tmp[0..@intCast(try self.elements(allocator))];
+        }
+        @compileError("Tensor.device: unsupported type");
     }
 
     pub fn allocHost(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type) !?[]T {
