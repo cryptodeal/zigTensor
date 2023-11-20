@@ -135,7 +135,7 @@ pub const AutogradExtension = struct {
             px: i64,
             py: i64,
             mode: PoolingMode,
-            payload: zigrc.Arc(AutogradPayload),
+            payload: ?zigrc.Arc(AutogradPayload),
         ) anyerror!Tensor,
         // ]----- batchnorm
         batchnormBackward: *const fn (
@@ -178,6 +178,10 @@ pub const AutogradExtension = struct {
     /// Returns the type of the extension.
     pub fn getExtensionType(self: *const Self) TensorExtensionType {
         return self.vtable.getExtensionType(self.ptr);
+    }
+
+    pub fn extensionType() TensorExtensionType {
+        return .Autograd;
     }
 
     pub fn isDataTypeSupported(self: *const Self, dtype: DType) bool {
@@ -398,7 +402,7 @@ pub const AutogradExtension = struct {
         px: i64,
         py: i64,
         mode: PoolingMode,
-        payload: zigrc.Arc(AutogradPayload),
+        payload: ?zigrc.Arc(AutogradPayload),
     ) !Tensor {
         return self.vtable.pool2dBackward(
             self.ptr,
@@ -703,7 +707,7 @@ pub const AutogradExtension = struct {
                 px: i64,
                 py: i64,
                 mode: PoolingMode,
-                payload: zigrc.Arc(AutogradPayload),
+                payload: ?zigrc.Arc(AutogradPayload),
             ) !Tensor {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.pool2dBackward(

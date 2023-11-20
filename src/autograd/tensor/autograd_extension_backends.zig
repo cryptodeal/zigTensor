@@ -22,7 +22,7 @@ pub fn registerAutogradExtensions(allocator: std.mem.Allocator) !void {
                     return TensorExtension.init(try OneDnnAutogradExtension.init(alloc));
                 }
             }).call;
-            _ = try (try TensorExtensionRegistrer.getInstance(allocator)).registerTensorExtension(allocator, .ArrayFire, .Autograd, registerFn);
+            _ = (try TensorExtensionRegistrer.getInstance(allocator)).registerTensorExtension(.ArrayFire, .Autograd, registerFn);
         }
     }
 }

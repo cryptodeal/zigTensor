@@ -2743,7 +2743,9 @@ inline fn jacobianTestImpl(
 
 test "AutogradTest -> AutogradVariableIndex" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 1, 3, 3 }, .f64), true);
     defer x.deinit();
     var tmp_x_idx1 = try x.index(allocator, &.{ Index.initDim(0), Index.initDim(0) });
@@ -2766,7 +2768,9 @@ test "AutogradTest -> AutogradVariableIndex" {
 
 test "AutogradTest -> AutogradOperatorTypeCompatibility" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
@@ -2843,7 +2847,9 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
 
 test "AutogradTest -> CastingAsDifferentGradTypes" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
@@ -2857,7 +2863,9 @@ test "AutogradTest -> CastingAsDifferentGradTypes" {
 
 test "AutogradTest -> CastingAs" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
@@ -2875,7 +2883,9 @@ test "AutogradTest -> CastingAs" {
 
 test "AutogradTest -> CastingAsBackward" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
@@ -2896,7 +2906,9 @@ test "AutogradTest -> CastingAsBackward" {
 
 test "AutogradTest -> CastingAsGrad" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
@@ -2959,7 +2971,8 @@ test "AutogradTest -> CastingAsGrad" {
 
 test "AutogradTest -> NoCalcGrad" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), false);
     defer x.deinit();
@@ -2988,7 +3001,8 @@ test "AutogradTest -> NoCalcGrad" {
 
 test "AutogradTest -> Concatenate" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     const ConcatT1Ctx = struct { x2: *Variable, x3: *Variable, x4: *Variable };
     const ConcatT2Ctx = struct { x1: *Variable, x2: *Variable, x4: *Variable };
@@ -3030,7 +3044,8 @@ test "AutogradTest -> Concatenate" {
 
 test "AutogradTest -> Split" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     // check output
     var x = try Variable.init(allocator, try zt.tensor.arange(allocator, &.{ 7, 2 }, 0, .f32), true);
@@ -3091,7 +3106,8 @@ test "AutogradTest -> Split" {
 
 test "AutogradTest -> Tile" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{6}, .f32), true);
     defer x.deinit();
@@ -3126,7 +3142,8 @@ test "AutogradTest -> Tile" {
 
 test "AutogradTest -> TileAs" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
     defer x.deinit();
@@ -3151,11 +3168,14 @@ test "AutogradTest -> TileAs" {
 
 test "AutogradTestF16 -> TileAsF16" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
     AutogradTestF16.setUp(); // set optim mode
-    defer zt.tensor.deinit(); // deinit global singletons
+
     defer AutogradTestF16.tearDown(); // reset optim mode
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f16), true);
@@ -3186,7 +3206,8 @@ test "AutogradTestF16 -> TileAsF16" {
 
 test "AutogradTest -> TileAs2" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{10}, .f32), true);
     defer x.deinit();
@@ -3203,7 +3224,8 @@ test "AutogradTest -> TileAs2" {
 
 test "AutogradTest -> Indexing" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 6, 7, 4 }, .f64), true);
     defer x.deinit();
@@ -3253,7 +3275,8 @@ test "AutogradTest -> Indexing" {
 
 test "AutogradTest -> Padding" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 3, 3 }, .f32), true);
     defer in.deinit();
@@ -3271,7 +3294,8 @@ test "AutogradTest -> Padding" {
 
 test "AutogradTest -> Reorder" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in_tensor = try zt.tensor.rand(allocator, &.{ 3, 1, 4, 1 }, .f32);
     try in_tensor.inPlaceMul(allocator, f64, 2);
@@ -3287,7 +3311,8 @@ test "AutogradTest -> Reorder" {
 
 test "AutogradTest -> Embedding" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var n_words: i64 = 10;
     var input_tensor = try zt.tensor.rand(allocator, &.{ 4, 2 }, .f32);
@@ -3351,7 +3376,8 @@ fn TestImpl(comptime fn1: FuncVar, comptime fn2: FuncScalarL, comptime fn3: Func
 
 test "AutogradBinaryOpsTest -> BasicOps" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     // test add
     const funcAdd1 = (struct {
@@ -3464,7 +3490,8 @@ test "AutogradBinaryOpsTest -> BasicOps" {
 
 test "AutogradBinaryOpsTest -> BinaryCrossEntropy" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{10}, .f32), true);
     defer x.deinit();
@@ -3483,7 +3510,8 @@ test "AutogradBinaryOpsTest -> BinaryCrossEntropy" {
 
 test "AutogradBinaryOpsTest -> CrossEntropy" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     const CrossEntropyCtx = struct { y: *Variable, mode: zt.common.ReduceMode = undefined, ignore_idx: i64 };
 
@@ -3560,7 +3588,9 @@ test "AutogradBinaryOpsTest -> CrossEntropy" {
 
 test "AutogradBinaryOpsTest -> Linear" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     const LinkCtx = struct { in: *Variable, wt: *Variable, bs: *Variable };
 
     var batch_sizes: []const Dim = &.{ 1, 5 };
@@ -3609,12 +3639,15 @@ test "AutogradBinaryOpsTest -> Linear" {
 
 test "AutogradTestF16 -> LinearF16" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
     const LinkCtx = struct { in: *Variable, wt: *Variable, bs: *Variable };
     AutogradTestF16.setUp(); // set optim mode
-    defer zt.tensor.deinit(); // deinit global singletons
+
     defer AutogradTestF16.tearDown(); // reset optim mode
 
     var batch_sizes: []const Dim = &.{ 1, 5 };
@@ -3661,7 +3694,8 @@ test "AutogradTestF16 -> LinearF16" {
 
 test "AutogradBinaryOpsTest -> Multiply" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
     defer x.deinit();
@@ -3678,7 +3712,8 @@ test "AutogradBinaryOpsTest -> Multiply" {
 
 test "AutogradBinaryOpsTest -> MultiplyAdd" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
     defer x.deinit();
@@ -3711,7 +3746,8 @@ test "AutogradBinaryOpsTest -> MultiplyAdd" {
 
 test "AutogradBinaryOpsTest -> MultiplyAddScalar" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
     defer x.deinit();
@@ -3740,7 +3776,8 @@ test "AutogradBinaryOpsTest -> MultiplyAddScalar" {
 
 test "AutogradBinaryOpsTest -> MultiplySub" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
     defer x.deinit();
@@ -3768,7 +3805,8 @@ test "AutogradBinaryOpsTest -> MultiplySub" {
 
 test "AutogradBinaryOpsTest -> DivideAdd" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f64), true);
     defer x.deinit();
@@ -3801,7 +3839,8 @@ test "AutogradBinaryOpsTest -> DivideAdd" {
 
 test "AutogradBinaryOpsTest -> matmul" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     const MatMulCtx = struct { other: *Variable };
 
@@ -3923,7 +3962,8 @@ test "AutogradBinaryOpsTest -> matmul" {
 
 test "AutogradBinaryOpsTest -> WeightNormLinear" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var v = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 3, 2 }, .f32), true);
     defer v.deinit();
@@ -3996,8 +4036,9 @@ test "AutogradBinaryOpsTest -> WeightNormLinear" {
 // TODO: debug - test hangs/never finished
 // test "AutogradConv2DTest -> Convolve" {
 // const allocator = std.testing.allocator;
-// defer zt.tensor.deinit(); // deinit global singletons
-
+// zt.tensor.init(allocator);
+// defer zt.tensor.deinit();
+//
 // var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 10, 9, 8, 7 }, .f32), true);
 // defer in.deinit();
 // var wt = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 4, 3, 8, 6 }, .f32), true);
@@ -4045,7 +4086,8 @@ test "AutogradBinaryOpsTest -> WeightNormLinear" {
 
 test "AutogradNormalizationTest -> Normalize" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 3 }, .f64), true);
     defer x.deinit();
@@ -4101,7 +4143,8 @@ test "AutogradNormalizationTest -> Normalize" {
 
 test "AutogradReductionTest -> Sum" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     const handle_dims: []const bool = &.{ false, true };
     for (handle_dims) |keep_dims| {
@@ -4160,7 +4203,8 @@ test "AutogradReductionTest -> Sum" {
 
 test "AutogradReductionTest -> SumAs" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
     defer x.deinit();
@@ -4185,7 +4229,8 @@ test "AutogradReductionTest -> SumAs" {
 
 test "AutogradReductionTest -> SumAs2" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var y = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 2 }, .f32), true);
     defer y.deinit();
@@ -4202,7 +4247,9 @@ test "AutogradReductionTest -> SumAs2" {
 
 test "AutogradReductionTest -> Mean" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     const TestCtx = struct { keep_dims: bool };
 
     const handle_dims: []const bool = &.{ false, true };
@@ -4271,7 +4318,8 @@ test "AutogradReductionTest -> Mean" {
 
 test "AutogradReductionTest -> Variance" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     const TestCtx = struct { b: bool, keep_dims: bool };
 
@@ -4312,7 +4360,9 @@ test "AutogradReductionTest -> Variance" {
 
 test "AutogradReductionTest -> Norm" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     const TestCtx = struct { keep_dims: bool };
 
     const handle_dims: []const bool = &.{ false, true };
@@ -4362,7 +4412,8 @@ test "AutogradReductionTest -> Norm" {
 
 test "AutogradUnaryOpsTest -> Clamp" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in_tensor = try zt.tensor.rand(allocator, &.{ 5, 6, 7, 4 }, .f64);
     try in_tensor.inPlaceMul(allocator, f64, 3);
@@ -4407,7 +4458,8 @@ test "AutogradUnaryOpsTest -> Clamp" {
 
 test "AutogradUnaryOpsTest -> Glu" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 3, 4, 5 }, .f64), true);
     defer in.deinit();
@@ -4421,7 +4473,8 @@ test "AutogradUnaryOpsTest -> Glu" {
 
 test "AutogradUnaryOpsTest -> Sigmoid" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
     defer x.deinit();
@@ -4449,7 +4502,8 @@ test "AutogradUnaryOpsTest -> Sigmoid" {
 
 test "AutogradUnaryOpsTest -> Erf" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
     defer x.deinit();
@@ -4483,7 +4537,8 @@ test "AutogradUnaryOpsTest -> Erf" {
 
 test "AutogradUnaryOpsTest -> Tanh" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
     defer x.deinit();
@@ -4512,7 +4567,8 @@ test "AutogradUnaryOpsTest -> Tanh" {
 
 test "AutogradUnaryOpsTest -> Transpose" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 6, 7, 8 }, .f32), true);
     defer in.deinit();
@@ -4545,7 +4601,8 @@ test "AutogradUnaryOpsTest -> Transpose" {
 
 test "AutogradUnaryOpsTest -> Exp" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
     defer x.deinit();
@@ -4562,7 +4619,8 @@ test "AutogradUnaryOpsTest -> Exp" {
 
 test "AutogradUnaryOpsTest -> Log1p" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
     defer x.deinit();
@@ -4586,7 +4644,8 @@ test "AutogradUnaryOpsTest -> Log1p" {
 
 test "AutogradUnaryOpsTest -> Softmax" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 3, 5, 1 }, .f64), true);
     defer in.deinit();
@@ -4600,11 +4659,14 @@ test "AutogradUnaryOpsTest -> Softmax" {
 
 test "AutogradTestF16 -> SoftmaxF16" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
     AutogradTestF16.setUp(); // set optim mode
-    defer zt.tensor.deinit(); // deinit global singletons
+
     defer AutogradTestF16.tearDown(); // reset optim mode
 
     var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 3, 5, 1 }, .f16), true);
@@ -4619,7 +4681,8 @@ test "AutogradTestF16 -> SoftmaxF16" {
 
 test "AutogradUnaryOpsTest -> LogSoftmax" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 3, 5, 1 }, .f64), true);
     defer in.deinit();
@@ -4633,11 +4696,14 @@ test "AutogradUnaryOpsTest -> LogSoftmax" {
 
 test "AutogradTestF16 -> LogSoftmaxF16" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     if (!try zt.common.f16Supported(allocator)) {
         return error.SkipZigTest;
     }
     AutogradTestF16.setUp(); // set optim mode
-    defer zt.tensor.deinit(); // deinit global singletons
+
     defer AutogradTestF16.tearDown(); // reset optim mode
 
     var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 3, 5, 1 }, .f16), true);
@@ -4652,7 +4718,8 @@ test "AutogradTestF16 -> LogSoftmaxF16" {
 
 test "AutogradUnaryOpsTest -> Pow" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     {
         var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f32), true);
@@ -4686,7 +4753,8 @@ test "AutogradUnaryOpsTest -> Pow" {
 
 test "AutogradUnaryOpsTest -> Sqrt" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 3 }, .f64), true);
     defer x.deinit();

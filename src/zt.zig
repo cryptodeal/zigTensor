@@ -4,10 +4,8 @@ pub const runtime = @import("runtime/runtime.zig");
 pub const autograd = @import("autograd/autograd.zig");
 
 test {
-    const allocator = @import("std").testing.allocator;
-    tensor.init(allocator);
-    defer tensor.deinit();
     _ = autograd;
+    _ = common;
     _ = tensor;
     _ = runtime;
 }

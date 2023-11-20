@@ -1,17 +1,17 @@
 const std = @import("std");
-const tensor = @import("tensor.zig");
+const zt = @import("../zt.zig");
 
-const Dim = tensor.shape.Dim;
-const DType = tensor.DType;
-const defaultTensorBackend = tensor.defaultTensorBackend;
-const DefaultTensorType_t = tensor.DefaultTensorType_t;
-const dtypeTraits = tensor.dtypeTraits;
-const Index = tensor.Index;
-const Shape = tensor.shape.Shape;
-const Stream = @import("../runtime/runtime.zig").Stream;
-const TensorAdapterBase = tensor.TensorAdapterBase;
-const TensorBackend = tensor.TensorBackend;
-const ztTensorBackendsMatch = tensor.ztTensorBackendsMatch;
+const Dim = zt.tensor.shape.Dim;
+const DType = zt.tensor.DType;
+const defaultTensorBackend = zt.tensor.defaultTensorBackend;
+const DefaultTensorType_t = zt.tensor.DefaultTensorType_t;
+const dtypeTraits = zt.tensor.dtypeTraits;
+const Index = zt.tensor.Index;
+const Shape = zt.tensor.shape.Shape;
+const Stream = zt.runtime.Stream;
+const TensorAdapterBase = zt.tensor.TensorAdapterBase;
+const TensorBackend = zt.tensor.TensorBackend;
+const ztTensorBackendsMatch = zt.tensor.ztTensorBackendsMatch;
 
 /// Enum for various tensor backends.
 pub const TensorBackendType = enum(u8) { Stub, Tracer, ArrayFire, OneDnn, Jit };
@@ -136,15 +136,15 @@ pub const Tensor = struct {
     }
 
     pub fn elements(self: *const Tensor, allocator: std.mem.Allocator) !Dim {
-        return tensor.shape.elements(try self.shape(allocator));
+        return zt.tensor.shape.elements(try self.shape(allocator));
     }
 
     pub fn dim(self: *const Tensor, allocator: std.mem.Allocator, dimension: usize) !Dim {
-        return tensor.shape.dim(try self.shape(allocator), dimension);
+        return zt.tensor.shape.dim(try self.shape(allocator), dimension);
     }
 
     pub fn ndim(self: *const Tensor, allocator: std.mem.Allocator) !usize {
-        return tensor.shape.ndim(try self.shape(allocator));
+        return zt.tensor.shape.ndim(try self.shape(allocator));
     }
 
     pub fn isEmpty(self: *const Tensor, allocator: std.mem.Allocator) !bool {
@@ -422,7 +422,7 @@ fn matmulRef(allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
     var N = try lhs.dim(allocator, 1);
     var K = try rhs.dim(allocator, 1);
 
-    var out = try tensor.full(allocator, &.{ M, K }, f32, 0, .f32);
+    var out = try zt.tensor.full(allocator, &.{ M, K }, f32, 0, .f32);
     for (0..@intCast(M)) |i| {
         for (0..@intCast(K)) |j| {
             for (0..@intCast(N)) |k| {
@@ -430,7 +430,7 @@ fn matmulRef(allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
                 defer tmp_lhs_idx.deinit();
                 var tmp_rhs_idx = try rhs.index(allocator, &.{ Index.initDim(@intCast(k)), Index.initDim(@intCast(j)) });
                 defer tmp_rhs_idx.deinit();
-                var tmp_mul = try tensor.mul(allocator, Tensor, tmp_lhs_idx, Tensor, tmp_rhs_idx);
+                var tmp_mul = try zt.tensor.mul(allocator, Tensor, tmp_lhs_idx, Tensor, tmp_rhs_idx);
                 defer tmp_mul.deinit();
                 try out.indexAdd(allocator, Tensor, tmp_mul, &.{ Index.initDim(@intCast(i)), Index.initDim(@intCast(j)) });
             }
@@ -441,91 +441,93 @@ fn matmulRef(allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
 
 test "TensorBLASTest -> matmul" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var i: Dim = 10;
     var j: Dim = 20;
     var k: Dim = 12;
 
-    var a = try tensor.rand(allocator, &.{ i, j }, .f32);
+    var a = try zt.tensor.rand(allocator, &.{ i, j }, .f32);
     defer a.deinit();
-    var b = try tensor.rand(allocator, &.{ j, k }, .f32);
+    var b = try zt.tensor.rand(allocator, &.{ j, k }, .f32);
     defer b.deinit();
     var ref = try matmulRef(allocator, a, b);
     defer ref.deinit();
-    var res = try tensor.matmul(allocator, a, b, .None, .None);
+    var res = try zt.tensor.matmul(allocator, a, b, .None, .None);
     defer res.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, res, ref, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, res, ref, 1e-5));
 
-    var b_transposed = try tensor.transpose(allocator, b, &.{});
+    var b_transposed = try zt.tensor.transpose(allocator, b, &.{});
     defer b_transposed.deinit();
-    var res2 = try tensor.matmul(allocator, a, b_transposed, .None, .Transpose);
+    var res2 = try zt.tensor.matmul(allocator, a, b_transposed, .None, .Transpose);
     defer res2.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, res2, ref, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, res2, ref, 1e-5));
 
-    var a_transposed = try tensor.transpose(allocator, a, &.{});
+    var a_transposed = try zt.tensor.transpose(allocator, a, &.{});
     defer a_transposed.deinit();
-    var res3 = try tensor.matmul(allocator, a_transposed, b, .Transpose, .None);
+    var res3 = try zt.tensor.matmul(allocator, a_transposed, b, .Transpose, .None);
     defer res3.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, res3, ref, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, res3, ref, 1e-5));
 }
 
 test "TensorBLASTest -> matmulShapes" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     // Matrix/vector/scalar multiplies
-    var rand1 = try tensor.rand(allocator, &.{10}, .f32);
+    var rand1 = try zt.tensor.rand(allocator, &.{10}, .f32);
     defer rand1.deinit();
-    var rand2 = try tensor.rand(allocator, &.{10}, .f32);
+    var rand2 = try zt.tensor.rand(allocator, &.{10}, .f32);
     defer rand2.deinit();
-    var res1 = try tensor.matmul(allocator, rand1, rand2, .None, .None);
+    var res1 = try zt.tensor.matmul(allocator, rand1, rand2, .None, .None);
     defer res1.deinit();
-    try std.testing.expect(tensor.shape.eql(try res1.shape(allocator), &.{1}));
+    try std.testing.expect(zt.tensor.shape.eql(try res1.shape(allocator), &.{1}));
 
-    var res2 = try tensor.matmul(allocator, rand1, rand2, .Transpose, .None);
+    var res2 = try zt.tensor.matmul(allocator, rand1, rand2, .Transpose, .None);
     defer res2.deinit();
-    try std.testing.expect(tensor.shape.eql(try res2.shape(allocator), &.{1}));
+    try std.testing.expect(zt.tensor.shape.eql(try res2.shape(allocator), &.{1}));
 
-    var res3 = try tensor.matmul(allocator, rand1, rand2, .Transpose, .Transpose);
+    var res3 = try zt.tensor.matmul(allocator, rand1, rand2, .Transpose, .Transpose);
     defer res3.deinit();
-    try std.testing.expect(tensor.shape.eql(try res3.shape(allocator), &.{1}));
+    try std.testing.expect(zt.tensor.shape.eql(try res3.shape(allocator), &.{1}));
 
-    var res4 = try tensor.matmul(allocator, rand1, rand2, .None, .Transpose);
+    var res4 = try zt.tensor.matmul(allocator, rand1, rand2, .None, .Transpose);
     defer res4.deinit();
-    try std.testing.expect(tensor.shape.eql(try res4.shape(allocator), &.{1}));
+    try std.testing.expect(zt.tensor.shape.eql(try res4.shape(allocator), &.{1}));
 
-    var rand3 = try tensor.rand(allocator, &.{ 1, 10 }, .f32);
+    var rand3 = try zt.tensor.rand(allocator, &.{ 1, 10 }, .f32);
     defer rand3.deinit();
-    var res5 = try tensor.matmul(allocator, rand3, rand1, .None, .None);
+    var res5 = try zt.tensor.matmul(allocator, rand3, rand1, .None, .None);
     defer res5.deinit();
-    try std.testing.expect(tensor.shape.eql(try res5.shape(allocator), &.{1}));
+    try std.testing.expect(zt.tensor.shape.eql(try res5.shape(allocator), &.{1}));
 
-    var rand4 = try tensor.rand(allocator, &.{1}, .f32);
+    var rand4 = try zt.tensor.rand(allocator, &.{1}, .f32);
     defer rand4.deinit();
-    var res6 = try tensor.matmul(allocator, rand4, rand3, .None, .None);
+    var res6 = try zt.tensor.matmul(allocator, rand4, rand3, .None, .None);
     defer res6.deinit();
-    try std.testing.expect(tensor.shape.eql(try res6.shape(allocator), &.{10}));
+    try std.testing.expect(zt.tensor.shape.eql(try res6.shape(allocator), &.{10}));
 
-    var rand5 = try tensor.rand(allocator, &.{ 3, 4 }, .f32);
+    var rand5 = try zt.tensor.rand(allocator, &.{ 3, 4 }, .f32);
     defer rand5.deinit();
-    var rand6 = try tensor.rand(allocator, &.{4}, .f32);
+    var rand6 = try zt.tensor.rand(allocator, &.{4}, .f32);
     defer rand6.deinit();
-    var res7 = try tensor.matmul(allocator, rand5, rand6, .None, .None);
+    var res7 = try zt.tensor.matmul(allocator, rand5, rand6, .None, .None);
     defer res7.deinit();
-    try std.testing.expect(tensor.shape.eql(try res7.shape(allocator), &.{3}));
+    try std.testing.expect(zt.tensor.shape.eql(try res7.shape(allocator), &.{3}));
 
-    var rand7 = try tensor.rand(allocator, &.{5}, .f32);
+    var rand7 = try zt.tensor.rand(allocator, &.{5}, .f32);
     defer rand7.deinit();
-    var rand8 = try tensor.rand(allocator, &.{ 5, 7 }, .f32);
+    var rand8 = try zt.tensor.rand(allocator, &.{ 5, 7 }, .f32);
     defer rand8.deinit();
-    var res8 = try tensor.matmul(allocator, rand7, rand8, .None, .None);
+    var res8 = try zt.tensor.matmul(allocator, rand7, rand8, .None, .None);
     defer res8.deinit();
-    try std.testing.expect(tensor.shape.eql(try res8.shape(allocator), &.{7}));
+    try std.testing.expect(zt.tensor.shape.eql(try res8.shape(allocator), &.{7}));
 
     try std.testing.expectError(
         error.ArrayFireError,
-        tensor.matmul(
+        zt.tensor.matmul(
             allocator,
             rand4,
             rand1,
@@ -534,11 +536,11 @@ test "TensorBLASTest -> matmulShapes" {
         ),
     );
 
-    var rand9 = try tensor.rand(allocator, &.{3}, .f32);
+    var rand9 = try zt.tensor.rand(allocator, &.{3}, .f32);
     defer rand9.deinit();
     try std.testing.expectError(
         error.ArrayFireError,
-        tensor.matmul(
+        zt.tensor.matmul(
             allocator,
             rand9,
             rand8,
@@ -554,123 +556,125 @@ test "TensorBLASTest -> matmulShapes" {
     var b2: Dim = 2;
     var b3: Dim = 4;
 
-    var rand10 = try tensor.rand(allocator, &.{ M, K }, .f32);
+    var rand10 = try zt.tensor.rand(allocator, &.{ M, K }, .f32);
     defer rand10.deinit();
-    var rand11 = try tensor.rand(allocator, &.{ K, N }, .f32);
+    var rand11 = try zt.tensor.rand(allocator, &.{ K, N }, .f32);
     defer rand11.deinit();
-    var res9 = try tensor.matmul(allocator, rand10, rand11, .None, .None);
+    var res9 = try zt.tensor.matmul(allocator, rand10, rand11, .None, .None);
     defer res9.deinit();
-    try std.testing.expect(tensor.shape.eql(try res9.shape(allocator), &.{ M, N }));
+    try std.testing.expect(zt.tensor.shape.eql(try res9.shape(allocator), &.{ M, N }));
 
-    var rand12 = try tensor.rand(allocator, &.{ M, K, b2 }, .f32);
+    var rand12 = try zt.tensor.rand(allocator, &.{ M, K, b2 }, .f32);
     defer rand12.deinit();
-    var rand13 = try tensor.rand(allocator, &.{ K, N, b2 }, .f32);
+    var rand13 = try zt.tensor.rand(allocator, &.{ K, N, b2 }, .f32);
     defer rand13.deinit();
-    var res10 = try tensor.matmul(allocator, rand12, rand13, .None, .None);
+    var res10 = try zt.tensor.matmul(allocator, rand12, rand13, .None, .None);
     defer res10.deinit();
-    try std.testing.expect(tensor.shape.eql(try res10.shape(allocator), &.{ M, N, b2 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res10.shape(allocator), &.{ M, N, b2 }));
 
-    var rand14 = try tensor.rand(allocator, &.{ M, K, b2, b3 }, .f32);
+    var rand14 = try zt.tensor.rand(allocator, &.{ M, K, b2, b3 }, .f32);
     defer rand14.deinit();
-    var rand15 = try tensor.rand(allocator, &.{ K, N, b2, b3 }, .f32);
+    var rand15 = try zt.tensor.rand(allocator, &.{ K, N, b2, b3 }, .f32);
     defer rand15.deinit();
-    var res11 = try tensor.matmul(allocator, rand14, rand15, .None, .None);
+    var res11 = try zt.tensor.matmul(allocator, rand14, rand15, .None, .None);
     defer res11.deinit();
-    try std.testing.expect(tensor.shape.eql(try res11.shape(allocator), &.{ M, N, b2, b3 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res11.shape(allocator), &.{ M, N, b2, b3 }));
 
-    var res12 = try tensor.matmul(allocator, rand14, rand11, .None, .None);
+    var res12 = try zt.tensor.matmul(allocator, rand14, rand11, .None, .None);
     defer res12.deinit();
-    try std.testing.expect(tensor.shape.eql(try res12.shape(allocator), &.{ M, N, b2, b3 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res12.shape(allocator), &.{ M, N, b2, b3 }));
 
-    var res13 = try tensor.matmul(allocator, rand10, rand15, .None, .None);
+    var res13 = try zt.tensor.matmul(allocator, rand10, rand15, .None, .None);
     defer res13.deinit();
-    try std.testing.expect(tensor.shape.eql(try res13.shape(allocator), &.{ M, N, b2, b3 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res13.shape(allocator), &.{ M, N, b2, b3 }));
 
     // Batch matrix multiply with transpose
-    var rand16 = try tensor.rand(allocator, &.{ K, M }, .f32);
+    var rand16 = try zt.tensor.rand(allocator, &.{ K, M }, .f32);
     defer rand16.deinit();
-    var res14 = try tensor.matmul(allocator, rand16, rand11, .Transpose, .None);
+    var res14 = try zt.tensor.matmul(allocator, rand16, rand11, .Transpose, .None);
     defer res14.deinit();
-    try std.testing.expect(tensor.shape.eql(try res14.shape(allocator), &.{ M, N }));
+    try std.testing.expect(zt.tensor.shape.eql(try res14.shape(allocator), &.{ M, N }));
 
-    var rand17 = try tensor.rand(allocator, &.{ N, K }, .f32);
+    var rand17 = try zt.tensor.rand(allocator, &.{ N, K }, .f32);
     defer rand17.deinit();
-    var res15 = try tensor.matmul(allocator, rand10, rand17, .None, .Transpose);
+    var res15 = try zt.tensor.matmul(allocator, rand10, rand17, .None, .Transpose);
     defer res15.deinit();
-    try std.testing.expect(tensor.shape.eql(try res15.shape(allocator), &.{ M, N }));
+    try std.testing.expect(zt.tensor.shape.eql(try res15.shape(allocator), &.{ M, N }));
 
     // b2 transpose
-    var rand18 = try tensor.rand(allocator, &.{ K, M, b2 }, .f32);
+    var rand18 = try zt.tensor.rand(allocator, &.{ K, M, b2 }, .f32);
     defer rand18.deinit();
-    var res16 = try tensor.matmul(allocator, rand18, rand11, .Transpose, .None);
+    var res16 = try zt.tensor.matmul(allocator, rand18, rand11, .Transpose, .None);
     defer res16.deinit();
-    try std.testing.expect(tensor.shape.eql(try res16.shape(allocator), &.{ M, N, b2 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res16.shape(allocator), &.{ M, N, b2 }));
 
-    var res17 = try tensor.matmul(allocator, rand12, rand17, .None, .Transpose);
+    var res17 = try zt.tensor.matmul(allocator, rand12, rand17, .None, .Transpose);
     defer res17.deinit();
-    try std.testing.expect(tensor.shape.eql(try res17.shape(allocator), &.{ M, N, b2 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res17.shape(allocator), &.{ M, N, b2 }));
 
-    var res18 = try tensor.matmul(allocator, rand16, rand13, .Transpose, .None);
+    var res18 = try zt.tensor.matmul(allocator, rand16, rand13, .Transpose, .None);
     defer res18.deinit();
-    try std.testing.expect(tensor.shape.eql(try res18.shape(allocator), &.{ M, N, b2 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res18.shape(allocator), &.{ M, N, b2 }));
 
-    var rand19 = try tensor.rand(allocator, &.{ N, K, b2 }, .f32);
+    var rand19 = try zt.tensor.rand(allocator, &.{ N, K, b2 }, .f32);
     defer rand19.deinit();
-    var res19 = try tensor.matmul(allocator, rand10, rand19, .None, .Transpose);
+    var res19 = try zt.tensor.matmul(allocator, rand10, rand19, .None, .Transpose);
     defer res19.deinit();
-    try std.testing.expect(tensor.shape.eql(try res19.shape(allocator), &.{ M, N, b2 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res19.shape(allocator), &.{ M, N, b2 }));
 
-    var res20 = try tensor.matmul(allocator, rand18, rand13, .Transpose, .None);
+    var res20 = try zt.tensor.matmul(allocator, rand18, rand13, .Transpose, .None);
     defer res20.deinit();
-    try std.testing.expect(tensor.shape.eql(try res20.shape(allocator), &.{ M, N, b2 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res20.shape(allocator), &.{ M, N, b2 }));
 
-    var res21 = try tensor.matmul(allocator, rand12, rand19, .None, .Transpose);
+    var res21 = try zt.tensor.matmul(allocator, rand12, rand19, .None, .Transpose);
     defer res21.deinit();
-    try std.testing.expect(tensor.shape.eql(try res21.shape(allocator), &.{ M, N, b2 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res21.shape(allocator), &.{ M, N, b2 }));
 
     // TODO: b2, b3 transpose
-    var rand20 = try tensor.rand(allocator, &.{ K, M, b2, b3 }, .f32);
+    var rand20 = try zt.tensor.rand(allocator, &.{ K, M, b2, b3 }, .f32);
     defer rand20.deinit();
-    var res22 = try tensor.matmul(allocator, rand20, rand11, .Transpose, .None);
+    var res22 = try zt.tensor.matmul(allocator, rand20, rand11, .Transpose, .None);
     defer res22.deinit();
-    try std.testing.expect(tensor.shape.eql(try res22.shape(allocator), &.{ M, N, b2, b3 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res22.shape(allocator), &.{ M, N, b2, b3 }));
 
-    var res23 = try tensor.matmul(allocator, rand14, rand17, .None, .Transpose);
+    var res23 = try zt.tensor.matmul(allocator, rand14, rand17, .None, .Transpose);
     defer res23.deinit();
-    try std.testing.expect(tensor.shape.eql(try res23.shape(allocator), &.{ M, N, b2, b3 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res23.shape(allocator), &.{ M, N, b2, b3 }));
 
-    var res24 = try tensor.matmul(allocator, rand16, rand15, .Transpose, .None);
+    var res24 = try zt.tensor.matmul(allocator, rand16, rand15, .Transpose, .None);
     defer res24.deinit();
-    try std.testing.expect(tensor.shape.eql(try res24.shape(allocator), &.{ M, N, b2, b3 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res24.shape(allocator), &.{ M, N, b2, b3 }));
 
-    var rand21 = try tensor.rand(allocator, &.{ N, K, b2, b3 }, .f32);
+    var rand21 = try zt.tensor.rand(allocator, &.{ N, K, b2, b3 }, .f32);
     defer rand21.deinit();
-    var res25 = try tensor.matmul(allocator, rand10, rand21, .None, .Transpose);
+    var res25 = try zt.tensor.matmul(allocator, rand10, rand21, .None, .Transpose);
     defer res25.deinit();
-    try std.testing.expect(tensor.shape.eql(try res25.shape(allocator), &.{ M, N, b2, b3 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res25.shape(allocator), &.{ M, N, b2, b3 }));
 
-    var res26 = try tensor.matmul(allocator, rand20, rand15, .Transpose, .None);
+    var res26 = try zt.tensor.matmul(allocator, rand20, rand15, .Transpose, .None);
     defer res26.deinit();
-    try std.testing.expect(tensor.shape.eql(try res26.shape(allocator), &.{ M, N, b2, b3 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res26.shape(allocator), &.{ M, N, b2, b3 }));
 
-    var res27 = try tensor.matmul(allocator, rand14, rand21, .None, .Transpose);
+    var res27 = try zt.tensor.matmul(allocator, rand14, rand21, .None, .Transpose);
     defer res27.deinit();
-    try std.testing.expect(tensor.shape.eql(try res27.shape(allocator), &.{ M, N, b2, b3 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res27.shape(allocator), &.{ M, N, b2, b3 }));
 
-    var rand22 = try tensor.rand(allocator, &.{ 256, 200, 2 }, .f32);
+    var rand22 = try zt.tensor.rand(allocator, &.{ 256, 200, 2 }, .f32);
     defer rand22.deinit();
-    var rand23 = try tensor.rand(allocator, &.{ 256, 200, 2 }, .f32);
+    var rand23 = try zt.tensor.rand(allocator, &.{ 256, 200, 2 }, .f32);
     defer rand23.deinit();
-    var res28 = try tensor.matmul(allocator, rand22, rand23, .None, .Transpose);
+    var res28 = try zt.tensor.matmul(allocator, rand22, rand23, .None, .Transpose);
     defer res28.deinit();
-    try std.testing.expect(tensor.shape.eql(try res28.shape(allocator), &.{ 256, 256, 2 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res28.shape(allocator), &.{ 256, 256, 2 }));
 }
 
 test "TensorBaseTest -> Metadata" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     const s: Dim = 9;
-    var t = try tensor.rand(allocator, &.{ s, s }, .f32);
+    var t = try zt.tensor.rand(allocator, &.{ s, s }, .f32);
     defer t.deinit();
     try std.testing.expect(try t.elements(allocator) == s * s);
     try std.testing.expect(!try t.isEmpty(allocator));
@@ -688,96 +692,101 @@ test "TensorBaseTest -> Metadata" {
 
 test "TensorBaseTest -> fromScalar" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
-    var a = try tensor.fromScalar(allocator, f32, 3.14, .f32);
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
+    var a = try zt.tensor.fromScalar(allocator, f32, 3.14, .f32);
     defer a.deinit();
     try std.testing.expect(try a.elements(allocator) == 1);
     try std.testing.expect(try a.ndim(allocator) == 0);
     try std.testing.expect(!try a.isEmpty(allocator));
-    try std.testing.expect(tensor.shape.eql(try a.shape(allocator), &.{}));
+    try std.testing.expect(zt.tensor.shape.eql(try a.shape(allocator), &.{}));
 }
 
 // TODO: test "TensorBaseTest -> string" {}
 
 test "TensorBaseTest -> AssignmentOperators" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     // TODO: add support to evaluate as comptime string?
     // e.g. try zt.eval("a += b", .{ a, b });
 
-    var a = try tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
+    var a = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
     defer a.deinit();
     try a.inPlaceAdd(allocator, f64, 2);
-    var exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 3, .f32);
+    var exp = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 3, .f32);
     // no call to deinit; we'll manually do so w/o defer to allow reuse of var
-    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, exp, 1e-5));
     exp.deinit();
 
     try a.inPlaceSub(allocator, f64, 1);
-    exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 2, .f32);
-    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    exp = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 2, .f32);
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, exp, 1e-5));
     exp.deinit();
 
     try a.inPlaceMul(allocator, f64, 8);
-    exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 16, .f32);
-    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    exp = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 16, .f32);
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, exp, 1e-5));
     exp.deinit();
 
     try a.inPlaceDiv(allocator, f64, 4);
-    exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 4, .f32);
-    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    exp = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 4, .f32);
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, exp, 1e-5));
     exp.deinit();
 
-    exp = try tensor.full(allocator, &.{ 4, 4 }, f64, 7, .f32);
+    exp = try zt.tensor.full(allocator, &.{ 4, 4 }, f64, 7, .f32);
     try a.assign(allocator, Tensor, exp);
-    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, exp, 1e-5));
 
     var b = try Tensor.initAssign(allocator, a);
     defer b.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, b, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, b, exp, 1e-5));
     exp.deinit();
 
     try a.assign(allocator, f64, 6);
-    exp = try tensor.full(allocator, &.{ 4, 4 }, f64, 6, .f32);
-    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    exp = try zt.tensor.full(allocator, &.{ 4, 4 }, f64, 6, .f32);
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, exp, 1e-5));
     exp.deinit();
 
-    exp = try tensor.full(allocator, &.{ 5, 6, 7 }, f64, 8, .f32);
+    exp = try zt.tensor.full(allocator, &.{ 5, 6, 7 }, f64, 8, .f32);
     defer exp.deinit();
     try a.assign(allocator, Tensor, exp);
-    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, exp, 1e-5));
 }
 
 test "TensorBaseTest -> CopyOperators" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var a = try tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
+    var a = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
     defer a.deinit();
     var b = try Tensor.initAssign(allocator, a);
     defer b.deinit();
     try a.inPlaceAdd(allocator, f32, 1);
 
-    var exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
-    try std.testing.expect(try tensor.allClose(allocator, b, exp, 1e-5));
+    var exp = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
+    try std.testing.expect(try zt.tensor.allClose(allocator, b, exp, 1e-5));
     exp.deinit();
-    exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 2, .f32);
-    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    exp = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 2, .f32);
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, exp, 1e-5));
 
     var c = try a.copy(allocator);
     defer c.deinit();
     try a.inPlaceAdd(allocator, f32, 1);
-    try std.testing.expect(try tensor.allClose(allocator, c, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, c, exp, 1e-5));
     exp.deinit();
-    exp = try tensor.full(allocator, &.{ 3, 3 }, f64, 3, .f32);
+    exp = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 3, .f32);
     defer exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, exp, 1e-5));
 }
 
 test "TensorBaseTest -> ConstructFromData" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     const val: f32 = 3;
     var vec = [_]f32{val} ** 100;
@@ -785,9 +794,9 @@ test "TensorBaseTest -> ConstructFromData" {
 
     var a = try Tensor.fromSlice(allocator, s, f32, &vec, .f32);
     defer a.deinit();
-    var exp = try tensor.full(allocator, s, f64, val, .f32);
+    var exp = try zt.tensor.full(allocator, s, f64, val, .f32);
     defer exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, exp, 1e-5));
 
     var ascending: []const f32 = &.{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
     var t = try Tensor.fromSlice(allocator, &.{ 3, 4 }, f32, ascending, .f32);
@@ -810,135 +819,139 @@ test "TensorBaseTest -> ConstructFromData" {
 
 test "TensorBaseTest -> reshape" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var a = try tensor.full(allocator, &.{ 4, 4 }, f64, 3, .f32);
+    var a = try zt.tensor.full(allocator, &.{ 4, 4 }, f64, 3, .f32);
     defer a.deinit();
-    var b = try tensor.reshape(allocator, a, &.{ 8, 2 });
+    var b = try zt.tensor.reshape(allocator, a, &.{ 8, 2 });
     defer b.deinit();
-    try std.testing.expect(tensor.shape.eql(try b.shape(allocator), &.{ 8, 2 }));
-    var exp = try tensor.reshape(allocator, b, &.{ 4, 4 });
+    try std.testing.expect(zt.tensor.shape.eql(try b.shape(allocator), &.{ 8, 2 }));
+    var exp = try zt.tensor.reshape(allocator, b, &.{ 4, 4 });
     defer exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, a, exp, 1e-5));
-    try std.testing.expectError(error.ArrayFireError, tensor.reshape(allocator, a, &.{}));
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, exp, 1e-5));
+    try std.testing.expectError(error.ArrayFireError, zt.tensor.reshape(allocator, a, &.{}));
 }
 
 test "TensorBaseTest -> transpose" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     // TODO: expand to check els
-    var og = try tensor.full(allocator, &.{ 3, 4 }, f64, 3, .f32);
-    var exp = try tensor.full(allocator, &.{ 4, 3 }, f64, 3, .f32);
-    var res = try tensor.transpose(allocator, og, &.{});
+    var og = try zt.tensor.full(allocator, &.{ 3, 4 }, f64, 3, .f32);
+    var exp = try zt.tensor.full(allocator, &.{ 4, 3 }, f64, 3, .f32);
+    var res = try zt.tensor.transpose(allocator, og, &.{});
     og.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, res, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, res, exp, 1e-5));
     exp.deinit();
     res.deinit();
 
-    og = try tensor.full(allocator, &.{ 4, 5, 6, 7 }, f64, 3, .f32);
-    exp = try tensor.full(allocator, &.{ 6, 4, 5, 7 }, f64, 3, .f32);
-    res = try tensor.transpose(allocator, og, &.{ 2, 0, 1, 3 });
+    og = try zt.tensor.full(allocator, &.{ 4, 5, 6, 7 }, f64, 3, .f32);
+    exp = try zt.tensor.full(allocator, &.{ 6, 4, 5, 7 }, f64, 3, .f32);
+    res = try zt.tensor.transpose(allocator, og, &.{ 2, 0, 1, 3 });
     og.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, res, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, res, exp, 1e-5));
     exp.deinit();
     res.deinit();
 
-    og = try tensor.rand(allocator, &.{ 3, 4, 5 }, .f32);
+    og = try zt.tensor.rand(allocator, &.{ 3, 4, 5 }, .f32);
     try std.testing.expectError(
         error.ArrayFireTransposeFailed,
-        tensor.transpose(allocator, og, &.{ 0, 1 }),
+        zt.tensor.transpose(allocator, og, &.{ 0, 1 }),
     );
     og.deinit();
 
-    og = try tensor.rand(allocator, &.{ 2, 4, 6, 8 }, .f32);
+    og = try zt.tensor.rand(allocator, &.{ 2, 4, 6, 8 }, .f32);
     try std.testing.expectError(
         error.ArrayFireTransposeFailed,
-        tensor.transpose(allocator, og, &.{ 1, 0, 2 }),
+        zt.tensor.transpose(allocator, og, &.{ 1, 0, 2 }),
     );
     og.deinit();
 
-    og = try tensor.rand(allocator, &.{ 2, 4, 6, 8 }, .f32);
+    og = try zt.tensor.rand(allocator, &.{ 2, 4, 6, 8 }, .f32);
     try std.testing.expectError(
         error.ArrayFireTransposeFailed,
-        tensor.transpose(allocator, og, &.{ 1, 0, 2, 4 }),
+        zt.tensor.transpose(allocator, og, &.{ 1, 0, 2, 4 }),
     );
     og.deinit();
 
-    og = try tensor.rand(allocator, &.{4}, .f32);
-    try std.testing.expect(try tensor.allClose(
+    og = try zt.tensor.rand(allocator, &.{4}, .f32);
+    try std.testing.expect(try zt.tensor.allClose(
         allocator,
-        try tensor.transpose(allocator, og, &.{}), // 1D tensor returns itself (no new alloc)
+        try zt.tensor.transpose(allocator, og, &.{}), // 1D zt.tensor returns itself (no new alloc)
         og,
         1e-5,
     ));
     og.deinit();
 
-    og = try tensor.rand(allocator, &.{ 5, 6, 7 }, .f32);
-    res = try tensor.transpose(allocator, og, &.{});
+    og = try zt.tensor.rand(allocator, &.{ 5, 6, 7 }, .f32);
+    res = try zt.tensor.transpose(allocator, og, &.{});
     og.deinit();
-    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 7, 6, 5 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res.shape(allocator), &.{ 7, 6, 5 }));
     res.deinit();
 
-    og = try tensor.rand(allocator, &.{ 5, 6, 1, 7 }, .f32);
-    res = try tensor.transpose(allocator, og, &.{});
+    og = try zt.tensor.rand(allocator, &.{ 5, 6, 1, 7 }, .f32);
+    res = try zt.tensor.transpose(allocator, og, &.{});
     og.deinit();
-    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 7, 1, 6, 5 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res.shape(allocator), &.{ 7, 1, 6, 5 }));
     res.deinit();
 
-    og = try tensor.rand(allocator, &.{ 1, 1 }, .f32);
-    res = try tensor.transpose(allocator, og, &.{});
+    og = try zt.tensor.rand(allocator, &.{ 1, 1 }, .f32);
+    res = try zt.tensor.transpose(allocator, og, &.{});
     og.deinit();
-    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 1, 1 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res.shape(allocator), &.{ 1, 1 }));
     res.deinit();
 
-    og = try tensor.rand(allocator, &.{ 7, 2, 1, 3 }, .f32);
-    res = try tensor.transpose(allocator, og, &.{ 0, 2, 1, 3 });
+    og = try zt.tensor.rand(allocator, &.{ 7, 2, 1, 3 }, .f32);
+    res = try zt.tensor.transpose(allocator, og, &.{ 0, 2, 1, 3 });
     og.deinit();
-    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 7, 1, 2, 3 }));
+    try std.testing.expect(zt.tensor.shape.eql(try res.shape(allocator), &.{ 7, 1, 2, 3 }));
     res.deinit();
 }
 
 test "TensorBaseTest -> tile" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var a = try tensor.full(allocator, &.{ 4, 4 }, f64, 3, .f32);
+    var a = try zt.tensor.full(allocator, &.{ 4, 4 }, f64, 3, .f32);
     defer a.deinit();
-    var tiled = try tensor.tile(allocator, a, &.{ 2, 2 });
+    var tiled = try zt.tensor.tile(allocator, a, &.{ 2, 2 });
     defer tiled.deinit();
-    try std.testing.expect(tensor.shape.eql(try tiled.shape(allocator), &.{ 8, 8 }));
-    var exp = try tensor.full(allocator, &.{ 8, 8 }, f64, 3, .f32);
+    try std.testing.expect(zt.tensor.shape.eql(try tiled.shape(allocator), &.{ 8, 8 }));
+    var exp = try zt.tensor.full(allocator, &.{ 8, 8 }, f64, 3, .f32);
     defer exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, tiled, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, tiled, exp, 1e-5));
 
-    var tiled2 = try tensor.tile(allocator, a, &.{});
+    var tiled2 = try zt.tensor.tile(allocator, a, &.{});
     defer tiled2.deinit();
-    try std.testing.expect(tensor.shape.eql(try tiled2.shape(allocator), try a.shape(allocator)));
+    try std.testing.expect(zt.tensor.shape.eql(try tiled2.shape(allocator), try a.shape(allocator)));
 
-    var s = try tensor.fromScalar(allocator, f64, 3.14, .f32);
+    var s = try zt.tensor.fromScalar(allocator, f64, 3.14, .f32);
     defer s.deinit();
-    var tiled3 = try tensor.tile(allocator, s, &.{ 3, 3 });
+    var tiled3 = try zt.tensor.tile(allocator, s, &.{ 3, 3 });
     defer tiled3.deinit();
-    try std.testing.expect(tensor.shape.eql(try tiled3.shape(allocator), &.{ 3, 3 }));
-    var tiled4 = try tensor.tile(allocator, s, &.{});
+    try std.testing.expect(zt.tensor.shape.eql(try tiled3.shape(allocator), &.{ 3, 3 }));
+    var tiled4 = try zt.tensor.tile(allocator, s, &.{});
     defer tiled4.deinit();
-    try std.testing.expect(tensor.shape.eql(try tiled4.shape(allocator), try s.shape(allocator)));
+    try std.testing.expect(zt.tensor.shape.eql(try tiled4.shape(allocator), try s.shape(allocator)));
 }
 
 test "TensorBaseTest -> concatenate" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var a = try tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
+    var a = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 1, .f32);
     defer a.deinit();
-    var b = try tensor.full(allocator, &.{ 3, 3 }, f64, 2, .f32);
+    var b = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 2, .f32);
     defer b.deinit();
-    var c = try tensor.full(allocator, &.{ 3, 3 }, f64, 3, .f32);
+    var c = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 3, .f32);
     defer c.deinit();
 
-    var res = try tensor.concatenate(allocator, &.{ a, b, c }, 0);
-    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 9, 3 }));
+    var res = try zt.tensor.concatenate(allocator, &.{ a, b, c }, 0);
+    try std.testing.expect(zt.tensor.shape.eql(try res.shape(allocator), &.{ 9, 3 }));
     res.deinit();
 
     // Empty tensors
@@ -946,16 +959,16 @@ test "TensorBaseTest -> concatenate" {
     defer empty1.deinit();
     var empty2 = try Tensor.initEmpty(allocator);
     defer empty2.deinit();
-    res = try tensor.concatenate(allocator, &.{ empty1, empty2 }, 0);
-    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{0}));
+    res = try zt.tensor.concatenate(allocator, &.{ empty1, empty2 }, 0);
+    try std.testing.expect(zt.tensor.shape.eql(try res.shape(allocator), &.{0}));
     res.deinit();
-    res = try tensor.concatenate(allocator, &.{ empty1, empty2 }, 2);
-    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 0, 1, 1 }));
+    res = try zt.tensor.concatenate(allocator, &.{ empty1, empty2 }, 2);
+    try std.testing.expect(zt.tensor.shape.eql(try res.shape(allocator), &.{ 0, 1, 1 }));
     res.deinit();
-    var d = try tensor.rand(allocator, &.{ 5, 5 }, .f32);
+    var d = try zt.tensor.rand(allocator, &.{ 5, 5 }, .f32);
     defer d.deinit();
-    res = try tensor.concatenate(allocator, &.{ d, empty1 }, 1);
-    try std.testing.expect(tensor.shape.eql(try res.shape(allocator), &.{ 5, 5 }));
+    res = try zt.tensor.concatenate(allocator, &.{ d, empty1 }, 1);
+    try std.testing.expect(zt.tensor.shape.eql(try res.shape(allocator), &.{ 5, 5 }));
     res.deinit();
 
     // More tensors
@@ -963,24 +976,25 @@ test "TensorBaseTest -> concatenate" {
     // arbitrarily-many tensors (10 is upper limit for ArrayFire Backend)
     const val: f32 = 3;
     const axis: u32 = 0;
-    var e = try tensor.full(allocator, &.{ 4, 2 }, f64, val, .f32);
+    var e = try zt.tensor.full(allocator, &.{ 4, 2 }, f64, val, .f32);
     defer e.deinit();
-    var tmp = try tensor.concatenate(allocator, &.{ e, e, e }, axis);
+    var tmp = try zt.tensor.concatenate(allocator, &.{ e, e, e }, axis);
     defer tmp.deinit();
-    var t = try tensor.concatenate(allocator, &.{ e, e, e, tmp }, axis);
+    var t = try zt.tensor.concatenate(allocator, &.{ e, e, e, tmp }, axis);
     defer t.deinit();
-    try std.testing.expect(tensor.shape.eql(try t.shape(allocator), &.{ 24, 2 }));
-    var exp = try tensor.full(allocator, &.{ 24, 2 }, f64, val, .f32);
+    try std.testing.expect(zt.tensor.shape.eql(try t.shape(allocator), &.{ 24, 2 }));
+    var exp = try zt.tensor.full(allocator, &.{ 24, 2 }, f64, val, .f32);
     defer exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, t, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, t, exp, 1e-5));
 }
 
 test "TensorBaseTest -> nonzero" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var idxs: []const Dim = &.{ 0, 1, 4, 9, 11, 23, 55, 82, 91 };
-    var a = try tensor.full(allocator, &.{ 10, 10 }, f64, 1, .u32);
+    var a = try zt.tensor.full(allocator, &.{ 10, 10 }, f64, 1, .u32);
     defer a.deinit();
     for (idxs) |idx| {
         try a.indexAssign(
@@ -994,41 +1008,43 @@ test "TensorBaseTest -> nonzero" {
         );
     }
 
-    var indices = try tensor.nonzero(allocator, a);
+    var indices = try zt.tensor.nonzero(allocator, a);
     defer indices.deinit();
     var nnz = try a.elements(allocator) - @as(i64, @intCast(idxs.len));
-    try std.testing.expect(tensor.shape.eql(try indices.shape(allocator), &.{nnz}));
+    try std.testing.expect(zt.tensor.shape.eql(try indices.shape(allocator), &.{nnz}));
     var flat_a = try a.flatten(allocator);
     defer flat_a.deinit();
     var res = try flat_a.index(allocator, &.{Index.initTensor(indices)});
     defer res.deinit();
-    var exp = try tensor.full(allocator, &.{nnz}, f64, 1, .u32);
+    var exp = try zt.tensor.full(allocator, &.{nnz}, f64, 1, .u32);
     defer exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, res, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, res, exp, 1e-5));
 }
 
 test "TensorBaseTest -> flatten" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     const s: Dim = 6;
-    var a = try tensor.full(allocator, &.{ s, s, s }, f64, 2, .f32);
+    var a = try zt.tensor.full(allocator, &.{ s, s, s }, f64, 2, .f32);
     defer a.deinit();
     var flat = try a.flatten(allocator);
     defer flat.deinit();
-    try std.testing.expect(tensor.shape.eql(try flat.shape(allocator), &.{s * s * s}));
-    var exp = try tensor.full(allocator, &.{s * s * s}, f64, 2, .f32);
+    try std.testing.expect(zt.tensor.shape.eql(try flat.shape(allocator), &.{s * s * s}));
+    var exp = try zt.tensor.full(allocator, &.{s * s * s}, f64, 2, .f32);
     defer exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, flat, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, flat, exp, 1e-5));
 }
 
 test "TensorBaseTest -> pad" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var t = try tensor.rand(allocator, &.{ 5, 2 }, .f32);
+    var t = try zt.tensor.rand(allocator, &.{ 5, 2 }, .f32);
     defer t.deinit();
-    var zero_padded = try tensor.pad(
+    var zero_padded = try zt.tensor.pad(
         allocator,
         t,
         &.{ [2]Dim{ 1, 2 }, [2]Dim{ 3, 4 } },
@@ -1036,65 +1052,66 @@ test "TensorBaseTest -> pad" {
     );
     defer zero_padded.deinit();
 
-    var a = try tensor.full(allocator, &.{ 8, 3 }, f64, 0, .f32);
-    var b = try tensor.full(allocator, &.{ 1, 2 }, f64, 0, .f32);
-    var c = try tensor.full(allocator, &.{ 2, 2 }, f64, 0, .f32);
-    var d = try tensor.full(allocator, &.{ 8, 4 }, f64, 0, .f32);
-    var e = try tensor.concatenate(allocator, &.{ b, t, c }, 0);
+    var a = try zt.tensor.full(allocator, &.{ 8, 3 }, f64, 0, .f32);
+    var b = try zt.tensor.full(allocator, &.{ 1, 2 }, f64, 0, .f32);
+    var c = try zt.tensor.full(allocator, &.{ 2, 2 }, f64, 0, .f32);
+    var d = try zt.tensor.full(allocator, &.{ 8, 4 }, f64, 0, .f32);
+    var e = try zt.tensor.concatenate(allocator, &.{ b, t, c }, 0);
     b.deinit();
     c.deinit();
 
-    var zero_test = try tensor.concatenate(allocator, &.{ a, e, d }, 1);
+    var zero_test = try zt.tensor.concatenate(allocator, &.{ a, e, d }, 1);
     defer zero_test.deinit();
     a.deinit();
     d.deinit();
     e.deinit();
 
-    try std.testing.expect(try tensor.allClose(allocator, zero_padded, zero_test, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, zero_padded, zero_test, 1e-5));
 
-    var edge_padded = try tensor.pad(
+    var edge_padded = try zt.tensor.pad(
         allocator,
         t,
         &.{ [2]Dim{ 1, 1 }, [2]Dim{ 2, 2 } },
         .Edge,
     );
     defer edge_padded.deinit();
-    a = try t.index(allocator, &.{ Index.initDim(0), Index.initRange(tensor.span) });
-    b = try tensor.reshape(allocator, a, &.{ 1, 2 });
+    a = try t.index(allocator, &.{ Index.initDim(0), Index.initRange(zt.tensor.span) });
+    b = try zt.tensor.reshape(allocator, a, &.{ 1, 2 });
     a.deinit();
-    a = try t.index(allocator, &.{ Index.initDim(try t.dim(allocator, 0) - 1), Index.initRange(tensor.span) });
-    c = try tensor.reshape(allocator, a, &.{ 1, 2 });
+    a = try t.index(allocator, &.{ Index.initDim(try t.dim(allocator, 0) - 1), Index.initRange(zt.tensor.span) });
+    c = try zt.tensor.reshape(allocator, a, &.{ 1, 2 });
     a.deinit();
-    a = try tensor.concatenate(allocator, &.{ b, t, c }, 0);
+    a = try zt.tensor.concatenate(allocator, &.{ b, t, c }, 0);
     b.deinit();
     c.deinit();
-    var v_tiled0 = try a.index(allocator, &.{ Index.initRange(tensor.span), Index.initDim(0) });
+    var v_tiled0 = try a.index(allocator, &.{ Index.initRange(zt.tensor.span), Index.initDim(0) });
     defer v_tiled0.deinit();
-    var v_tiled1 = try a.index(allocator, &.{ Index.initRange(tensor.span), Index.initDim(1) });
+    var v_tiled1 = try a.index(allocator, &.{ Index.initRange(zt.tensor.span), Index.initDim(1) });
     defer v_tiled1.deinit();
     a.deinit();
-    a = try tensor.tile(allocator, v_tiled0, &.{ 1, 3 });
-    b = try tensor.tile(allocator, v_tiled1, &.{ 1, 3 });
-    c = try tensor.concatenate(allocator, &.{ a, b }, 1);
+    a = try zt.tensor.tile(allocator, v_tiled0, &.{ 1, 3 });
+    b = try zt.tensor.tile(allocator, v_tiled1, &.{ 1, 3 });
+    c = try zt.tensor.concatenate(allocator, &.{ a, b }, 1);
     a.deinit();
     b.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, edge_padded, c, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, edge_padded, c, 1e-5));
     c.deinit();
 
-    var symmetric_padded = try tensor.pad(allocator, t, &.{ [2]Dim{ 1, 1 }, [2]Dim{ 2, 2 } }, .Symmetric);
+    var symmetric_padded = try zt.tensor.pad(allocator, t, &.{ [2]Dim{ 1, 1 }, [2]Dim{ 2, 2 } }, .Symmetric);
     defer symmetric_padded.deinit();
-    a = try tensor.concatenate(allocator, &.{ v_tiled1, v_tiled1, v_tiled0 }, 1);
+    a = try zt.tensor.concatenate(allocator, &.{ v_tiled1, v_tiled1, v_tiled0 }, 1);
     defer a.deinit();
-    b = try tensor.concatenate(allocator, &.{ v_tiled1, v_tiled0, v_tiled0, a }, 1);
+    b = try zt.tensor.concatenate(allocator, &.{ v_tiled1, v_tiled0, v_tiled0, a }, 1);
     defer b.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, symmetric_padded, b, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, symmetric_padded, b, 1e-5));
 }
 
 test "TensorBaseTest -> astype" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var a = try tensor.rand(allocator, &.{ 3, 3 }, .f32);
+    var a = try zt.tensor.rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
     try std.testing.expect(try a.dtype(allocator) == .f32);
     var b = try a.astype(allocator, .f64);
@@ -1104,111 +1121,115 @@ test "TensorBaseTest -> astype" {
 
 test "TensorBaseTest -> where" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try Tensor.fromSlice(allocator, &.{ 2, 5 }, i32, &.{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, .s32);
     defer a.deinit();
-    var lt1 = try tensor.lessThan(allocator, Tensor, a, f64, 5);
+    var lt1 = try zt.tensor.lessThan(allocator, Tensor, a, f64, 5);
     defer lt1.deinit();
-    var tmp1 = try tensor.mul(allocator, Tensor, a, f64, 5);
+    var tmp1 = try zt.tensor.mul(allocator, Tensor, a, f64, 5);
     defer tmp1.deinit();
-    var out = try tensor.where(allocator, lt1, Tensor, a, Tensor, tmp1);
+    var out = try zt.tensor.where(allocator, lt1, Tensor, a, Tensor, tmp1);
     defer out.deinit();
-    var gte1 = try tensor.greaterThanEqual(allocator, Tensor, a, f64, 5);
+    var gte1 = try zt.tensor.greaterThanEqual(allocator, Tensor, a, f64, 5);
     defer gte1.deinit();
     try a.indexMul(allocator, f64, 5, &.{Index.initTensor(gte1)});
-    try std.testing.expect(try tensor.allClose(allocator, out, a, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, out, a, 1e-5));
 
-    var lt2 = try tensor.lessThan(allocator, Tensor, a, f64, 5);
+    var lt2 = try zt.tensor.lessThan(allocator, Tensor, a, f64, 5);
     defer lt2.deinit();
-    var outC = try tensor.where(allocator, lt2, Tensor, a, f64, 3);
+    var outC = try zt.tensor.where(allocator, lt2, Tensor, a, f64, 3);
     defer outC.deinit();
-    var gte2 = try tensor.greaterThanEqual(allocator, Tensor, a, f64, 5);
+    var gte2 = try zt.tensor.greaterThanEqual(allocator, Tensor, a, f64, 5);
     defer gte2.deinit();
     try a.indexAssign(allocator, f64, 3, &.{Index.initTensor(gte2)});
-    try std.testing.expect(try tensor.allClose(allocator, outC, a, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, outC, a, 1e-5));
 
-    var lt3 = try tensor.lessThan(allocator, Tensor, a, f64, 5);
+    var lt3 = try zt.tensor.lessThan(allocator, Tensor, a, f64, 5);
     defer lt3.deinit();
-    var outC2 = try tensor.where(allocator, lt3, f64, 3, Tensor, a);
+    var outC2 = try zt.tensor.where(allocator, lt3, f64, 3, Tensor, a);
     defer outC2.deinit();
     try a.indexAssign(allocator, f64, 3, &.{Index.initTensor(lt3)});
-    try std.testing.expect(try tensor.allClose(allocator, outC2, a, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, outC2, a, 1e-5));
 }
 
 test "TensorBaseTest -> topk" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var a = try tensor.arange(allocator, &.{ 10, 2 }, 0, .f32);
+    var a = try zt.tensor.arange(allocator, &.{ 10, 2 }, 0, .f32);
     defer a.deinit();
     var values = try Tensor.initEmpty(allocator);
     defer values.deinit();
     var indices = try Tensor.initEmpty(allocator);
     defer indices.deinit();
-    try tensor.topk(allocator, values, indices, a, 3, 0, .Descending);
+    try zt.tensor.topk(allocator, values, indices, a, 3, 0, .Descending);
     var exp = try Tensor.fromSlice(allocator, &.{ 3, 2 }, f32, &.{ 9, 8, 7, 9, 8, 7 }, .f32);
     defer exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, values, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, values, exp, 1e-5));
 
     var values2 = try Tensor.initEmpty(allocator);
     defer values2.deinit();
     var indices2 = try Tensor.initEmpty(allocator);
     defer indices2.deinit();
-    try tensor.topk(allocator, values2, indices2, a, 4, 0, .Ascending);
+    try zt.tensor.topk(allocator, values2, indices2, a, 4, 0, .Ascending);
     var exp2 = try Tensor.fromSlice(allocator, &.{ 4, 2 }, f32, &.{ 0, 1, 2, 3, 0, 1, 2, 3 }, .f32);
     defer exp2.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, values2, exp2, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, values2, exp2, 1e-5));
 }
 
 test "TensorBaseTest -> sort" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var dims: Shape = &.{ 10, 2 };
-    var a = try tensor.arange(allocator, dims, 0, .f32);
+    var a = try zt.tensor.arange(allocator, dims, 0, .f32);
     defer a.deinit();
     var sorted = try Tensor.initEmpty(allocator);
     defer sorted.deinit();
-    try tensor.sort(allocator, sorted, null, a, 0, .Descending);
+    try zt.tensor.sort(allocator, sorted, null, a, 0, .Descending);
     var expected = try Tensor.initHandle(allocator, &.{dims[0]}, try a.dtype(allocator));
     defer expected.deinit();
     for (0..@intCast(dims[0])) |i| {
         try expected.indexAssign(allocator, i64, dims[0] - @as(i64, @intCast(i)) - 1, &.{Index.initDim(@intCast(i))});
     }
-    var tiled = try tensor.tile(allocator, expected, &.{ 1, 2 });
+    var tiled = try zt.tensor.tile(allocator, expected, &.{ 1, 2 });
     defer tiled.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, sorted, tiled, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, sorted, tiled, 1e-5));
 
     var sorted2 = try Tensor.initEmpty(allocator);
     defer sorted2.deinit();
-    try tensor.sort(allocator, sorted2, null, tiled, 0, .Ascending);
-    try std.testing.expect(try tensor.allClose(allocator, a, sorted2, 1e-5));
+    try zt.tensor.sort(allocator, sorted2, null, tiled, 0, .Ascending);
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, sorted2, 1e-5));
 
-    var b = try tensor.rand(allocator, &.{10}, .f32);
+    var b = try zt.tensor.rand(allocator, &.{10}, .f32);
     defer b.deinit();
     var values = try Tensor.initEmpty(allocator);
     defer values.deinit();
     var indices = try Tensor.initEmpty(allocator);
     defer indices.deinit();
-    try tensor.sort(allocator, values, indices, b, 0, .Descending);
+    try zt.tensor.sort(allocator, values, indices, b, 0, .Descending);
     var sorted3 = try Tensor.initEmpty(allocator);
     defer sorted3.deinit();
-    try tensor.sort(allocator, sorted3, null, b, 0, .Descending);
-    try std.testing.expect(try tensor.allClose(allocator, values, sorted3, 1e-5));
-    var indices_exp = try tensor.argsort(allocator, b, 0, .Descending);
+    try zt.tensor.sort(allocator, sorted3, null, b, 0, .Descending);
+    try std.testing.expect(try zt.tensor.allClose(allocator, values, sorted3, 1e-5));
+    var indices_exp = try zt.tensor.argsort(allocator, b, 0, .Descending);
     defer indices_exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, indices, indices_exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, indices, indices_exp, 1e-5));
 }
 
 test "TensorBaseTest -> argsort" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var dims: Shape = &.{ 10, 2 };
-    var a = try tensor.arange(allocator, dims, 0, .f32);
+    var a = try zt.tensor.arange(allocator, dims, 0, .f32);
     defer a.deinit();
-    var sorted = try tensor.argsort(allocator, a, 0, .Descending);
+    var sorted = try zt.tensor.argsort(allocator, a, 0, .Descending);
     defer sorted.deinit();
 
     var expected = try Tensor.initHandle(allocator, &.{dims[0]}, .u32);
@@ -1216,18 +1237,18 @@ test "TensorBaseTest -> argsort" {
     for (0..@intCast(dims[0])) |i| {
         try expected.indexAssign(allocator, i64, dims[0] - @as(i64, @intCast(i)) - 1, &.{Index.initDim(@intCast(i))});
     }
-    var tiled = try tensor.tile(allocator, expected, &.{ 1, 2 });
+    var tiled = try zt.tensor.tile(allocator, expected, &.{ 1, 2 });
     defer tiled.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, sorted, tiled, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, sorted, tiled, 1e-5));
 
-    var sorted2 = try tensor.argsort(allocator, tiled, 0, .Ascending);
+    var sorted2 = try zt.tensor.argsort(allocator, tiled, 0, .Ascending);
     defer sorted2.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, tiled, sorted2, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, tiled, sorted2, 1e-5));
 }
 
 fn assertScalarBehavior(allocator: std.mem.Allocator, comptime scalar_arg_type: type, data_type: DType) !void {
     var scalar: scalar_arg_type = 42;
-    var one = try tensor.full(allocator, &.{1}, scalar_arg_type, scalar, data_type);
+    var one = try zt.tensor.full(allocator, &.{1}, scalar_arg_type, scalar, data_type);
     defer one.deinit();
 
     var dtype_trait = comptime dtypeTraits(scalar_arg_type);
@@ -1240,18 +1261,20 @@ fn assertScalarBehavior(allocator: std.mem.Allocator, comptime scalar_arg_type: 
     }
     try std.testing.expectEqual(try one.scalar(allocator, scalar_arg_type), scalar);
 
-    var a = try tensor.rand(allocator, &.{ 5, 6 }, data_type);
+    var a = try zt.tensor.rand(allocator, &.{ 5, 6 }, data_type);
     defer a.deinit();
-    var actual = try tensor.full(allocator, &.{1}, scalar_arg_type, try a.scalar(allocator, scalar_arg_type), data_type);
+    var actual = try zt.tensor.full(allocator, &.{1}, scalar_arg_type, try a.scalar(allocator, scalar_arg_type), data_type);
     defer actual.deinit();
     var exp = try a.index(allocator, &.{ Index.initDim(0), Index.initDim(0) });
     defer exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, actual, exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, actual, exp, 1e-5));
 }
 
 test "TensorBaseTest -> scalar" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var types: []const DType = &.{
         DType.b8,
         DType.u8,
@@ -1282,44 +1305,48 @@ test "TensorBaseTest -> scalar" {
 
 test "TensorBaseTest -> isContiguous" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var a = try tensor.rand(allocator, &.{ 10, 10 }, .f32);
+    var a = try zt.tensor.rand(allocator, &.{ 10, 10 }, .f32);
     defer a.deinit();
     try std.testing.expect(try a.isContiguous(allocator));
 }
 
 test "TensorBaseTest -> strides" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var a = try tensor.rand(allocator, &.{ 10, 10 }, .f32);
+    var a = try zt.tensor.rand(allocator, &.{ 10, 10 }, .f32);
     defer a.deinit();
     var strides = try a.strides(allocator);
     defer allocator.free(strides);
-    try std.testing.expect(tensor.shape.eql(strides, &.{ 1, 10 }));
+    try std.testing.expect(zt.tensor.shape.eql(strides, &.{ 1, 10 }));
 }
 
 test "TensorBaseTest -> stream" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var t1 = try tensor.rand(allocator, &.{ 10, 10 }, .f32);
+    var t1 = try zt.tensor.rand(allocator, &.{ 10, 10 }, .f32);
     defer t1.deinit();
-    var t2 = try tensor.negative(allocator, t1);
+    var t2 = try zt.tensor.negative(allocator, t1);
     defer t2.deinit();
-    var t3 = try tensor.add(allocator, Tensor, t1, Tensor, t2);
+    var t3 = try zt.tensor.add(allocator, Tensor, t1, Tensor, t2);
     defer t3.deinit();
     try std.testing.expectEqual(try t1.stream(allocator), try t2.stream(allocator));
     try std.testing.expectEqual(try t1.stream(allocator), try t3.stream(allocator));
 }
 
 test "TensorBaseTest -> asContiguousTensor" {
-    const Range = tensor.Range;
+    const Range = zt.tensor.Range;
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var t = try tensor.rand(allocator, &.{ 5, 6, 7, 8 }, .f32);
+    var t = try zt.tensor.rand(allocator, &.{ 5, 6, 7, 8 }, .f32);
     defer t.deinit();
     var indexed = try t.index(
         allocator,
@@ -1342,14 +1369,15 @@ test "TensorBaseTest -> asContiguousTensor" {
     }
     var contig_strides = try contiguous.strides(allocator);
     defer allocator.free(contig_strides);
-    try std.testing.expect(tensor.shape.eql(contig_strides, strides.items));
+    try std.testing.expect(zt.tensor.shape.eql(contig_strides, strides.items));
 }
 
 test "TensorBaseTest -> host" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var a = try tensor.rand(allocator, &.{ 10, 10 }, .f32);
+    var a = try zt.tensor.rand(allocator, &.{ 10, 10 }, .f32);
     defer a.deinit();
     var ptr = (try a.allocHost(allocator, f32)).?;
     defer allocator.free(ptr);
@@ -1378,81 +1406,83 @@ test "TensorBaseTest -> host" {
 
 test "TensorBaseTest -> arange" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     // Range/step overload
-    var a = try tensor.arange2(allocator, i32, 2, 10, 2);
+    var a = try zt.tensor.arange2(allocator, i32, 2, 10, 2);
     defer a.deinit();
     var a_exp = try Tensor.fromSlice(allocator, &.{4}, i32, &.{ 2, 4, 6, 8 }, .s32);
     defer a_exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, a, a_exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, a_exp, 1e-5));
 
-    var b = try tensor.arange2(allocator, i32, 0, 6, 1);
+    var b = try zt.tensor.arange2(allocator, i32, 0, 6, 1);
     defer b.deinit();
     var b_exp = try Tensor.fromSlice(allocator, &.{6}, i32, &.{ 0, 1, 2, 3, 4, 5 }, .s32);
     defer b_exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, b, b_exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, b, b_exp, 1e-5));
 
-    var c = try tensor.arange2(allocator, f32, 0, 1.22, 0.25);
+    var c = try zt.tensor.arange2(allocator, f32, 0, 1.22, 0.25);
     defer c.deinit();
     var c_exp = try Tensor.fromSlice(allocator, &.{4}, f32, &.{ 0, 0.25, 0.5, 0.75 }, .f32);
     defer c_exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, c, c_exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, c, c_exp, 1e-5));
 
-    var d = try tensor.arange2(allocator, f32, 0, 4.1, 1);
+    var d = try zt.tensor.arange2(allocator, f32, 0, 4.1, 1);
     defer d.deinit();
     var d_exp = try Tensor.fromSlice(allocator, &.{4}, f32, &.{ 0, 1, 2, 3 }, .f32);
     defer d_exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, d, d_exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, d, d_exp, 1e-5));
 
     // Shape overload
-    var e = try tensor.arange(allocator, &.{4}, 0, .f32);
+    var e = try zt.tensor.arange(allocator, &.{4}, 0, .f32);
     defer e.deinit();
     var e_exp = try Tensor.fromSlice(allocator, &.{4}, f32, &.{ 0, 1, 2, 3 }, .f32);
     defer e_exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, e, e_exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, e, e_exp, 1e-5));
 
-    var f = try tensor.arange(allocator, &.{ 4, 5 }, 0, .f32);
+    var f = try zt.tensor.arange(allocator, &.{ 4, 5 }, 0, .f32);
     defer f.deinit();
-    var f_exp = try tensor.tile(allocator, e_exp, &.{ 1, 5 });
+    var f_exp = try zt.tensor.tile(allocator, e_exp, &.{ 1, 5 });
     defer f_exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, f, f_exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, f, f_exp, 1e-5));
 
-    var g = try tensor.arange(allocator, &.{ 4, 5 }, 1, .f32);
+    var g = try zt.tensor.arange(allocator, &.{ 4, 5 }, 1, .f32);
     defer g.deinit();
-    try std.testing.expect(tensor.shape.eql(try g.shape(allocator), &.{ 4, 5 }));
+    try std.testing.expect(zt.tensor.shape.eql(try g.shape(allocator), &.{ 4, 5 }));
     var g_tmp = try Tensor.fromSlice(allocator, &.{5}, f32, &.{ 0, 1, 2, 3, 4 }, .f32);
     defer g_tmp.deinit();
-    var g_tmp1 = try tensor.reshape(allocator, g_tmp, &.{ 1, 5 });
+    var g_tmp1 = try zt.tensor.reshape(allocator, g_tmp, &.{ 1, 5 });
     defer g_tmp1.deinit();
-    var g_exp = try tensor.tile(allocator, g_tmp1, &.{4});
+    var g_exp = try zt.tensor.tile(allocator, g_tmp1, &.{4});
     defer g_exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, g, g_exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, g, g_exp, 1e-5));
 
-    var i = try tensor.arange(allocator, &.{ 2, 6 }, 0, .f64);
+    var i = try zt.tensor.arange(allocator, &.{ 2, 6 }, 0, .f64);
     defer i.deinit();
     try std.testing.expect(try i.dtype(allocator) == .f64);
 }
 
 test "TensorBaseTest -> iota" {
     const allocator = std.testing.allocator;
-    defer tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
-    var a = try tensor.iota(allocator, &.{ 5, 3 }, &.{ 1, 2 }, .f32);
+    var a = try zt.tensor.iota(allocator, &.{ 5, 3 }, &.{ 1, 2 }, .f32);
     defer a.deinit();
-    var a_tmp = try tensor.arange(allocator, &.{15}, 0, .f32);
+    var a_tmp = try zt.tensor.arange(allocator, &.{15}, 0, .f32);
     defer a_tmp.deinit();
-    var a_tmp1 = try tensor.reshape(allocator, a_tmp, &.{ 5, 3 });
+    var a_tmp1 = try zt.tensor.reshape(allocator, a_tmp, &.{ 5, 3 });
     defer a_tmp1.deinit();
-    var a_exp = try tensor.tile(allocator, a_tmp1, &.{ 1, 2 });
+    var a_exp = try zt.tensor.tile(allocator, a_tmp1, &.{ 1, 2 });
     defer a_exp.deinit();
-    try std.testing.expect(try tensor.allClose(allocator, a, a_exp, 1e-5));
+    try std.testing.expect(try zt.tensor.allClose(allocator, a, a_exp, 1e-5));
 
-    var b = try tensor.iota(allocator, &.{ 2, 2 }, &.{ 2, 2 }, .f64);
+    var b = try zt.tensor.iota(allocator, &.{ 2, 2 }, &.{ 2, 2 }, .f64);
     defer b.deinit();
     try std.testing.expect(try b.dtype(allocator) == .f64);
 
-    var c = try tensor.iota(allocator, &.{ 1, 10 }, &.{5}, .f32);
+    var c = try zt.tensor.iota(allocator, &.{ 1, 10 }, &.{5}, .f32);
     defer c.deinit();
-    try std.testing.expect(tensor.shape.eql(try c.shape(allocator), &.{ 5, 10 }));
+    try std.testing.expect(zt.tensor.shape.eql(try c.shape(allocator), &.{ 5, 10 }));
 }

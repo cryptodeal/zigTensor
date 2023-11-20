@@ -1,20 +1,20 @@
 //! The standard TensorBackend implementation.
 const std = @import("std");
 const zigrc = @import("zigrc");
-const tensor_ = @import("tensor.zig");
+const zt = @import("../zt.zig");
 
 const assert = std.debug.assert;
-const Tensor = tensor_.Tensor;
-const TensorExtensionType = tensor_.TensorExtensionType;
-const TensorExtension = tensor_.TensorExtension;
-const TensorBackendType = tensor_.TensorBackendType;
-const DType = tensor_.DType;
-const Shape = tensor_.shape.Shape;
-const Dim = tensor_.shape.Dim;
-const SortMode = tensor_.SortMode;
-const MatrixProperty = tensor_.MatrixProperty;
-const PadType = tensor_.PadType;
-const Index = tensor_.Index;
+const Tensor = zt.tensor.Tensor;
+const TensorExtensionType = zt.tensor.TensorExtensionType;
+const TensorExtension = zt.tensor.TensorExtension;
+const TensorBackendType = zt.tensor.TensorBackendType;
+const DType = zt.tensor.DType;
+const Shape = zt.tensor.shape.Shape;
+const Dim = zt.tensor.shape.Dim;
+const SortMode = zt.tensor.SortMode;
+const MatrixProperty = zt.tensor.MatrixProperty;
+const PadType = zt.tensor.PadType;
+const Index = zt.tensor.Index;
 
 pub fn areBackendsEqual(self: TensorBackend, other: TensorBackend) bool {
     return self.backendType() == other.backendType();
@@ -168,8 +168,7 @@ pub const TensorBackend = struct {
 
     pub fn getExtension(self: *const Self, allocator: std.mem.Allocator, comptime T: type) !T {
         assert(@typeInfo(T) == .Struct);
-        assert(@hasField(T, "getExtensionType"));
-        var extension = try self.vtable.getExtension(self.ptr, allocator, T.getExtensionType());
+        var extension = try self.vtable.getExtension(self.ptr, allocator, T.extensionType());
         return extension.getExtension(T);
     }
 
@@ -246,7 +245,7 @@ pub const TensorBackend = struct {
     }
 
     fn modifyIdxAssignShape(self: *const Self, allocator: std.mem.Allocator, tensor: Tensor, tensor_shape: Shape, target_shape: Shape) !Tensor {
-        if (tensor_.shape.elements(target_shape) != tensor_.shape.elements(tensor_shape) or !try self.validateDimMatch(allocator, tensor_shape, target_shape)) {
+        if (zt.tensor.shape.elements(target_shape) != zt.tensor.shape.elements(tensor_shape) or !try self.validateDimMatch(allocator, tensor_shape, target_shape)) {
             std.debug.print("tensor_shape: {any} vs target_shape: {any}\n", .{ tensor_shape, target_shape });
             return error.FailedToModifyIndexAssignShape;
         }
@@ -261,7 +260,7 @@ pub const TensorBackend = struct {
         defer allocator.free(shape);
         if (T == Tensor) {
             var rhs_shape = try rhs.shape(allocator);
-            if (tensor_.shape.eql(shape[0..1], rhs_shape)) {
+            if (zt.tensor.shape.eql(shape[0..1], rhs_shape)) {
                 rhsTensor = rhs;
             } else {
                 rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape[0..1]);
@@ -282,7 +281,7 @@ pub const TensorBackend = struct {
         defer allocator.free(shape);
         if (T == Tensor) {
             var rhs_shape = try rhs.shape(allocator);
-            if (tensor_.shape.eql(shape[0..1], rhs_shape)) {
+            if (zt.tensor.shape.eql(shape[0..1], rhs_shape)) {
                 rhsTensor = rhs;
             } else {
                 rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape[0..1]);
@@ -303,7 +302,7 @@ pub const TensorBackend = struct {
         defer allocator.free(shape);
         if (T == Tensor) {
             var rhs_shape = try rhs.shape(allocator);
-            if (tensor_.shape.eql(shape[0..1], rhs_shape)) {
+            if (zt.tensor.shape.eql(shape[0..1], rhs_shape)) {
                 rhsTensor = rhs;
             } else {
                 rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape[0..1]);
@@ -324,7 +323,7 @@ pub const TensorBackend = struct {
         defer allocator.free(shape);
         if (T == Tensor) {
             var rhs_shape = try rhs.shape(allocator);
-            if (tensor_.shape.eql(shape[0..1], rhs_shape)) {
+            if (zt.tensor.shape.eql(shape[0..1], rhs_shape)) {
                 rhsTensor = rhs;
             } else {
                 rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape[0..1]);
@@ -345,7 +344,7 @@ pub const TensorBackend = struct {
         defer allocator.free(shape);
         if (T == Tensor) {
             var rhs_shape = try rhs.shape(allocator);
-            if (tensor_.shape.eql(shape[0..1], rhs_shape)) {
+            if (zt.tensor.shape.eql(shape[0..1], rhs_shape)) {
                 rhsTensor = rhs;
             } else {
                 rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape[0..1]);
@@ -361,7 +360,7 @@ pub const TensorBackend = struct {
     pub fn indexAssign(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []const Index) !void {
         // if indexing with a bool Tensor, return early if no true values
         if (indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == try lhs.elements(allocator) and try indices[0].index_.Tensor.dtype(allocator) == .b8) {
-            var any_check = try tensor_.any(allocator, indices[0].index_.Tensor, &.{}, false);
+            var any_check = try zt.tensor.any(allocator, indices[0].index_.Tensor, &.{}, false);
             defer any_check.deinit();
             if (try any_check.scalar(allocator, i8) == 0) {
                 return;
@@ -374,7 +373,7 @@ pub const TensorBackend = struct {
         defer allocator.free(shape);
         if (T == Tensor) {
             var rhs_shape = try rhs.shape(allocator);
-            if (tensor_.shape.eql(shape, rhs_shape)) {
+            if (zt.tensor.shape.eql(shape, rhs_shape)) {
                 rhsTensor = rhs;
             } else {
                 rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape);
@@ -390,7 +389,7 @@ pub const TensorBackend = struct {
     pub fn indexAdd(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []const Index) !void {
         // if indexing with a bool Tensor, return early if no true values
         if (indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == try lhs.elements(allocator) and try indices[0].index_.Tensor.dtype(allocator) == .b8) {
-            var any_check = try tensor_.any(allocator, indices[0].index_.Tensor, &.{}, false);
+            var any_check = try zt.tensor.any(allocator, indices[0].index_.Tensor, &.{}, false);
             defer any_check.deinit();
             if (try any_check.scalar(allocator, i8) == 0) {
                 return;
@@ -403,7 +402,7 @@ pub const TensorBackend = struct {
         defer allocator.free(shape);
         if (T == Tensor) {
             var rhs_shape = try rhs.shape(allocator);
-            if (tensor_.shape.eql(shape, rhs_shape)) {
+            if (zt.tensor.shape.eql(shape, rhs_shape)) {
                 rhsTensor = rhs;
             } else {
                 rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape);
@@ -419,7 +418,7 @@ pub const TensorBackend = struct {
     pub fn indexSub(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []const Index) !void {
         // if indexing with a bool Tensor, return early if no true values
         if (indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == try lhs.elements(allocator) and try indices[0].index_.Tensor.dtype(allocator) == .b8) {
-            var any_check = try tensor_.any(allocator, indices[0].index_.Tensor, &.{}, false);
+            var any_check = try zt.tensor.any(allocator, indices[0].index_.Tensor, &.{}, false);
             defer any_check.deinit();
             if (try any_check.scalar(allocator, i8) == 0) {
                 return;
@@ -432,7 +431,7 @@ pub const TensorBackend = struct {
         defer allocator.free(shape);
         if (T == Tensor) {
             var rhs_shape = try rhs.shape(allocator);
-            if (tensor_.shape.eql(shape, rhs_shape)) {
+            if (zt.tensor.shape.eql(shape, rhs_shape)) {
                 rhsTensor = rhs;
             } else {
                 rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape);
@@ -448,7 +447,7 @@ pub const TensorBackend = struct {
     pub fn indexMul(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []const Index) !void {
         // if indexing with a bool Tensor, return early if no true values
         if (indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == try lhs.elements(allocator) and try indices[0].index_.Tensor.dtype(allocator) == .b8) {
-            var any_check = try tensor_.any(allocator, indices[0].index_.Tensor, &.{}, false);
+            var any_check = try zt.tensor.any(allocator, indices[0].index_.Tensor, &.{}, false);
             defer any_check.deinit();
             if (try any_check.scalar(allocator, i8) == 0) {
                 return;
@@ -461,7 +460,7 @@ pub const TensorBackend = struct {
         defer allocator.free(shape);
         if (T == Tensor) {
             var rhs_shape = try rhs.shape(allocator);
-            if (tensor_.shape.eql(shape, rhs_shape)) {
+            if (zt.tensor.shape.eql(shape, rhs_shape)) {
                 rhsTensor = rhs;
             } else {
                 rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, shape);
@@ -477,7 +476,7 @@ pub const TensorBackend = struct {
     pub fn indexDiv(self: *const Self, allocator: std.mem.Allocator, lhs: Tensor, comptime T: type, rhs: T, indices: []const Index) !void {
         // if indexing with a bool Tensor, return early if no true values
         if (indices.len == 1 and indices[0].idxType() == .Tensor and try indices[0].index_.Tensor.elements(allocator) == try lhs.elements(allocator) and try indices[0].index_.Tensor.dtype(allocator) == .b8) {
-            var any_check = try tensor_.any(allocator, indices[0].index_.Tensor, &.{}, false);
+            var any_check = try zt.tensor.any(allocator, indices[0].index_.Tensor, &.{}, false);
             defer any_check.deinit();
             if (try any_check.scalar(allocator, i8) == 0) {
                 return;
@@ -490,7 +489,7 @@ pub const TensorBackend = struct {
         defer allocator.free(shape);
         if (T == Tensor) {
             var rhs_shape = try rhs.shape(allocator);
-            if (tensor_.shape.eql(shape, rhs_shape)) {
+            if (zt.tensor.shape.eql(shape, rhs_shape)) {
                 rhsTensor = rhs;
             } else {
                 rhsTensor = try self.modifyIdxAssignShape(allocator, rhs, rhs_shape, &shape);

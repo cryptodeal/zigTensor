@@ -21,31 +21,26 @@ var tensorExtensionRegistrarSingleton: ?*TensorExtensionRegistrar = null;
 pub fn deinitExtensionRegistrar() void {
     if (tensorExtensionRegistrarSingleton != null) {
         tensorExtensionRegistrarSingleton.?.deinit();
+        tensorExtensionRegistrarSingleton = null;
     }
 }
 
 /// Employ an extensible factory singleton pattern to handle creation callbacks
 /// for creating specific TensorExtension instances.
 pub const TensorExtensionRegistrar = struct {
-    const CallbackMap = std.AutoHashMap(TensorExtensionType, TensorExtensionCallback);
+    const CallbackMap = std.EnumMap(TensorExtensionType, TensorExtensionCallback);
     allocator: std.mem.Allocator,
-    extensions_: std.AutoHashMap(TensorBackendType, CallbackMap),
+    extensions_: std.EnumMap(TensorBackendType, CallbackMap) = .{},
 
     pub fn init(allocator: std.mem.Allocator) !*TensorExtensionRegistrar {
         var self = try allocator.create(TensorExtensionRegistrar);
         self.* = .{
             .allocator = allocator,
-            .extensions_ = std.AutoHashMap(TensorBackendType, CallbackMap).init(allocator),
         };
         return self;
     }
 
     pub fn deinit(self: *TensorExtensionRegistrar) void {
-        var iterator = self.extensions_.valueIterator();
-        while (iterator.next()) |m| {
-            m.deinit();
-        }
-        self.extensions_.deinit();
         self.allocator.destroy(self);
     }
 
@@ -62,13 +57,13 @@ pub const TensorExtensionRegistrar = struct {
         }
     }
 
-    pub fn registerTensorExtension(self: *TensorExtensionRegistrar, allocator: std.mem.Allocator, backend: TensorBackendType, extension_type: TensorExtensionType, creation_func: TensorExtensionCallback) !bool {
+    pub fn registerTensorExtension(self: *TensorExtensionRegistrar, backend: TensorBackendType, extension_type: TensorExtensionType, creation_func: TensorExtensionCallback) bool {
         if (!self.extensions_.contains(backend)) {
-            try self.extensions_.put(backend, CallbackMap.init(allocator));
+            self.extensions_.put(backend, CallbackMap{});
         }
         var inner_map = self.extensions_.get(backend).?;
         // Add extension to registry
-        try inner_map.putNoClobber(extension_type, creation_func);
+        inner_map.put(extension_type, creation_func);
         return true;
     }
 

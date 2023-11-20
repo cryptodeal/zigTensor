@@ -1,15 +1,14 @@
 const std = @import("std");
 const rc = @import("zigrc");
-const rt_device = @import("device.zig");
-const rt_device_type = @import("device_type.zig");
+const zt = @import("../zt.zig");
 // const cuda = @import("CUDAUtils.zig");
 const ZT_BACKEND_CUDA = @import("build_options").ZT_BACKEND_CUDA;
 
-const Device = rt_device.Device;
+const Device = zt.runtime.Device;
 const Arc = rc.Arc;
-const X64Device = rt_device.X64Device;
-const DeviceType = rt_device_type.DeviceType;
-const getDeviceTypes = rt_device_type.getDeviceTypes;
+const X64Device = zt.runtime.X64Device;
+const DeviceType = zt.runtime.DeviceType;
+const getDeviceTypes = zt.runtime.getDeviceTypes;
 
 /// Device id for the single CPU device.
 pub const kX64DeviceId: i32 = 0;
@@ -33,6 +32,7 @@ var deviceManagerSingleton: ?*DeviceManager = null;
 pub fn deinitDeviceManager() void {
     if (deviceManagerSingleton != null) {
         deviceManagerSingleton.?.deinit();
+        deviceManagerSingleton = null;
     }
 }
 
@@ -70,7 +70,6 @@ pub const DeviceManager = struct {
             type_info.value.deinit();
         }
         self.allocator.destroy(self);
-        deviceManagerSingleton = null;
     }
 
     pub fn enforceDeviceTypeAvailable(self: *DeviceManager, error_prefix: []const u8, device_type: DeviceType) !void {
@@ -126,15 +125,19 @@ pub const DeviceManager = struct {
 
 test "DeviceManager getInstance" {
     var allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var mgr1 = try DeviceManager.getInstance(allocator);
-    defer mgr1.deinit();
     try std.testing.expectEqual(mgr1, try DeviceManager.getInstance(allocator));
 }
 
 test "DeviceManager isDeviceTypeAvailable" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
 
     // x64 (CPU) should be always available
     try std.testing.expect(mgr.isDeviceTypeAvailable(.x64));
@@ -144,8 +147,10 @@ test "DeviceManager isDeviceTypeAvailable" {
 
 test "DeviceManager getDeviceCount" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
 
     // For now we always treat CPU as a single device
     try std.testing.expect(try mgr.getDeviceCount(.x64) == 1);
@@ -159,8 +164,10 @@ test "DeviceManager getDeviceCount" {
 
 test "DeviceManager getDevicesOfType" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
 
     // For now we always treat CPU as a single device
     var devices = try mgr.getDevicesOfType(allocator, .x64);
@@ -183,8 +190,10 @@ test "DeviceManager getDevicesOfType" {
 
 test "DeviceManager getDevice" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
 
     var x64Device = try mgr.getDevice(.x64, kX64DeviceId);
     try std.testing.expect(x64Device.deviceType() == .x64);
@@ -192,8 +201,10 @@ test "DeviceManager getDevice" {
 
 test "DeviceManager getActiveDevice" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
 
     var device_type_set = getDeviceTypes();
     var type_iterator = device_type_set.iterator();

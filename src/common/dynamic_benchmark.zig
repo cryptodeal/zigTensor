@@ -267,6 +267,8 @@ pub const ConvBenchmarks = struct {
 test "DynamicBenchmark -> OptionsStateBasic" {
     benchmark_mode = true;
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
     const max_count: usize = 5;
     const ops: []const i32 = &.{ 1, 2, 3, 4, 5 };
 
@@ -285,6 +287,8 @@ test "DynamicBenchmark -> OptionsStateBasic" {
 test "DynamicBenchmark -> OptionscurrentOptionUnchangedWithNoCountIncrement" {
     benchmark_mode = true;
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
     const ops: []const i32 = &.{ 1, 2, 3, 4, 5 };
 
     var options = try DynamicBenchmarkOptions(i32).initFromSlice(allocator, ops, 3);
@@ -299,6 +303,8 @@ test "DynamicBenchmark -> OptionscurrentOptionUnchangedWithNoCountIncrement" {
 test "DynamicBenchmark -> OptionsStateTimed" {
     benchmark_mode = true;
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
     const max_count: usize = 5;
     const ops: []const i32 = &.{ 1, 2, 3, 4, 5 };
 
@@ -322,7 +328,8 @@ test "DynamicBenchmark -> OptionsStateTimed" {
 test "DynamicBenchmark -> DynamicBenchmarkSimple" {
     benchmark_mode = true;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
     const max_count: usize = 5;
     const sleep_times: []const u64 = &.{ 4, 2, 6 };
 
@@ -352,7 +359,8 @@ test "DynamicBenchmark -> DynamicBenchmarkSimple" {
 test "DynamicBenchmark -> DynamicBenchmarkDisjointLambdas" {
     benchmark_mode = true;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
     const max_count: usize = 5;
     const sleep_times: []const u64 = &.{ 4, 2, 6 };
 
@@ -392,7 +400,9 @@ test "DynamicBenchmark -> DynamicBenchmarkMatmul" {
     benchmark_mode = true;
     const Dim = zt.tensor.shape.Dim;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     const max_count: usize = 5;
     // n x n arrays of different sizes
     const array_sizes: []const Dim = &.{ 256, 8, 2048 };

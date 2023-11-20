@@ -793,10 +793,12 @@ fn allClose(allocator: std.mem.Allocator, a: *const af.Array, b: *const af.Array
 
 test "ArrayFireTensorBaseTest -> AfRefCountBasic" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     // Sanity check that af.af_array moved into zt.Tensors don't have their
     // refcount inrcremented/show proper usage of refs in tensor ops
     var qDims = af.Dim4.init(&.{ 2, 2 });
-    defer zt.tensor.deinit(); // deinit global singletons
     var q = try af.ops.constant(allocator, 1, 2, qDims, af.Dtype.f32);
     defer q.deinit();
     // without eval/sync, no refcount
@@ -822,7 +824,8 @@ test "ArrayFireTensorBaseTest -> AfRefCountModify" {
     const add = zt.tensor.add;
     const mul = zt.tensor.mul;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     // Compositional operations don't increment refcount
     var a = try full(allocator, &.{ 2, 2 }, f64, 1, .f32);
@@ -857,7 +860,8 @@ test "ArrayFireTensorBaseTest -> AfRefCountModify" {
 test "ArrayFireTensorBaseTest -> astypeRefcount" {
     const allocator = std.testing.allocator;
     const rand = zt.tensor.rand;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var t = try rand(allocator, &.{ 5, 5 }, .f32);
     defer t.deinit();
@@ -874,8 +878,10 @@ test "ArrayFireTensorBaseTest -> astypeRefcount" {
 
 test "ArrayFireTensorBaseTest -> BackendInterop" {
     const allocator = std.testing.allocator;
-    const rand = @import("../../tensor.zig").rand;
-    defer zt.tensor.deinit(); // deinit global singletons
+    const rand = zt.tensor.rand;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var a = try rand(allocator, &.{ 10, 12 }, .f32);
     defer a.deinit();
     try std.testing.expect(a.backendType() == .ArrayFire);
@@ -886,11 +892,12 @@ test "ArrayFireTensorBaseTest -> BackendInterop" {
 // TODO: test "ArrayFireAssignmentOperators" {}
 
 test "ArrayFireTensorBaseTest -> BinaryOperators" {
-    const full = @import("../../tensor.zig").full;
-    const eq = @import("../../tensor.zig").eq;
-    const add = @import("../../tensor.zig").add;
+    const full = zt.tensor.full;
+    const eq = zt.tensor.eq;
+    const add = zt.tensor.add;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try full(allocator, &.{ 2, 2 }, f64, 1, .f32);
     defer a.deinit();
@@ -917,7 +924,8 @@ test "ArrayFireTensorBaseTest -> BinaryOperators" {
 test "ArrayFireTensorBaseTest -> full" {
     const full = zt.tensor.full;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     // TODO: expand with fixtures for each type
     var a = try full(allocator, &.{ 3, 4 }, f64, 3, .f32);
@@ -943,7 +951,8 @@ test "ArrayFireTensorBaseTest -> full" {
 test "ArrayFireTensorBaseTest -> identity" {
     const identity = zt.tensor.identity;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try identity(allocator, 6, .f32);
     defer a.deinit();
@@ -963,7 +972,8 @@ test "ArrayFireTensorBaseTest -> identity" {
 test "ArrayFireTensorBaseTest -> randn" {
     const randn = zt.tensor.randn;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     const s: Dim = 30;
     var a = try randn(allocator, &.{ s, s }, .f32);
@@ -988,7 +998,8 @@ test "ArrayFireTensorBaseTest -> randn" {
 test "ArrayFireTensorBaseTest -> rand" {
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     const s: Dim = 30;
     var a = try rand(allocator, &.{ s, s }, .f32);
@@ -1017,7 +1028,8 @@ test "ArrayFireTensorBaseTest -> amin" {
     const rand = zt.tensor.rand;
     const amin = zt.tensor.amin;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
@@ -1042,7 +1054,8 @@ test "ArrayFireTensorBaseTest -> amax" {
     const rand = zt.tensor.rand;
     const amax = zt.tensor.amax;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
@@ -1067,7 +1080,8 @@ test "ArrayFireTensorBaseTest -> sum" {
     const rand = zt.tensor.rand;
     const sum = zt.tensor.sum;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
@@ -1112,7 +1126,8 @@ test "ArrayFireTensorBaseTest -> exp" {
     const exp = zt.tensor.exp;
     const full = zt.tensor.full;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try full(allocator, &.{ 3, 3 }, f64, 4, .f32);
     defer in.deinit();
@@ -1128,7 +1143,8 @@ test "ArrayFireTensorBaseTest -> log" {
     const log = zt.tensor.log;
     const full = zt.tensor.full;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try full(allocator, &.{ 3, 3 }, f64, 2, .f32);
     defer in.deinit();
@@ -1146,7 +1162,8 @@ test "ArrayFireTensorBaseTest -> log1p" {
     const add = zt.tensor.add;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try rand(allocator, &.{ 3, 3 }, .f32);
     defer in.deinit();
@@ -1164,7 +1181,8 @@ test "ArrayFireTensorBaseTest -> sin" {
     const sin = zt.tensor.sin;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try rand(allocator, &.{ 3, 3 }, .f32);
     defer in.deinit();
@@ -1180,7 +1198,8 @@ test "ArrayFireTensorBaseTest -> cos" {
     const cos = zt.tensor.cos;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try rand(allocator, &.{ 3, 3 }, .f32);
     defer in.deinit();
@@ -1197,7 +1216,8 @@ test "ArrayFireTensorBaseTest -> sqrt" {
     const full = zt.tensor.full;
     const div = zt.tensor.div;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try full(allocator, &.{ 3, 3 }, f64, 4, .f32);
     defer in.deinit();
@@ -1213,7 +1233,8 @@ test "ArrayFireTensorBaseTest -> tanh" {
     const tanh = zt.tensor.tanh;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try rand(allocator, &.{ 3, 3 }, .f32);
     defer in.deinit();
@@ -1229,7 +1250,8 @@ test "ArrayFireTensorBaseTest -> absolute" {
     const absolute = zt.tensor.absolute;
     const full = zt.tensor.full;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     const val: f64 = -3.1;
 
@@ -1247,7 +1269,8 @@ test "ArrayFireTensorBaseTest -> erf" {
     const erf = zt.tensor.erf;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var in = try rand(allocator, &.{ 3, 3 }, .f32);
     defer in.deinit();
@@ -1263,7 +1286,8 @@ test "ArrayFireTensorBaseTest -> mean" {
     const mean = zt.tensor.mean;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try rand(allocator, &.{ 3, 50 }, .f32);
     defer a.deinit();
@@ -1290,7 +1314,8 @@ test "ArrayFireTensorBaseTest -> median" {
     const median = zt.tensor.median;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try rand(allocator, &.{ 3, 50 }, .f32);
     defer a.deinit();
@@ -1322,7 +1347,8 @@ test "ArrayFireTensorBaseTest -> variance" {
     const variance = zt.tensor.variance;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     const bias = false;
     const bias_mode: af.VarBias = if (bias) .Sample else .Population;
@@ -1410,7 +1436,8 @@ test "ArrayFireTensorBaseTest -> stdev" {
     const stdev = zt.tensor.stdev;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
@@ -1458,7 +1485,8 @@ test "ArrayFireTensorBaseTest -> norm" {
     const norm = zt.tensor.norm;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
@@ -1478,7 +1506,8 @@ test "ArrayFireTensorBaseTest -> tile" {
     const tile = zt.tensor.tile;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try rand(allocator, &.{ 3, 3 }, .f32);
     defer a.deinit();
@@ -1494,7 +1523,8 @@ test "ArrayFireTensorBaseTest -> nonzero" {
     const nonzero = zt.tensor.nonzero;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try rand(allocator, &.{ 3, 3 }, .u32);
     defer a.deinit();
@@ -1510,7 +1540,8 @@ test "ArrayFireTensorBaseTest -> transpose" {
     const transpose = zt.tensor.transpose;
     const rand = zt.tensor.rand;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try rand(allocator, &.{ 3, 5 }, .f32);
     defer a.deinit();
@@ -1549,7 +1580,9 @@ test "ArrayFireTensorBaseTest -> transpose" {
 test "ArrayFireTensorBaseTest -> concatenate" {
     const concatenate = zt.tensor.concatenate;
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     try std.testing.expectError(
         error.ConcatFailedZeroTensors,
         concatenate(allocator, &.{}, 0),
@@ -1559,7 +1592,8 @@ test "ArrayFireTensorBaseTest -> concatenate" {
 test "ArrayFireTensorBaseTest -> device" {
     const allocator = std.testing.allocator;
     const rand = zt.tensor.rand;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try rand(allocator, &.{ 5, 5 }, .f32);
     defer a.deinit();

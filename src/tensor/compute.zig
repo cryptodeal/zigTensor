@@ -1,11 +1,12 @@
 const std = @import("std");
-const Tensor = @import("tensor.zig").Tensor;
-const rt = @import("../runtime/runtime.zig");
-const Stream = rt.Stream;
-const DeviceManager = rt.DeviceManager;
-const Device = rt.Device;
-const DeviceType = rt.DeviceType;
-const kDefaultDeviceType = rt.kDefaultDeviceType;
+const zt = @import("../zt.zig");
+
+const Tensor = zt.tensor.Tensor;
+const Stream = zt.runtime.Stream;
+const DeviceManager = zt.runtime.DeviceManager;
+const Device = zt.runtime.Device;
+const DeviceType = zt.runtime.DeviceType;
+const kDefaultDeviceType = zt.runtime.kDefaultDeviceType;
 
 fn tensorsToUniqueStreams(allocator: std.mem.Allocator, tensors: []const Tensor) !std.AutoHashMap(Stream, void) {
     var unique_streams = std.AutoHashMap(Stream, void).init(allocator);
@@ -89,11 +90,11 @@ pub fn getDeviceCount(allocator: std.mem.Allocator) !usize {
 // TODO: pub fn setMemMgrFlushInterval() !void {}
 
 test "TensorComputeTest -> sync" {
-    const deinit = @import("tensor.zig").deinit;
     const full = @import("tensor.zig").full;
     const add = @import("tensor.zig").add;
     const allocator = std.testing.allocator;
-    defer deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     // Testing whether a value is ready isn't meaningful since any function to
     // inspect its state will implicitly synchronize -- this test simply ensures
@@ -114,11 +115,11 @@ test "TensorComputeTest -> sync" {
 }
 
 test "TensorComputeTest -> eval" {
-    const deinit = @import("tensor.zig").deinit;
     const full = @import("tensor.zig").full;
     const mul = @import("tensor.zig").mul;
     const allocator = std.testing.allocator;
-    defer deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     // Testing whether a value is ready isn't meaningful since any function to
     // inspect its state will implicitly synchronize -- this test simply ensures

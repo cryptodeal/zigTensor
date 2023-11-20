@@ -64,7 +64,8 @@ pub const DevicePtr = struct {
 
 test "DevicePtr -> Null" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Tensor.initEmpty(allocator);
     defer x.deinit();
@@ -75,7 +76,8 @@ test "DevicePtr -> Null" {
 
 test "DevicePtr -> NoCopy" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try zt.tensor.full(allocator, &.{ 3, 3 }, f64, 5, .f32);
     defer a.deinit();
@@ -89,7 +91,8 @@ test "DevicePtr -> NoCopy" {
 
 test "DevicePtr -> Locking" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Tensor.initHandle(allocator, &.{ 3, 3 }, .f32);
     defer x.deinit();
@@ -104,7 +107,8 @@ test "DevicePtr -> Locking" {
 
 test "DevicePtr -> Move" {
     const allocator = std.testing.allocator;
-    defer zt.tensor.deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var x = try Tensor.initHandle(allocator, &.{ 3, 3 }, .f32);
     defer x.deinit();

@@ -103,6 +103,7 @@ var ArrayFireBackendSingleton: ?*ArrayFireBackend = null;
 pub fn deinitBackend() void {
     if (ArrayFireBackendSingleton != null) {
         ArrayFireBackendSingleton.?.deinit();
+        ArrayFireBackendSingleton = null;
     }
 }
 
@@ -189,7 +190,6 @@ pub const ArrayFireBackend = struct {
         }
         map.deinit();
         self.allocator.destroy(self);
-        ArrayFireBackendSingleton = null;
     }
 
     /// Returns the singleton instance of the ArrayFireBackend; if
@@ -2666,13 +2666,13 @@ pub fn doBinaryOpOrBroadcastInPlace(allocator: std.mem.Allocator, lhs: Tensor, r
 
 test "ArrayFireBackend -> isDataTypeSupported" {
     var allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var backend = try ArrayFireBackend.getInstance(allocator);
 
     // access and release DeviceManager singleton here so test doesn't leak
     var mgr = try DeviceManager.getInstance(allocator);
-
-    // frees both backend and mgr
-    defer zt.tensor.deinit();
 
     var device_types = getDeviceTypes();
     var iterator = device_types.iterator();
@@ -2691,10 +2691,10 @@ test "ArrayFireBackend -> isDataTypeSupported" {
 
 test "ArrayFireBackend -> getInstance" {
     const allocator = std.testing.allocator;
-    var b1 = try ArrayFireBackend.getInstance(allocator);
-
-    // frees both backend and mgr
+    zt.tensor.init(allocator);
     defer zt.tensor.deinit();
+
+    var b1 = try ArrayFireBackend.getInstance(allocator);
 
     // b2 doesn't need `deinit` called as it's a singleton
     var b2 = try ArrayFireBackend.getInstance(allocator);

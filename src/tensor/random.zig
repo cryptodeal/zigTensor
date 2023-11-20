@@ -1,10 +1,10 @@
 const std = @import("std");
-const tensor = @import("tensor.zig");
+const zt = @import("../zt.zig");
 
-const defaultTensorBackend = tensor.defaultTensorBackend;
-const DType = tensor.DType;
-const Shape = tensor.shape.Shape;
-const Tensor = tensor.Tensor;
+const defaultTensorBackend = zt.tensor.defaultTensorBackend;
+const DType = zt.tensor.DType;
+const Shape = zt.tensor.shape.Shape;
+const Tensor = zt.tensor.Tensor;
 
 pub fn setSeed(allocator: std.mem.Allocator, seed: u64) !void {
     var backend = try defaultTensorBackend(allocator);

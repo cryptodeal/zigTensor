@@ -1,8 +1,8 @@
 const std = @import("std");
-const tensor_ = @import("tensor.zig");
+const zt = @import("../zt.zig");
 
-const Dim = tensor_.shape.Dim;
-const Tensor = tensor_.Tensor;
+const Dim = zt.tensor.shape.Dim;
+const Tensor = zt.tensor.Tensor;
 
 /// Represents the imaginary index after the last index along
 /// an axis of a tensor. This special case is used because
@@ -238,10 +238,10 @@ test "IndexTest -> Index.idxType" {
 }
 
 test "IndexTest -> ArrayFireMaxIndex" {
-    const full = tensor_.full;
-    const deinit = @import("init.zig").deinit;
-    defer deinit(); // deinit global singletons
+    const full = zt.tensor.full;
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var t = try full(allocator, &.{ 2, 3, 4, 5 }, f64, 6, .f32);
     defer t.deinit();
@@ -258,11 +258,11 @@ test "IndexTest -> ArrayFireMaxIndex" {
 }
 
 test "IndexTest -> Shape" {
-    const full = tensor_.full;
-    const deinit = @import("init.zig").deinit;
+    const full = zt.tensor.full;
     const allocator = std.testing.allocator;
-    const shape = tensor_.shape;
-    defer deinit(); // deinit global singletons
+    const shape = zt.tensor.shape;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var t = try full(allocator, &.{ 4, 4 }, f64, 3, .f32);
     defer t.deinit();
@@ -338,13 +338,13 @@ test "IndexTest -> Shape" {
 }
 
 test "IndexTest -> IndexAssignment" {
-    const full = tensor_.full;
-    const rand = tensor_.rand;
-    const arange = tensor_.arange;
-    const allClose = tensor_.allClose;
-    const deinit = tensor_.deinit;
+    const full = zt.tensor.full;
+    const rand = zt.tensor.rand;
+    const arange = zt.tensor.arange;
+    const allClose = zt.tensor.allClose;
     const allocator = std.testing.allocator;
-    defer deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var t = try full(allocator, &.{ 4, 4 }, f64, 0, .s32);
     defer t.deinit();
@@ -489,11 +489,11 @@ test "IndexTest -> IndexAssignment" {
 }
 
 test "IndexTest -> IndexInPlaceOps" {
-    const full = tensor_.full;
-    const allClose = tensor_.allClose;
-    const deinit = tensor_.deinit;
+    const full = zt.tensor.full;
+    const allClose = zt.tensor.allClose;
     const allocator = std.testing.allocator;
-    defer deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try full(allocator, &.{ 4, 5, 6 }, f64, 0, .f32);
     defer a.deinit();
@@ -530,13 +530,13 @@ test "IndexTest -> IndexInPlaceOps" {
 }
 
 test "IndexTest -> flat" {
-    const rand = tensor_.rand;
-    const full = tensor_.full;
-    const allClose = tensor_.allClose;
-    const deinit = tensor_.deinit;
-    const shape = tensor_.shape;
+    const rand = zt.tensor.rand;
+    const full = zt.tensor.full;
+    const allClose = zt.tensor.allClose;
+    const shape = zt.tensor.shape;
     const allocator = std.testing.allocator;
-    defer deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var m = try rand(allocator, &.{ 4, 6 }, .f32);
     defer m.deinit();
@@ -665,15 +665,15 @@ test "IndexTest -> flat" {
 }
 
 test "IndexTest -> TensorIndex" {
-    const full = tensor_.full;
-    const rand = tensor_.rand;
-    const shape = tensor_.shape;
-    const allClose = tensor_.allClose;
-    const arange = tensor_.arange;
-    const add = tensor_.add;
-    const deinit = tensor_.deinit;
+    const full = zt.tensor.full;
+    const rand = zt.tensor.rand;
+    const shape = zt.tensor.shape;
+    const allClose = zt.tensor.allClose;
+    const arange = zt.tensor.arange;
+    const add = zt.tensor.add;
     const allocator = std.testing.allocator;
-    defer deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var idxs = [_]Dim{ 0, 1, 4, 9, 11, 13, 16, 91 };
     var size = idxs.len;
@@ -764,11 +764,11 @@ test "IndexTest -> TensorIndex" {
 }
 
 test "IndexTest -> ExpressionIndex" {
-    const lessThan = tensor_.lessThan;
-    const allClose = tensor_.allClose;
-    const deinit = tensor_.deinit;
+    const lessThan = zt.tensor.lessThan;
+    const allClose = zt.tensor.allClose;
     const allocator = std.testing.allocator;
-    defer deinit(); // deinit global singletons
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
 
     var a = try Tensor.fromSlice(
         allocator,

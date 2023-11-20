@@ -1,16 +1,14 @@
 const std = @import("std");
 const rc = @import("zigrc");
-const rt_device_type = @import("device_type.zig");
-const rt_stream = @import("stream.zig");
-const rt_device_mgr = @import("device_manager.zig");
+const zt = @import("../zt.zig");
 
 const assert = std.debug.assert;
-const kX64DeviceId = rt_device_mgr.kX64DeviceId;
+const kX64DeviceId = zt.runtime.kX64DeviceId;
 const Arc = rc.Arc;
-const DeviceType = rt_device_type.DeviceType;
-const getDeviceTypes = rt_device_type.getDeviceTypes;
-const Stream = rt_stream.Stream;
-const DeviceManager = rt_device_mgr.DeviceManager;
+const DeviceType = zt.runtime.DeviceType;
+const getDeviceTypes = zt.runtime.getDeviceTypes;
+const Stream = zt.runtime.Stream;
+const DeviceManager = zt.runtime.DeviceManager;
 
 /// Throws an error and logs with a descriptive message
 /// if the given types don't match
@@ -248,8 +246,11 @@ pub const X64Device = struct {
 
 test "Device deviceType" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
+
     var device_types = getDeviceTypes();
     var iterator = device_types.iterator();
     while (iterator.next()) |d_type| {
@@ -265,8 +266,10 @@ test "Device deviceType" {
 
 test "Device nativeId" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
 
     var devices = try mgr.getDevicesOfType(allocator, .x64);
     defer allocator.free(devices);
@@ -277,8 +280,10 @@ test "Device nativeId" {
 
 test "Device setActive" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
 
     var device_types = getDeviceTypes();
     var iterator = device_types.iterator();
@@ -305,8 +310,10 @@ fn device_cb_test(data: ?*anyopaque, _: i32) !void {
 
 test "Device addSetActiveCallback" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
 
     var device_types = getDeviceTypes();
     var iterator = device_types.iterator();
@@ -326,8 +333,10 @@ test "Device addSetActiveCallback" {
 
 test "Device sync" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
 
     var device_types = getDeviceTypes();
     var iterator = device_types.iterator();
@@ -348,8 +357,10 @@ test "Device sync" {
 
 test "Device getStreams" {
     const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
     var mgr = try DeviceManager.getInstance(allocator);
-    defer mgr.deinit();
 
     var device_types = getDeviceTypes();
     var iterator = device_types.iterator();

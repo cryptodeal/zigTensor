@@ -1,17 +1,16 @@
 const std = @import("std");
 const zigrc = @import("zigrc");
-const tensor = @import("tensor.zig");
+const zt = @import("../zt.zig");
 
 const assert = std.debug.assert;
-const DType = tensor.DType;
-const Index = tensor.Index;
-const Location = tensor.Location;
-const Shape = tensor.shape.Shape;
-const Tensor = tensor.Tensor;
-const TensorBackend = tensor.TensorBackend;
-const TensorBackendType = tensor.TensorBackendType;
-// TODO: import from `../runtime/runtime.zig`
-const Stream = @import("../runtime/runtime.zig").Stream;
+const DType = zt.tensor.DType;
+const Index = zt.tensor.Index;
+const Location = zt.tensor.Location;
+const Shape = zt.tensor.shape.Shape;
+const Tensor = zt.tensor.Tensor;
+const TensorBackend = zt.tensor.TensorBackend;
+const TensorBackendType = zt.tensor.TensorBackendType;
+const Stream = zt.runtime.Stream;
 
 pub const TensorAdapterBase = struct {
     const Self = @This();
