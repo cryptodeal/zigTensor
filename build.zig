@@ -18,7 +18,8 @@ pub fn build(b: *std.Build) !void {
     const ZT_ARRAYFIRE_USE_OPENCL = b.option(bool, "ZT_ARRAYFIRE_USE_OPENCL", "Use ArrayFire with OpenCL backend") orelse false;
     const ZT_ARRAYFIRE_USE_CUDA = b.option(bool, "ZT_ARRAYFIRE_USE_CUDA", "Use ArrayFire with CUDA backend") orelse false;
     const ZT_USE_ARRAYFIRE = if (ZT_ARRAYFIRE_USE_CUDA or ZT_ARRAYFIRE_USE_OPENCL or ZT_ARRAYFIRE_USE_CPU) true else false;
-    const ZT_USE_ONEDNN = b.option(bool, "ZT_USE_ONEDNN", "Use ArrayFire with CUDA backend") orelse false;
+    const ZT_USE_ONEDNN = b.option(bool, "ZT_USE_ONEDNN", "Use OneDNN backend") orelse false;
+    const ZT_USE_CUDNN = b.option(bool, "ZT_USE_CUDNN", "Use cuDNN backend") orelse false;
 
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -35,6 +36,7 @@ pub fn build(b: *std.Build) !void {
     shared_opts.addOption(bool, "ZT_ARRAYFIRE_USE_CUDA", ZT_ARRAYFIRE_USE_CUDA);
     shared_opts.addOption(bool, "ZT_USE_ARRAYFIRE", ZT_USE_ARRAYFIRE);
     shared_opts.addOption(bool, "ZT_USE_ONEDNN", ZT_USE_ONEDNN);
+    shared_opts.addOption(bool, "ZT_USE_CUDNN", ZT_USE_CUDNN);
 
     var dependencies = std.ArrayList(std.Build.ModuleDependency).init(b.allocator);
     defer dependencies.deinit();

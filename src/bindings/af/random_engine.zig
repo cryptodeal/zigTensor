@@ -10,7 +10,7 @@ pub const RandomEngine = struct {
     allocator: std.mem.Allocator,
 
     pub fn initFromRandomEngine(allocator: std.mem.Allocator, rand_engine: af.af_random_engine) !*Self {
-        var self = try allocator.create(Self);
+        const self = try allocator.create(Self);
         self.* = .{ .engine_ = rand_engine, .allocator = allocator };
         return self;
     }

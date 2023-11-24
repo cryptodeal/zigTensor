@@ -23,7 +23,7 @@ pub const SynchronousStream = struct {
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !*Self {
-        var self = try allocator.create(Self);
+        const self = try allocator.create(Self);
         var mgr = try DeviceManager.getInstance(allocator);
         var dev = try mgr.getActiveDevice(.x64);
         self.* = .{

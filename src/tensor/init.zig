@@ -54,6 +54,7 @@ pub fn deinit() void {
 
 fn initFn(allocator: std.mem.Allocator) void {
     _ = defaultTensorBackend(allocator) catch unreachable;
-    zt.autograd.registerAutogradExtensions(allocator) catch unreachable;
+    const ext = zt.tensor.TensorExtensionRegistrar.getInstance(allocator) catch unreachable;
+    zt.autograd.registerAutogradExtensions(ext) catch unreachable;
     // TODO: initLogging();
 }

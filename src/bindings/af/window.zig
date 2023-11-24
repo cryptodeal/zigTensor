@@ -6,7 +6,7 @@ pub const Window = struct {
     window_: af.af_window,
 
     pub fn initFromWindow(allocator: std.mem.Allocator, window: af.af_window) !*Window {
-        var self = try allocator.create(Window);
+        const self = try allocator.create(Window);
         self.* = .{ .allocator = allocator, .window_ = window };
         return self;
     }

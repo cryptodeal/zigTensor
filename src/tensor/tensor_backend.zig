@@ -259,7 +259,7 @@ pub const TensorBackend = struct {
         var shape = try self.getIndexAssignShape(allocator, lhs, &.{idx});
         defer allocator.free(shape);
         if (T == Tensor) {
-            var rhs_shape = try rhs.shape(allocator);
+            const rhs_shape = try rhs.shape(allocator);
             if (zt.tensor.shape.eql(shape[0..1], rhs_shape)) {
                 rhsTensor = rhs;
             } else {
@@ -280,7 +280,7 @@ pub const TensorBackend = struct {
         var shape = try self.getIndexAssignShape(allocator, lhs, &.{idx});
         defer allocator.free(shape);
         if (T == Tensor) {
-            var rhs_shape = try rhs.shape(allocator);
+            const rhs_shape = try rhs.shape(allocator);
             if (zt.tensor.shape.eql(shape[0..1], rhs_shape)) {
                 rhsTensor = rhs;
             } else {
@@ -301,7 +301,7 @@ pub const TensorBackend = struct {
         var shape = try self.getIndexAssignShape(allocator, lhs, &.{idx});
         defer allocator.free(shape);
         if (T == Tensor) {
-            var rhs_shape = try rhs.shape(allocator);
+            const rhs_shape = try rhs.shape(allocator);
             if (zt.tensor.shape.eql(shape[0..1], rhs_shape)) {
                 rhsTensor = rhs;
             } else {
@@ -322,7 +322,7 @@ pub const TensorBackend = struct {
         var shape = try self.getIndexAssignShape(allocator, lhs, &.{idx});
         defer allocator.free(shape);
         if (T == Tensor) {
-            var rhs_shape = try rhs.shape(allocator);
+            const rhs_shape = try rhs.shape(allocator);
             if (zt.tensor.shape.eql(shape[0..1], rhs_shape)) {
                 rhsTensor = rhs;
             } else {
@@ -343,7 +343,7 @@ pub const TensorBackend = struct {
         var shape = try self.getIndexAssignShape(allocator, lhs, &.{idx});
         defer allocator.free(shape);
         if (T == Tensor) {
-            var rhs_shape = try rhs.shape(allocator);
+            const rhs_shape = try rhs.shape(allocator);
             if (zt.tensor.shape.eql(shape[0..1], rhs_shape)) {
                 rhsTensor = rhs;
             } else {
@@ -369,10 +369,10 @@ pub const TensorBackend = struct {
         var init_rhs_tensor = false;
         var rhsTensor: Tensor = undefined;
         defer if (init_rhs_tensor) rhsTensor.deinit();
-        var shape = try self.getIndexAssignShape(allocator, lhs, indices);
+        const shape = try self.getIndexAssignShape(allocator, lhs, indices);
         defer allocator.free(shape);
         if (T == Tensor) {
-            var rhs_shape = try rhs.shape(allocator);
+            const rhs_shape = try rhs.shape(allocator);
             if (zt.tensor.shape.eql(shape, rhs_shape)) {
                 rhsTensor = rhs;
             } else {
@@ -398,10 +398,10 @@ pub const TensorBackend = struct {
         var init_rhs_tensor = false;
         var rhsTensor: Tensor = undefined;
         defer if (init_rhs_tensor) rhsTensor.deinit();
-        var shape = try self.getIndexAssignShape(allocator, lhs, indices);
+        const shape = try self.getIndexAssignShape(allocator, lhs, indices);
         defer allocator.free(shape);
         if (T == Tensor) {
-            var rhs_shape = try rhs.shape(allocator);
+            const rhs_shape = try rhs.shape(allocator);
             if (zt.tensor.shape.eql(shape, rhs_shape)) {
                 rhsTensor = rhs;
             } else {
@@ -430,7 +430,7 @@ pub const TensorBackend = struct {
         var shape = try self.getIndexAssignShape(allocator, lhs, indices);
         defer allocator.free(shape);
         if (T == Tensor) {
-            var rhs_shape = try rhs.shape(allocator);
+            const rhs_shape = try rhs.shape(allocator);
             if (zt.tensor.shape.eql(shape, rhs_shape)) {
                 rhsTensor = rhs;
             } else {
@@ -456,10 +456,10 @@ pub const TensorBackend = struct {
         var init_rhs_tensor = false;
         var rhsTensor: Tensor = undefined;
         defer if (init_rhs_tensor) rhsTensor.deinit();
-        var shape = try self.getIndexAssignShape(allocator, lhs, indices);
+        const shape = try self.getIndexAssignShape(allocator, lhs, indices);
         defer allocator.free(shape);
         if (T == Tensor) {
-            var rhs_shape = try rhs.shape(allocator);
+            const rhs_shape = try rhs.shape(allocator);
             if (zt.tensor.shape.eql(shape, rhs_shape)) {
                 rhsTensor = rhs;
             } else {
@@ -488,7 +488,7 @@ pub const TensorBackend = struct {
         var shape = try self.getIndexAssignShape(allocator, lhs, indices);
         defer allocator.free(shape);
         if (T == Tensor) {
-            var rhs_shape = try rhs.shape(allocator);
+            const rhs_shape = try rhs.shape(allocator);
             if (zt.tensor.shape.eql(shape, rhs_shape)) {
                 rhsTensor = rhs;
             } else {

@@ -294,7 +294,7 @@ test "DynamicBenchmark -> OptionscurrentOptionUnchangedWithNoCountIncrement" {
     var options = try DynamicBenchmarkOptions(i32).initFromSlice(allocator, ops, 3);
     defer options.deinit();
 
-    var state = options.currentOption();
+    const state = options.currentOption();
     try options.accumulateTimeToCurrentOption(3, false);
     try options.accumulateTimeToCurrentOption(4, false);
     try std.testing.expect(state == options.currentOption());
@@ -338,14 +338,14 @@ test "DynamicBenchmark -> DynamicBenchmarkSimple" {
     defer dynamic_bench.releaseWithFn(DynamicBenchmark.deinit);
 
     const Ctx = struct { sleep_time: u64 };
-    var ctx = try allocator.create(Ctx);
+    const ctx = try allocator.create(Ctx);
     defer allocator.destroy(ctx);
 
     for (0..max_count * sleep_times.len) |_| {
         ctx.* = .{ .sleep_time = options.currentOption() * std.time.ns_per_ms };
         const cb = (struct {
             pub fn call(c: ?*anyopaque) !void {
-                var ctx_: *Ctx = @ptrCast(@alignCast(c));
+                const ctx_: *Ctx = @ptrCast(@alignCast(c));
                 std.time.sleep(ctx_.sleep_time);
             }
         }).call;
@@ -369,15 +369,15 @@ test "DynamicBenchmark -> DynamicBenchmarkDisjointLambdas" {
     defer dynamic_bench.releaseWithFn(DynamicBenchmark.deinit);
 
     const Ctx = struct { sleep_time: u64 };
-    var ctx = try allocator.create(Ctx);
+    const ctx = try allocator.create(Ctx);
     defer allocator.destroy(ctx);
 
     for (0..max_count * sleep_times.len) |_| {
-        var sleep_time: u64 = options.currentOption() * std.time.ns_per_ms;
+        const sleep_time: u64 = options.currentOption() * std.time.ns_per_ms;
         ctx.* = .{ .sleep_time = sleep_time };
         const cb = (struct {
             pub fn call(c: ?*anyopaque) !void {
-                var ctx_: *Ctx = @ptrCast(@alignCast(c));
+                const ctx_: *Ctx = @ptrCast(@alignCast(c));
                 std.time.sleep(ctx_.sleep_time);
             }
         }).call;
@@ -387,7 +387,7 @@ test "DynamicBenchmark -> DynamicBenchmarkDisjointLambdas" {
         // 4, 2, 6 --> 18, 24, 12
         // total duration disregarding the audit is therefore:
         // 18 + 2 * 4, 24 + 2 * 2, 12 + 2 * 6 ---> 26, 28, 24
-        var intermediate_sleep_time: u64 = (30 - (3 * options.currentOption())) * std.time.ns_per_ms;
+        const intermediate_sleep_time: u64 = (30 - (3 * options.currentOption())) * std.time.ns_per_ms;
         std.time.sleep(intermediate_sleep_time);
         try dynamic_bench.value.audit(allocator, cb, ctx, true);
     }
@@ -425,14 +425,14 @@ test "DynamicBenchmark -> DynamicBenchmarkMatmul" {
     defer dynamic_bench.releaseWithFn(DynamicBenchmark.deinit);
 
     const Ctx = struct { size: Dim, allocator: std.mem.Allocator };
-    var ctx = try allocator.create(Ctx);
+    const ctx = try allocator.create(Ctx);
     defer allocator.destroy(ctx);
 
     for (0..max_count * array_sizes.len) |_| {
         ctx.* = .{ .size = dynamic_bench.value.getOptions(*DynamicBenchmarkOptions(Dim)).currentOption(), .allocator = allocator };
         const cb = (struct {
             pub fn call(context: ?*anyopaque) !void {
-                var ctx_: *Ctx = @ptrCast(@alignCast(context));
+                const ctx_: *Ctx = @ptrCast(@alignCast(context));
                 const size = ctx_.size;
                 const alloc = ctx_.allocator;
                 var a = try zt.tensor.rand(alloc, &.{ size, size }, .f32);

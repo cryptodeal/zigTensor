@@ -79,7 +79,7 @@ pub const OneDnnBatchNormPayload = struct {
     bias_memory: dnnl.dnnl_memory_t = null,
 
     pub fn init(allocator: std.mem.Allocator) !*OneDnnBatchNormPayload {
-        var self = try allocator.create(OneDnnBatchNormPayload);
+        const self = try allocator.create(OneDnnBatchNormPayload);
         self.* = .{ .allocator = allocator };
         return self;
     }
@@ -135,7 +135,7 @@ pub inline fn batchnorm(
         autograd_payload.?.value.data = payload;
     }
 
-    var output = try Tensor.initHandle(allocator, try input.shape(allocator), try input.dtype(allocator));
+    const output = try Tensor.initHandle(allocator, try input.shape(allocator), try input.dtype(allocator));
     const n_features = try getNFeatures(try input.shape(allocator), axes);
 
     if (try running_var.isEmpty(allocator)) {
@@ -158,14 +158,13 @@ pub inline fn batchnorm(
         return error.AxisArrayNotContinuous;
     }
 
-    const d_type = try dnnlMapToType(try input.dtype(allocator));
-    _ = d_type;
-    var dnnl_engine = (try DnnlEngine.getInstance(allocator)).getEngine();
+    _ = try dnnlMapToType(try input.dtype(allocator));
+    const dnnl_engine = (try DnnlEngine.getInstance(allocator)).getEngine();
 
     // Prepare combined weights
     // If empty, user specifies affine to false. Both not trainable.
-    var weight_non_empty = if (try weight.isEmpty(allocator)) try zt.tensor.full(allocator, &.{n_features}, f64, 1, .f32) else weight;
-    var bias_non_empty = if (try bias.isEmpty(allocator)) try zt.tensor.full(allocator, &.{n_features}, f64, 0, .f32) else bias;
+    const weight_non_empty = if (try weight.isEmpty(allocator)) try zt.tensor.full(allocator, &.{n_features}, f64, 1, .f32) else weight;
+    const bias_non_empty = if (try bias.isEmpty(allocator)) try zt.tensor.full(allocator, &.{n_features}, f64, 0, .f32) else bias;
 
     // DNNL only accepts weight and bias as a combined input.
     // https://git.io/JLn9X
@@ -173,7 +172,7 @@ pub inline fn batchnorm(
     payload_data.bias = bias_non_empty;
     payload_data.weights_dims = try convertToDnnlDims(allocator, &.{n_features});
     payload_data.bias_dims = try convertToDnnlDims(allocator, &.{n_features});
-    var input_output_dims = try getInputOutputDims(allocator, min_axis, max_axis, input, n_features);
+    const input_output_dims = try getInputOutputDims(allocator, min_axis, max_axis, input, n_features);
     defer allocator.free(input_output_dims);
 
     // Memory for forward
@@ -212,7 +211,7 @@ pub inline fn batchnorm(
         ),
         @src(),
     );
-    payload_data.output_memory_desc = output_memory.getDescriptor();
+    try dnnl.DNNL_CHECK(dnnl.dnnl_memory_desc_clone(&payload_data.output_memory_desc, output_memory.getDescriptor()), @src());
     var bn: dnnl.dnnl_primitive_t = null;
     try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_create(&bn, payload_data.fwd_prim_desc), @src());
     var network = std.ArrayList(dnnl.dnnl_primitive_t).init(allocator);
@@ -264,10 +263,10 @@ pub inline fn batchnormBackward(
         std.debug.print("OneDnnAutogradExtension.{s} given null AutogradPayload\n", .{@src().fn_name});
         return error.NullAutogradPayload;
     }
-    var payload: *OneDnnBatchNormPayload = @ptrCast(@alignCast(autograd_payload.?.value.data.value));
-    var d_type = try dnnlMapToType(try input.dtype(allocator));
-    _ = d_type;
-    var dnnl_engine = (try DnnlEngine.getInstance(allocator)).getEngine();
+    var payload: *OneDnnBatchNormPayload = @ptrCast(@alignCast(autograd_payload.?.value.data.value.*));
+    _ = try dnnlMapToType(try input.dtype(allocator));
+
+    const dnnl_engine = (try DnnlEngine.getInstance(allocator)).getEngine();
     const min_axis, const max_axis = std.mem.minMax(i64, axes);
     const axes_continuous = (axes.len == (max_axis - min_axis + 1));
     if (!axes_continuous) {
@@ -276,12 +275,12 @@ pub inline fn batchnormBackward(
     }
 
     const n_features = try getNFeatures(try input.shape(allocator), axes);
-    var input_output_dims = try getInputOutputDims(allocator, min_axis, max_axis, input, n_features);
+    const input_output_dims = try getInputOutputDims(allocator, min_axis, max_axis, input, n_features);
     defer allocator.free(input_output_dims);
 
-    var grad_input = try Tensor.initHandle(allocator, try input.shape(allocator), try input.dtype(allocator));
-    var grad_weights = try Tensor.initHandle(allocator, try payload.weights.shape(allocator), try payload.weights.dtype(allocator));
-    var grad_bias = try Tensor.initHandle(allocator, try payload.bias.shape(allocator), try payload.bias.dtype(allocator));
+    const grad_input = try Tensor.initHandle(allocator, try input.shape(allocator), try input.dtype(allocator));
+    const grad_weights = try Tensor.initHandle(allocator, try payload.weights.shape(allocator), try payload.weights.dtype(allocator));
+    const grad_bias = try Tensor.initHandle(allocator, try payload.bias.shape(allocator), try payload.bias.dtype(allocator));
 
     var input_memory = try DnnlMemoryWrapper.init(allocator, input, input_output_dims, format_nchw);
     defer input_memory.deinit();

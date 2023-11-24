@@ -214,7 +214,7 @@ pub inline fn memMgrGetMaxMemSize(handle: *af.MemoryManager, id: i32) !usize {
 
 /// Returns the memory pressure threshold for a memory manager.
 pub inline fn memMgrGetMemPressureThreshold(handle: *af.MemoryManager) !f32 {
-    var threshold: f32 = undefined;
+    const threshold: f32 = undefined;
     try af.AF_CHECK(af.af_memory_manager_get_memory_pressure_threshold(handle.memoryManager_, threshold), @src());
     return threshold;
 }

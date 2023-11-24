@@ -24,8 +24,8 @@ pub fn create(allocator: std.mem.Allocator) !Arc(Stream) {
         .allocator = allocator,
         .syncImpl_ = try SynchronousStream.init(allocator),
     };
-    var stream_obj = Stream.init(self);
-    var stream = try Arc(Stream).init(allocator, stream_obj);
+    const stream_obj = Stream.init(self);
+    const stream = try Arc(Stream).init(allocator, stream_obj);
     try self.syncImpl_.device_.addStream(stream);
     return stream;
 }

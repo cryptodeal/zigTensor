@@ -3006,10 +3006,10 @@ pub fn gemm(
     B: *const af.Array,
     beta: T,
 ) !*af.Array {
-    var lhs_dims = try A.getDims();
-    var rhs_dims = try B.getDims();
-    var M = lhs_dims.dims[if (opA == .None) 0 else 1];
-    var N = rhs_dims.dims[if (opB == .None) 1 else 0];
+    const lhs_dims = try A.getDims();
+    const rhs_dims = try B.getDims();
+    const M = lhs_dims.dims[if (opA == .None) 0 else 1];
+    const N = rhs_dims.dims[if (opB == .None) 1 else 0];
     const d2 = @max(lhs_dims.dims[2], rhs_dims.dims[2]);
     const d3 = @max(lhs_dims.dims[3], rhs_dims.dims[3]);
     var o_dims = af.Dim4.init(&.{ M, N, d2, d3 });
@@ -6001,7 +6001,7 @@ pub fn isLinear(arr: *const af.Array) !bool {
 
 test "createArray" {
     const allocator = std.testing.allocator;
-    var data = try allocator.alloc(f32, 100);
+    const data = try allocator.alloc(f32, 100);
     defer allocator.free(data);
     @memset(data, 100);
     var arr = try createArray(
@@ -6018,7 +6018,7 @@ test "createArray" {
 
 test "constant" {
     const allocator = std.testing.allocator;
-    var dims = af.Dim4.init(&.{ 100, 1, 1, 1 });
+    const dims = af.Dim4.init(&.{ 100, 1, 1, 1 });
     var arr = try constant(allocator, 5, 4, dims, .s32);
     defer arr.deinit();
 

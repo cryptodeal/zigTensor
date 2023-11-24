@@ -8,7 +8,7 @@ pub const Event = struct {
     allocator: std.mem.Allocator,
 
     pub fn initFromEvent(allocator: std.mem.Allocator, event: af.af_event) !*Event {
-        var self = try allocator.create(Event);
+        const self = try allocator.create(Event);
         self.* = .{ .event_ = event, .allocator = allocator };
         return self;
     }

@@ -39,9 +39,9 @@ pub const DnnlStream = struct {
         return dnnlStreamSingleton.?;
     }
 
-    pub fn releaseInstance() void {
-        if (dnnlStreamSingleton != null) {
-            dnnlStreamSingleton.*.deinit();
+    pub fn freeInstance() void {
+        if (dnnlStreamSingleton) |stream| {
+            stream.deinit();
             dnnlStreamSingleton = null;
         }
     }
@@ -77,8 +77,8 @@ pub const DnnlEngine = struct {
     }
 
     pub fn freeInstance() void {
-        if (dnnlEngineSingleton != null) {
-            dnnlEngineSingleton.*.deinit();
+        if (dnnlEngineSingleton) |engine| {
+            engine.deinit();
             dnnlEngineSingleton = null;
         }
     }
@@ -121,10 +121,14 @@ pub const DnnlMemoryWrapper = struct {
         return self;
     }
 
-    pub fn deinit(self: *DnnlMemoryWrapper) void {
+    pub fn deinitAll(self: *DnnlMemoryWrapper) void {
         if (self.dims_.len > 0) self.allocator.free(self.dims_);
         if (self.memory_ != null) dnnl.DNNL_CHECK(dnnl.dnnl_memory_destroy(self.memory_), @src()) catch unreachable;
         if (self.descriptor_ != null) dnnl.DNNL_CHECK(dnnl.dnnl_memory_desc_destroy(self.descriptor_), @src()) catch unreachable;
+    }
+
+    pub fn deinit(self: *DnnlMemoryWrapper) void {
+        if (self.dims_.len > 0) self.allocator.free(self.dims_);
         if (self.device_ptr_ != null) self.device_ptr_.?.deinit();
     }
 
@@ -144,7 +148,7 @@ pub const DnnlMemoryWrapper = struct {
 };
 
 pub fn convertToDnnlDims(allocator: std.mem.Allocator, shape: Shape) ![]i64 {
-    var dims = try allocator.alloc(i64, shape.len);
+    const dims = try allocator.alloc(i64, shape.len);
     @memcpy(dims, shape);
     return dims;
 }
@@ -166,28 +170,25 @@ pub fn dnnlAlignOrdering(
     net_args: *std.ArrayList([]dnnl.dnnl_exec_arg_t),
     memory: dnnl.dnnl_memory_t,
     desc: dnnl.const_dnnl_memory_desc_t,
-) !dnnl.dnnl_memory_t {
+) !struct { bool, dnnl.dnnl_memory_t } {
     var memory_out = memory;
     var mem_out_desc: dnnl.const_dnnl_memory_desc_t = null;
+    var allocated = false;
+    // rewrite
     try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(memory, &mem_out_desc), @src());
     if (dnnl.dnnl_memory_desc_equal(mem_out_desc, desc) == 0) {
         // use the ordering requested by the descriptor
         try dnnl.DNNL_CHECK(dnnl.dnnl_memory_create(&memory_out, desc, (try DnnlEngine.getInstance(allocator)).getEngine(), dnnl.DNNL_MEMORY_ALLOCATE), @src());
+        allocated = true;
         var reorder_pd: dnnl.dnnl_primitive_desc_t = null;
-        var src_engine: dnnl.dnnl_engine_t = null;
-        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_engine(memory, &src_engine), @src());
-        var dst_desc: dnnl.const_dnnl_memory_desc_t = null;
-        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(memory_out, &dst_desc), @src());
-        var dst_engine: dnnl.dnnl_engine_t = null;
-        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_engine(memory_out, &dst_engine), @src());
-        try dnnl.DNNL_CHECK(dnnl.dnnl_reorder_primitive_desc_create(&reorder_pd, mem_out_desc, src_engine, dst_desc, dst_engine, null), @src());
+        try dnnl.DNNL_CHECK(dnnl.dnnl_reorder_primitive_desc_create(&reorder_pd, mem_out_desc, (try DnnlEngine.getInstance(allocator)).getEngine(), desc, (try DnnlEngine.getInstance(allocator)).getEngine(), null), @src());
         var reorder: dnnl.dnnl_primitive_t = null;
         try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_create(&reorder, reorder_pd), @src());
         try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_desc_destroy(reorder_pd), @src());
         try net.append(reorder);
-        try net_args.append(try createArgs(allocator, &.{ .{ dnnl.DNNL_ARG_SRC, memory }, .{ dnnl.DNNL_ARG_TO, memory_out } }, null));
+        try net_args.append(try createArgs(allocator, &.{ .{ dnnl.DNNL_ARG_FROM, memory }, .{ dnnl.DNNL_ARG_TO, memory_out } }, null));
     }
-    return memory_out;
+    return .{ allocated, memory_out };
 }
 
 pub fn executeNetwork(

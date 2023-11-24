@@ -85,7 +85,7 @@ const OneDnnPool2DPayload = struct {
     pooling_fwd_prim_desc: dnnl.dnnl_primitive_desc_t = null,
 
     pub fn init(allocator: std.mem.Allocator) !*OneDnnPool2DPayload {
-        var self = try allocator.create(OneDnnPool2DPayload);
+        const self = try allocator.create(OneDnnPool2DPayload);
         self.* = .{ .allocator = allocator, .dims_data = try allocator.create(DimsData) };
         return self;
     }
@@ -114,7 +114,7 @@ pub inline fn pool2d(
 ) !Tensor {
     const train = autograd_payload != null;
     var payload_data = try OneDnnPool2DPayload.init(allocator);
-    var payload = try zigrc.Arc(?*anyopaque).init(allocator, payload_data);
+    const payload = try zigrc.Arc(?*anyopaque).init(allocator, payload_data);
     if (train) {
         autograd_payload.?.value.data = payload;
     }
@@ -137,7 +137,7 @@ pub inline fn pool2d(
     );
 
     payload_data.dims_data.* = try DimsData.init(allocator, &.{ ix, iy, c, b }, try output.shape(allocator), wx, wy, sx, sy, px, py);
-    var d = payload_data.dims_data;
+    const d = payload_data.dims_data;
     const data_type = try dnnlMapToType(try input.dtype(allocator));
 
     // Memory desc
@@ -149,7 +149,7 @@ pub inline fn pool2d(
     defer dnnl.DNNL_CHECK(dnnl.dnnl_memory_desc_destroy(output_md), @src()) catch unreachable;
 
     // Memory
-    var dnnl_engine = (try DnnlEngine.getInstance(allocator)).getEngine();
+    const dnnl_engine = (try DnnlEngine.getInstance(allocator)).getEngine();
     var input_mem_init = try DnnlMemoryWrapper.init(allocator, input, d.input_dims, format_nchw);
     defer input_mem_init.deinit();
     var output_mem_init = try DnnlMemoryWrapper.init(allocator, output, d.output_dims, format_nchw);
@@ -160,7 +160,6 @@ pub inline fn pool2d(
 
     // Descriptors
     const pooling_mode: dnnl.dnnl_alg_kind_t = dnnlMapToPoolingMode(mode);
-    std.debug.print("forward_mode: {d}\npooling_mode: {d}\ninput_md: {any}\noutput_md: {any}\nstride_dims.ptr: {any}\nwindow_dims.ptr: {any}\ndilation_dims.ptr: {any}\npadding_dims.ptr: {any}\n", .{ forward_mode, pooling_mode, input_md, output_md, d.stride_dims.ptr, d.window_dims.ptr, d.dilation_dims.ptr, d.padding_dims.ptr });
     var empty_prim_attr: dnnl.dnnl_primitive_attr_t = null;
     try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_attr_create(&empty_prim_attr), @src());
     try dnnl.DNNL_CHECK(
@@ -180,7 +179,7 @@ pub inline fn pool2d(
         ),
         @src(),
     );
-    var prim_desc = payload_data.pooling_fwd_prim_desc;
+    const prim_desc = payload_data.pooling_fwd_prim_desc;
 
     // Network
     var network = std.ArrayList(dnnl.dnnl_primitive_t).init(allocator);
@@ -194,10 +193,10 @@ pub inline fn pool2d(
         fwd_args.deinit();
     }
     // Reorder if needed
-    var input_desc: dnnl.const_dnnl_memory_desc_t = dnnl.dnnl_primitive_desc_query_md(prim_desc, dnnl.dnnl_query_src_md, 0);
-    var output_desc: dnnl.const_dnnl_memory_desc_t = dnnl.dnnl_primitive_desc_query_md(prim_desc, dnnl.dnnl_query_dst_md, 0);
-    var input_memory = try dnnlAlignOrdering(allocator, &network, &fwd_args, input_mem_init.getMemory(), input_desc);
-    defer dnnl.DNNL_CHECK(dnnl.dnnl_memory_destroy(input_memory), @src()) catch unreachable;
+    const input_desc: dnnl.const_dnnl_memory_desc_t = dnnl.dnnl_primitive_desc_query_md(prim_desc, dnnl.dnnl_query_src_md, 0);
+    const output_desc: dnnl.const_dnnl_memory_desc_t = dnnl.dnnl_primitive_desc_query_md(prim_desc, dnnl.dnnl_query_dst_md, 0);
+    const input_memory_allocated, const input_memory = try dnnlAlignOrdering(allocator, &network, &fwd_args, input_mem_init.getMemory(), input_desc);
+    defer if (input_memory_allocated) dnnl.DNNL_CHECK(dnnl.dnnl_memory_destroy(input_memory), @src()) catch unreachable;
     payload_data.output_memory = output_mem_init.getMemory();
     var output_md_comp: dnnl.const_dnnl_memory_desc_t = null;
     try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(output_mem_init.getMemory(), &output_md_comp), @src());
@@ -259,12 +258,12 @@ pub inline fn pool2dBackward(
         std.debug.print("OneDnnAutogradExtension.{s}: given null AutogradPayload\n", .{@src().fn_name});
         return error.NullAutogradPayload;
     }
-    var payload: *OneDnnPool2DPayload = @ptrCast(@alignCast(autograd_payload.?.value.data.value));
+    const payload: *OneDnnPool2DPayload = @ptrCast(@alignCast(autograd_payload.?.value.data.value));
 
-    var grad_input = try Tensor.initHandle(allocator, try input.shape(allocator), .f32);
-    var dnnl_engine_bwd = (try DnnlEngine.getInstance(allocator)).getEngine();
+    const grad_input = try Tensor.initHandle(allocator, try input.shape(allocator), .f32);
+    const dnnl_engine_bwd = (try DnnlEngine.getInstance(allocator)).getEngine();
 
-    var d = payload.dims_data;
+    const d = payload.dims_data;
     const pooling_mode = dnnlMapToPoolingMode(mode);
     _ = try dnnlMapToType(try input.dtype(allocator));
 
@@ -310,8 +309,8 @@ pub inline fn pool2dBackward(
     // Reorder output memory if required
     var output_md: dnnl.const_dnnl_memory_desc_t = null;
     try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(payload.output_memory, &output_md), @src());
-    var grad_output_memory = try dnnlAlignOrdering(allocator, &network_backward, &bwd_args, grad_output_mem_init.getMemory(), output_md);
-    defer dnnl.DNNL_CHECK(dnnl.dnnl_memory_destroy(grad_output_memory), @src()) catch unreachable;
+    const grad_output_mem_allocated, const grad_output_memory = try dnnlAlignOrdering(allocator, &network_backward, &bwd_args, grad_output_mem_init.getMemory(), output_md);
+    defer if (grad_output_mem_allocated) dnnl.DNNL_CHECK(dnnl.dnnl_memory_destroy(grad_output_memory), @src()) catch unreachable;
 
     var pool_bwd: dnnl.dnnl_primitive_t = null;
     try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_create(&pool_bwd, bwd_primitive_desc), @src());

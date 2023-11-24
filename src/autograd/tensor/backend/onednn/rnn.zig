@@ -296,7 +296,7 @@ fn rnnImpl(
 ) !RnnResult {
     _ = dropout;
     var result: RnnResult = .{};
-    var dnnl_engine = (try DnnlEngine.getInstance(allocator)).getEngine();
+    const dnnl_engine = (try DnnlEngine.getInstance(allocator)).getEngine();
 
     // Dimensions
     const in_size = try input.dim(allocator, 0);
@@ -316,9 +316,9 @@ fn rnnImpl(
     const weights_hidden_dims: []const i64 = &.{ num_layers, direction_mult, hidden_size, num_gates, hidden_size };
 
     // Out tensors: output (y), hidden state output (hy), cell state output (cy)
-    var y = try Tensor.initHandle(allocator, &.{ out_size, batch_size, seq_length }, try input.dtype(allocator));
+    const y = try Tensor.initHandle(allocator, &.{ out_size, batch_size, seq_length }, try input.dtype(allocator));
     var hy = try Tensor.initHandle(allocator, &.{ hidden_size, batch_size, total_layers }, try input.dtype(allocator));
-    var cy: Tensor = if (mode == .Lstm) try Tensor.initHandle(allocator, try hy.shape(allocator), try input.dtype(allocator)) else try Tensor.initEmpty(allocator);
+    const cy: Tensor = if (mode == .Lstm) try Tensor.initHandle(allocator, try hy.shape(allocator), try input.dtype(allocator)) else try Tensor.initEmpty(allocator);
 
     // Memory for forward
     const tnc: dnnl.dnnl_format_tag_t = dnnl.dnnl_tnc;
@@ -498,7 +498,7 @@ fn rnnImpl(
     try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_desc_destroy(primitive_desc), @src());
     try network.append(primitive);
 
-    var workspace_md: dnnl.const_dnnl_memory_desc_t = dnnl.dnnl_primitive_desc_query_md(primitive_desc, dnnl.dnnl_query_workspace_md, 0);
+    const workspace_md: dnnl.const_dnnl_memory_desc_t = dnnl.dnnl_primitive_desc_query_md(primitive_desc, dnnl.dnnl_query_workspace_md, 0);
     try dnnl.DNNL_CHECK(dnnl.dnnl_memory_create(&workspace, workspace_md, dnnl_engine, dnnl.DNNL_MEMORY_ALLOCATE), @src());
     try rnn_fwd_args.append(.{ .arg = dnnl.DNNL_ARG_WORKSPACE, .memory = workspace });
     try fwd_args.append(try rnn_fwd_args.toOwnedSlice());
@@ -563,7 +563,7 @@ pub inline fn rnn(
     // have to parse out the input weights, input biases, hidden weights, and
     // hidden biases from one tensor. Order doesn't matter since the arrangement
     // is a black box
-    var parsed_weights = try ParsedWeightsAndBias.init(allocator, weights, mode, num_layers, direction_mult, in_size, num_gates, hidden_size);
+    const parsed_weights = try ParsedWeightsAndBias.init(allocator, weights, mode, num_layers, direction_mult, in_size, num_gates, hidden_size);
 
     var result: RnnResult = undefined;
     // The oneDNN RNN primitive has an API limitation where input size and

@@ -105,7 +105,7 @@ pub const OptimMode = struct {
 
     /// Converts OptimLevel
     pub fn toOptimLevel(self: *const OptimMode, in: []const u8) !OptimLevel {
-        var l: ?OptimLevel = self.kStringToOptimLevel.get(in);
+        const l: ?OptimLevel = self.kStringToOptimLevel.get(in);
         if (l == null) {
             std.debug.print("OptimMode::toOptimLevel - no matching optim level for given string.\n", .{});
             return error.FailedToOptimLevel;

@@ -5,6 +5,7 @@ const dnnl = @import("../../../../bindings/onednn/onednn.zig");
 const conv2d_impl = @import("conv2d.zig");
 const pool2d_impl = @import("pool2d.zig");
 const batchnorm_impl = @import("batchnorm.zig");
+const dnnl_utils = @import("dnnl_utils.zig");
 const rnn_impl = @import("rnn.zig");
 
 const DynamicBenchmark = zt.common.DynamicBenchmark;
@@ -15,19 +16,23 @@ const DType = zt.tensor.DType;
 const RnnMode = zt.common.RnnMode;
 const Tensor = zt.tensor.Tensor;
 const TensorExtensionType = zt.tensor.TensorExtensionType;
+const DnnlEngine = dnnl_utils.DnnlEngine;
+const DnnlStream = dnnl_utils.DnnlStream;
 
 pub const OneDnnAutogradExtension = struct {
     const Self = @This();
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !*Self {
-        var self = try allocator.create(Self);
+        const self = try allocator.create(Self);
         self.* = .{ .allocator = allocator };
         return self;
     }
 
     pub fn deinit(self: *Self) void {
         self.allocator.destroy(self);
+        DnnlEngine.freeInstance();
+        DnnlStream.freeInstance();
     }
 
     pub fn getExtensionType(_: *const Self) TensorExtensionType {

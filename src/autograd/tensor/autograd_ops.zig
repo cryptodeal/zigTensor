@@ -31,7 +31,6 @@ pub const op_details = struct {
         payload: ?zigrc.Arc(AutogradPayload),
     ) !Tensor {
         var ext = try (try input.backend(allocator)).getExtension(allocator, AutogradExtension);
-        defer ext.deinit();
         return ext.conv2d(allocator, input, weights, bias, sx, sy, px, py, dx, dy, groups, payload);
     }
 
@@ -48,7 +47,39 @@ pub const op_details = struct {
         payload: ?zigrc.Arc(AutogradPayload),
     ) !Tensor {
         var ext = try (try input.backend(allocator)).getExtension(allocator, AutogradExtension);
-        defer ext.deinit();
         return ext.pool2d(allocator, input, wx, wy, sx, sy, px, py, mode, payload);
+    }
+
+    pub fn batchnorm(
+        allocator: std.mem.Allocator,
+        save_mean: Tensor,
+        save_var: Tensor,
+        input: Tensor,
+        weight: Tensor,
+        bias: Tensor,
+        running_mean: Tensor,
+        running_var: Tensor,
+        axes: []const i64,
+        train: bool,
+        momentum: f64,
+        epsilon: f64,
+        payload: ?zigrc.Arc(AutogradPayload),
+    ) !Tensor {
+        var ext = try (try input.backend(allocator)).getExtension(allocator, AutogradExtension);
+        return ext.batchnorm(
+            allocator,
+            save_mean,
+            save_var,
+            input,
+            weight,
+            bias,
+            running_mean,
+            running_var,
+            axes,
+            train,
+            momentum,
+            epsilon,
+            payload,
+        );
     }
 };

@@ -10,7 +10,7 @@ pub const Features = struct {
     allocator: std.mem.Allocator,
 
     pub fn initFromFeatures(allocator: std.mem.Allocator, features: af.af_features) !*Self {
-        var self = try allocator.create(Self);
+        const self = try allocator.create(Self);
         self.* = .{ .feats_ = features, .allocator = allocator };
         return self;
     }

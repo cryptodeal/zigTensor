@@ -95,7 +95,7 @@ pub fn ztToAfLocation(location: Location) af.Source {
 
 pub fn ztRangeToAfSeq(range: Range) af.af_seq {
     const endOpt = range.end();
-    var end = if (endOpt != null) endOpt.? - 1 else -1;
+    const end = if (endOpt != null) endOpt.? - 1 else -1;
     return makeSeq(@floatFromInt(range.start()), @floatFromInt(end), @floatFromInt(range.stride()));
 }
 
@@ -103,7 +103,7 @@ pub fn ztToAfIndex(idx: Index) af.af_index_t {
     return switch (idx.idxType()) {
         .Tensor => {
             var tensor = idx.index_.Tensor;
-            var adapter: *ArrayFireTensor = tensor.getAdapter(ArrayFireTensor);
+            const adapter: *ArrayFireTensor = tensor.getAdapter(ArrayFireTensor);
             return .{
                 .isSeq = false,
                 .isBatch = false,
@@ -141,7 +141,7 @@ pub inline fn init() !void {
 
 /// Gets the value of `info` as a string.
 pub inline fn infoString(verbose: bool) ![]const u8 {
-    var info_: [*c]u8 = undefined;
+    const info_: [*c]u8 = undefined;
     try af.AF_CHECK(af.af_info_string(info_, verbose), @src());
     return std.mem.span(info_);
 }
@@ -157,10 +157,10 @@ pub inline fn deviceInfo() !struct {
     d_toolkit: []const u8,
     d_compute: []const u8,
 } {
-    var d_name: [*c]u8 = undefined;
-    var d_platform: [*c]u8 = undefined;
-    var d_toolkit: [*c]u8 = undefined;
-    var d_compute: [*c]u8 = undefined;
+    const d_name: [*c]u8 = undefined;
+    const d_platform: [*c]u8 = undefined;
+    const d_toolkit: [*c]u8 = undefined;
+    const d_compute: [*c]u8 = undefined;
     try af.AF_CHECK(af.af_device_info(d_name, d_platform, d_toolkit, d_compute), @src());
     return .{
         .d_name = std.mem.span(d_name),
@@ -327,7 +327,7 @@ pub inline fn getLastError() []const u8 {
 
 /// Converts the af_err error code to its string representation.
 pub inline fn errToString(err: af.af_err) []const u8 {
-    var str = af.af_err_to_string(err);
+    const str = af.af_err_to_string(err);
     return std.mem.span(str);
 }
 
@@ -443,7 +443,7 @@ pub inline fn getVersion() !Version {
 /// This returns a constant string from compile time and
 /// should not be freed by the user.
 pub inline fn getRevision() ![]const u8 {
-    var msg = af.af_get_revision();
+    const msg = af.af_get_revision();
     return std.mem.span(msg);
 }
 

@@ -25,7 +25,7 @@ pub const Array = struct {
     }
 
     pub fn init(allocator: std.mem.Allocator, arr: af.af_array) !*Self {
-        var self = try allocator.create(Self);
+        const self = try allocator.create(Self);
         self.* = .{ .array_ = arr, .allocator = allocator };
         return self;
     }

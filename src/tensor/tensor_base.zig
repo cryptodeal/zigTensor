@@ -70,7 +70,7 @@ pub const Tensor = struct {
     }
 
     pub fn initAssign(allocator: std.mem.Allocator, rhs: Tensor) !Tensor {
-        var new_tensor = Tensor.init(TensorAdapterBase.init(try DefaultTensorType_t.initEmpty(allocator)));
+        const new_tensor = Tensor.init(TensorAdapterBase.init(try DefaultTensorType_t.initEmpty(allocator)));
         try (try defaultTensorBackend(allocator)).assign(allocator, new_tensor, rhs);
         return new_tensor;
     }
@@ -148,7 +148,7 @@ pub const Tensor = struct {
     }
 
     pub fn isEmpty(self: *const Tensor, allocator: std.mem.Allocator) !bool {
-        var elements_ = try self.elements(allocator);
+        const elements_ = try self.elements(allocator);
         return elements_ == 0;
     }
 
@@ -158,7 +158,7 @@ pub const Tensor = struct {
     // }
 
     pub fn bytes(self: *const Tensor, allocator: std.mem.Allocator) !usize {
-        var elements_: usize = @intCast(try self.elements(allocator));
+        const elements_: usize = @intCast(try self.elements(allocator));
         var dtype_ = try self.dtype(allocator);
         return elements_ * dtype_.getSize();
     }
@@ -208,7 +208,7 @@ pub const Tensor = struct {
             std.log.debug("Tensor.scalar called on empty tensor\n", .{});
             return error.ScalarFailedEmptyTensor;
         }
-        var type_trait = comptime dtypeTraits(T);
+        const type_trait = comptime dtypeTraits(T);
         var self_dtype = try self.dtype(allocator);
         if (self_dtype != type_trait.zt_type) {
             std.log.debug(
@@ -240,7 +240,7 @@ pub const Tensor = struct {
         if (try self.isEmpty(allocator)) {
             return null;
         }
-        var res: []T = try allocator.alloc(T, try self.bytes(allocator) / @sizeOf(T));
+        const res: []T = try allocator.alloc(T, try self.bytes(allocator) / @sizeOf(T));
         try self.impl_.host(allocator, res.ptr);
         return res;
     }
@@ -357,7 +357,7 @@ pub const Tensor = struct {
         if (T == Tensor) {
             rhsTensor = rhs;
         } else {
-            var used_shape = try self.shape(allocator);
+            const used_shape = try self.shape(allocator);
             rhsTensor = try bknd.full(allocator, used_shape, T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
@@ -373,7 +373,7 @@ pub const Tensor = struct {
         if (T == Tensor) {
             rhsTensor = rhs;
         } else {
-            var used_shape = try self.shape(allocator);
+            const used_shape = try self.shape(allocator);
             rhsTensor = try bknd.full(allocator, used_shape, T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
@@ -389,7 +389,7 @@ pub const Tensor = struct {
         if (T == Tensor) {
             rhsTensor = rhs;
         } else {
-            var used_shape = try self.shape(allocator);
+            const used_shape = try self.shape(allocator);
             rhsTensor = try bknd.full(allocator, used_shape, T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
@@ -405,7 +405,7 @@ pub const Tensor = struct {
         if (T == Tensor) {
             rhsTensor = rhs;
         } else {
-            var used_shape = try self.shape(allocator);
+            const used_shape = try self.shape(allocator);
             rhsTensor = try bknd.full(allocator, used_shape, T, rhs, try self.dtype(allocator));
             rhsTensorInit = true;
         }
@@ -418,9 +418,9 @@ pub const Tensor = struct {
 
 fn matmulRef(allocator: std.mem.Allocator, lhs: Tensor, rhs: Tensor) !Tensor {
     // (M x N) x (N x K) --> (M x K)
-    var M = try lhs.dim(allocator, 0);
-    var N = try lhs.dim(allocator, 1);
-    var K = try rhs.dim(allocator, 1);
+    const M = try lhs.dim(allocator, 0);
+    const N = try lhs.dim(allocator, 1);
+    const K = try rhs.dim(allocator, 1);
 
     var out = try zt.tensor.full(allocator, &.{ M, K }, f32, 0, .f32);
     for (0..@intCast(M)) |i| {
@@ -444,9 +444,9 @@ test "TensorBLASTest -> matmul" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
-    var i: Dim = 10;
-    var j: Dim = 20;
-    var k: Dim = 12;
+    const i: Dim = 10;
+    const j: Dim = 20;
+    const k: Dim = 12;
 
     var a = try zt.tensor.rand(allocator, &.{ i, j }, .f32);
     defer a.deinit();
@@ -550,11 +550,11 @@ test "TensorBLASTest -> matmulShapes" {
     );
 
     // Batch matrix multiply
-    var M: Dim = 10;
-    var K: Dim = 12;
-    var N: Dim = 14;
-    var b2: Dim = 2;
-    var b3: Dim = 4;
+    const M: Dim = 10;
+    const K: Dim = 12;
+    const N: Dim = 14;
+    const b2: Dim = 2;
+    const b3: Dim = 4;
 
     var rand10 = try zt.tensor.rand(allocator, &.{ M, K }, .f32);
     defer rand10.deinit();
@@ -790,7 +790,7 @@ test "TensorBaseTest -> ConstructFromData" {
 
     const val: f32 = 3;
     var vec = [_]f32{val} ** 100;
-    var s: Shape = &.{ 10, 10 };
+    const s: Shape = &.{ 10, 10 };
 
     var a = try Tensor.fromSlice(allocator, s, f32, &vec, .f32);
     defer a.deinit();
@@ -798,7 +798,7 @@ test "TensorBaseTest -> ConstructFromData" {
     defer exp.deinit();
     try std.testing.expect(try zt.tensor.allClose(allocator, a, exp, 1e-5));
 
-    var ascending: []const f32 = &.{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+    const ascending: []const f32 = &.{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
     var t = try Tensor.fromSlice(allocator, &.{ 3, 4 }, f32, ascending, .f32);
     defer t.deinit();
     try std.testing.expect(try t.dtype(allocator) == .f32);
@@ -993,7 +993,7 @@ test "TensorBaseTest -> nonzero" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
-    var idxs: []const Dim = &.{ 0, 1, 4, 9, 11, 23, 55, 82, 91 };
+    const idxs: []const Dim = &.{ 0, 1, 4, 9, 11, 23, 55, 82, 91 };
     var a = try zt.tensor.full(allocator, &.{ 10, 10 }, f64, 1, .u32);
     defer a.deinit();
     for (idxs) |idx| {
@@ -1010,7 +1010,7 @@ test "TensorBaseTest -> nonzero" {
 
     var indices = try zt.tensor.nonzero(allocator, a);
     defer indices.deinit();
-    var nnz = try a.elements(allocator) - @as(i64, @intCast(idxs.len));
+    const nnz = try a.elements(allocator) - @as(i64, @intCast(idxs.len));
     try std.testing.expect(zt.tensor.shape.eql(try indices.shape(allocator), &.{nnz}));
     var flat_a = try a.flatten(allocator);
     defer flat_a.deinit();
@@ -1185,7 +1185,7 @@ test "TensorBaseTest -> sort" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
-    var dims: Shape = &.{ 10, 2 };
+    const dims: Shape = &.{ 10, 2 };
     var a = try zt.tensor.arange(allocator, dims, 0, .f32);
     defer a.deinit();
     var sorted = try Tensor.initEmpty(allocator);
@@ -1226,7 +1226,7 @@ test "TensorBaseTest -> argsort" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
-    var dims: Shape = &.{ 10, 2 };
+    const dims: Shape = &.{ 10, 2 };
     var a = try zt.tensor.arange(allocator, dims, 0, .f32);
     defer a.deinit();
     var sorted = try zt.tensor.argsort(allocator, a, 0, .Descending);
@@ -1247,11 +1247,11 @@ test "TensorBaseTest -> argsort" {
 }
 
 fn assertScalarBehavior(allocator: std.mem.Allocator, comptime scalar_arg_type: type, data_type: DType) !void {
-    var scalar: scalar_arg_type = 42;
+    const scalar: scalar_arg_type = 42;
     var one = try zt.tensor.full(allocator, &.{1}, scalar_arg_type, scalar, data_type);
     defer one.deinit();
 
-    var dtype_trait = comptime dtypeTraits(scalar_arg_type);
+    const dtype_trait = comptime dtypeTraits(scalar_arg_type);
     if (dtype_trait.zt_type != data_type) {
         try std.testing.expectError(
             error.ScalarFailedTypeMismatch,
@@ -1275,7 +1275,7 @@ test "TensorBaseTest -> scalar" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
-    var types: []const DType = &.{
+    const types: []const DType = &.{
         DType.b8,
         DType.u8,
         DType.s16,
@@ -1320,7 +1320,7 @@ test "TensorBaseTest -> strides" {
 
     var a = try zt.tensor.rand(allocator, &.{ 10, 10 }, .f32);
     defer a.deinit();
-    var strides = try a.strides(allocator);
+    const strides = try a.strides(allocator);
     defer allocator.free(strides);
     try std.testing.expect(zt.tensor.shape.eql(strides, &.{ 1, 10 }));
 }
@@ -1367,7 +1367,7 @@ test "TensorBaseTest -> asContiguousTensor" {
         try strides.append(stride);
         stride *= try contiguous.dim(allocator, i);
     }
-    var contig_strides = try contiguous.strides(allocator);
+    const contig_strides = try contiguous.strides(allocator);
     defer allocator.free(contig_strides);
     try std.testing.expect(zt.tensor.shape.eql(contig_strides, strides.items));
 }
@@ -1379,7 +1379,7 @@ test "TensorBaseTest -> host" {
 
     var a = try zt.tensor.rand(allocator, &.{ 10, 10 }, .f32);
     defer a.deinit();
-    var ptr = (try a.allocHost(allocator, f32)).?;
+    const ptr = (try a.allocHost(allocator, f32)).?;
     defer allocator.free(ptr);
     for (0..@intCast(try a.elements(allocator))) |i| {
         var tmp_flat = try a.flatten(allocator);
@@ -1389,7 +1389,7 @@ test "TensorBaseTest -> host" {
         try std.testing.expectEqual(try tmp_idx.scalar(allocator, f32), ptr[i]);
     }
 
-    var existingBuffer = try allocator.alloc(f32, 100);
+    const existingBuffer = try allocator.alloc(f32, 100);
     defer allocator.free(existingBuffer);
     for (0..@intCast(try a.elements(allocator))) |i| {
         var tmp_flat = try a.flatten(allocator);

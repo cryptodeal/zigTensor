@@ -10,9 +10,8 @@ const OneDnnAutogradExtension = if (ZT_USE_ONEDNN) @import("backend/onednn/onedn
 const TensorExtensionRegistrer = zt.tensor.TensorExtensionRegistrar;
 const TensorExtension = zt.tensor.TensorExtension;
 
-pub fn registerAutogradExtensions(allocator: std.mem.Allocator) !void {
+pub fn registerAutogradExtensions(ext: *TensorExtensionRegistrer) std.mem.Allocator.Error!void {
     // TODO: register CUDNN extension
-
     if (ZT_USE_ONEDNN) {
         // TODO: OneDNN backend can transparently use its autograd extension
 
@@ -22,7 +21,7 @@ pub fn registerAutogradExtensions(allocator: std.mem.Allocator) !void {
                     return TensorExtension.init(try OneDnnAutogradExtension.init(alloc));
                 }
             }).call;
-            _ = (try TensorExtensionRegistrer.getInstance(allocator)).registerTensorExtension(.ArrayFire, .Autograd, registerFn);
+            _ = try ext.registerTensorExtension(.ArrayFire, .Autograd, registerFn);
         }
     }
 }

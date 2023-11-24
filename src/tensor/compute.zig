@@ -107,7 +107,7 @@ test "TensorComputeTest -> sync" {
     defer t3.deinit();
     try sync(allocator);
 
-    var device_id = try getDevice(allocator);
+    const device_id = try getDevice(allocator);
     var t4 = try add(allocator, Tensor, t1, Tensor, t2);
     defer t4.deinit();
     try t4.inPlaceAdd(allocator, Tensor, t3);

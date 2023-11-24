@@ -697,7 +697,7 @@ pub const Dim4 = struct {
     }
 
     pub fn dimsToOwnedShape(self: *const af.Dim4, allocator: std.mem.Allocator) ![]Dim {
-        var num_dims = self.ndims();
+        const num_dims = self.ndims();
         var out_shape = std.ArrayList(Dim).init(allocator);
         if (num_dims > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug("afToZtDims: num_dims ({d}) > af.AF_MAX_DIMS ({d} )", .{ num_dims, af.AF_MAX_DIMS });

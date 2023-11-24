@@ -27,7 +27,7 @@ const DnnlError = error{
 /// directly into ArrayFire's C API from Zig.
 pub inline fn DNNL_CHECK(v: dnnl.dnnl_status_t, src: std.builtin.SourceLocation) !void {
     if (v != dnnl.dnnl_success) {
-        var err: DnnlError = switch (v) {
+        const err: DnnlError = switch (v) {
             dnnl.dnnl_out_of_memory => DnnlError.DnnlOutOfMemory,
             dnnl.dnnl_invalid_arguments => DnnlError.DnnlInvalidArguments,
             dnnl.dnnl_unimplemented => DnnlError.DnnlUnimplemented,

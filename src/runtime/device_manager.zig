@@ -44,7 +44,7 @@ pub const DeviceManager = struct {
 
     fn init(allocator: std.mem.Allocator) !*DeviceManager {
         var x64Info = DeviceTypeInfo.init(allocator);
-        var x64Device = Device.init(try X64Device.init(allocator));
+        const x64Device = Device.init(try X64Device.init(allocator));
         try x64Info.put(kX64DeviceId, x64Device);
         var deviceTypeToInfo_ = std.EnumMap(DeviceType, DeviceTypeInfo){};
         deviceTypeToInfo_.put(.x64, x64Info);
@@ -52,7 +52,7 @@ pub const DeviceManager = struct {
             // TODO: add cuda device to deviceTypeToInfo_
         }
 
-        var self = try allocator.create(DeviceManager);
+        const self = try allocator.create(DeviceManager);
         self.* = .{
             .allocator = allocator,
             .deviceTypeToInfo_ = deviceTypeToInfo_,
@@ -124,11 +124,11 @@ pub const DeviceManager = struct {
 };
 
 test "DeviceManager getInstance" {
-    var allocator = std.testing.allocator;
+    const allocator = std.testing.allocator;
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
-    var mgr1 = try DeviceManager.getInstance(allocator);
+    const mgr1 = try DeviceManager.getInstance(allocator);
     try std.testing.expectEqual(mgr1, try DeviceManager.getInstance(allocator));
 }
 
@@ -170,7 +170,7 @@ test "DeviceManager getDevicesOfType" {
     var mgr = try DeviceManager.getInstance(allocator);
 
     // For now we always treat CPU as a single device
-    var devices = try mgr.getDevicesOfType(allocator, .x64);
+    const devices = try mgr.getDevicesOfType(allocator, .x64);
     defer allocator.free(devices);
 
     try std.testing.expect(devices.len == 1);
@@ -178,7 +178,7 @@ test "DeviceManager getDevicesOfType" {
     var type_iterator = device_type_set.iterator();
     while (type_iterator.next()) |t| {
         if (mgr.isDeviceTypeAvailable(.CUDA)) {
-            var dev_list = try mgr.getDevicesOfType(allocator, t);
+            const dev_list = try mgr.getDevicesOfType(allocator, t);
             for (dev_list) |dev| {
                 try std.testing.expect(dev.deviceType() == t);
             }

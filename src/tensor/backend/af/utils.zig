@@ -119,7 +119,7 @@ pub fn seqToDims(indices: []af.af_index_t, parent_dims: af.Dim4, reorder: bool) 
     if (reorder) {
         for (0..@intCast(af.AF_MAX_DIMS)) |i| {
             if (indices[i].isBatch) {
-                var tmp = odims.dims[i];
+                const tmp = odims.dims[i];
                 odims.dims[i] = odims.dims[3];
                 odims.dims[3] = tmp;
                 break;

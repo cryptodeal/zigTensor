@@ -9,7 +9,7 @@ pub const MemoryManager = struct {
     memoryManager_: af.af_memory_manager,
 
     pub fn initFromMemoryManager(allocator: std.mem.Allocator, mem_mgr: af.af_memory_manager) !*Self {
-        var self = try allocator.create(Self);
+        const self = try allocator.create(Self);
         self.* = .{ .allocator = allocator, .memoryManager_ = mem_mgr };
         return self;
     }

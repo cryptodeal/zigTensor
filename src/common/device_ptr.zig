@@ -25,7 +25,7 @@ pub const DevicePtr = struct {
     }
 
     pub fn initDevicePtr(allocator: std.mem.Allocator, d: *DevicePtr) !DevicePtr {
-        var self: DevicePtr = .{
+        const self: DevicePtr = .{
             .allocator = allocator,
             .ptr_ = d.ptr_,
             .tensor_ = d.tensor_,

@@ -264,7 +264,7 @@ pub const AutogradExtension = struct {
         train: bool,
         momentum: f64,
         epsilon: f64,
-        payload: zigrc.Arc(AutogradPayload),
+        payload: ?zigrc.Arc(AutogradPayload),
     ) !Tensor {
         return self.vtable.batchnorm(
             self.ptr,

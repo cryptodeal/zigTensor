@@ -92,7 +92,7 @@ pub const Device = struct {
     // Throws if the specified type does not match the actual
     // derived device type.
     pub fn getImpl(ctx: *const Self, comptime T: type) !*T {
-        var actual_type = ctx.deviceType();
+        const actual_type = ctx.deviceType();
         if (T.type_ != actual_type) {
             std.log.debug("[zt.Device.getImpl] specified device type: [{s}] doesn't match actual device type: [{s}]\n", .{ @tagName(T.type_), @tagName(actual_type) });
             return error.FailedDeviceGetImpl;
@@ -185,7 +185,7 @@ pub const X64Device = struct {
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !*X64Device {
-        var self = try allocator.create(X64Device);
+        const self = try allocator.create(X64Device);
         self.* = .{
             .allocator = allocator,
             .streams_ = std.AutoHashMap(Arc(Stream), void).init(allocator),
@@ -255,7 +255,7 @@ test "Device deviceType" {
     var iterator = device_types.iterator();
     while (iterator.next()) |d_type| {
         if (mgr.isDeviceTypeAvailable(d_type)) {
-            var devices = try mgr.getDevicesOfType(allocator, d_type);
+            const devices = try mgr.getDevicesOfType(allocator, d_type);
             defer allocator.free(devices);
             for (devices) |dev| {
                 try std.testing.expect(dev.deviceType() == d_type);
@@ -271,7 +271,7 @@ test "Device nativeId" {
 
     var mgr = try DeviceManager.getInstance(allocator);
 
-    var devices = try mgr.getDevicesOfType(allocator, .x64);
+    const devices = try mgr.getDevicesOfType(allocator, .x64);
     defer allocator.free(devices);
     for (devices) |dev| {
         try std.testing.expect(dev.nativeId() == kX64DeviceId);
@@ -289,7 +289,7 @@ test "Device setActive" {
     var iterator = device_types.iterator();
     while (iterator.next()) |d_type| {
         if (mgr.isDeviceTypeAvailable(d_type)) {
-            var devices = try mgr.getDevicesOfType(allocator, d_type);
+            const devices = try mgr.getDevicesOfType(allocator, d_type);
             defer allocator.free(devices);
             for (devices) |dev| {
                 try dev.setActive();
@@ -319,7 +319,7 @@ test "Device addSetActiveCallback" {
     var iterator = device_types.iterator();
     while (iterator.next()) |d_type| {
         if (mgr.isDeviceTypeAvailable(d_type)) {
-            var devices = try mgr.getDevicesOfType(allocator, d_type);
+            const devices = try mgr.getDevicesOfType(allocator, d_type);
             defer allocator.free(devices);
             for (devices) |dev| {
                 var ctx = CbCtxTest{};
@@ -337,12 +337,11 @@ test "Device sync" {
     defer zt.tensor.deinit();
 
     var mgr = try DeviceManager.getInstance(allocator);
-
     var device_types = getDeviceTypes();
     var iterator = device_types.iterator();
     while (iterator.next()) |d_type| {
         if (mgr.isDeviceTypeAvailable(d_type)) {
-            var devices = try mgr.getDevicesOfType(allocator, d_type);
+            const devices = try mgr.getDevicesOfType(allocator, d_type);
             defer allocator.free(devices);
             for (devices) |dev| {
                 var threw_err = false;
@@ -366,13 +365,13 @@ test "Device getStreams" {
     var iterator = device_types.iterator();
     while (iterator.next()) |d_type| {
         if (mgr.isDeviceTypeAvailable(d_type)) {
-            var devices = try mgr.getDevicesOfType(allocator, d_type);
+            const devices = try mgr.getDevicesOfType(allocator, d_type);
             defer allocator.free(devices);
             for (devices) |dev| {
                 const streams = dev.getStreams();
                 var stream_iterator = streams.keyIterator();
                 while (stream_iterator.next()) |stream| {
-                    var stream_dev = stream.value.device();
+                    const stream_dev = stream.value.device();
                     try std.testing.expect(dev.ptr == stream_dev.ptr);
                 }
             }

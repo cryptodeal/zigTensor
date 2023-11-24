@@ -33,7 +33,7 @@ pub const TensorExtensionRegistrar = struct {
     extensions_: std.EnumMap(TensorBackendType, CallbackMap) = .{},
 
     pub fn init(allocator: std.mem.Allocator) !*TensorExtensionRegistrar {
-        var self = try allocator.create(TensorExtensionRegistrar);
+        const self = try allocator.create(TensorExtensionRegistrar);
         self.* = .{
             .allocator = allocator,
         };
@@ -47,6 +47,7 @@ pub const TensorExtensionRegistrar = struct {
     pub fn getInstance(allocator: std.mem.Allocator) !*TensorExtensionRegistrar {
         if (tensorExtensionRegistrarSingleton == null) {
             tensorExtensionRegistrarSingleton = try TensorExtensionRegistrar.init(allocator);
+            try zt.autograd.registerAutogradExtensions(tensorExtensionRegistrarSingleton.?);
         }
         return tensorExtensionRegistrarSingleton.?;
     }
@@ -54,22 +55,23 @@ pub const TensorExtensionRegistrar = struct {
     pub fn releaseInstance() void {
         if (tensorExtensionRegistrarSingleton != null) {
             tensorExtensionRegistrarSingleton.?.deinit();
+            tensorExtensionRegistrarSingleton = null;
         }
     }
 
-    pub fn registerTensorExtension(self: *TensorExtensionRegistrar, backend: TensorBackendType, extension_type: TensorExtensionType, creation_func: TensorExtensionCallback) bool {
+    pub fn registerTensorExtension(self: *TensorExtensionRegistrar, backend: TensorBackendType, extension_type: TensorExtensionType, creation_func: TensorExtensionCallback) !bool {
         if (!self.extensions_.contains(backend)) {
-            self.extensions_.put(backend, CallbackMap{});
+            self.extensions_.put(backend, .{});
         }
-        var inner_map = self.extensions_.get(backend).?;
+        var inner_map = self.extensions_.getPtr(backend).?;
         // Add extension to registry
         inner_map.put(extension_type, creation_func);
         return true;
     }
 
     pub fn isTensorExtensionRegistered(self: *TensorExtensionRegistrar, backend: TensorBackendType, extension_type: TensorExtensionType) bool {
-        var entry = self.extensions.get(backend);
-        return entry != null and entry.contains(extension_type);
+        var entry = self.extensions_.get(backend);
+        return entry != null and entry.?.contains(extension_type);
     }
 
     pub fn getTensorExtensionCreationFunc(self: *TensorExtensionRegistrar, backend: TensorBackendType, extension_type: TensorExtensionType) !TensorExtensionCallback {

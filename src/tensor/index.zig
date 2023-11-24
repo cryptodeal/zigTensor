@@ -573,7 +573,7 @@ test "IndexTest -> flat" {
 
     var a = try full(allocator, &.{ 5, 6, 7, 8 }, f64, 9, .f32);
     defer a.deinit();
-    var test_indices = [_]Dim{ 0, 1, 4, 11, 62, 104, 288 };
+    const test_indices = [_]Dim{ 0, 1, 4, 11, 62, 104, 288 };
     for (test_indices) |i| {
         var a_flat = try a.flat(allocator, Index.initDim(i));
         defer a_flat.deinit();
@@ -675,8 +675,8 @@ test "IndexTest -> TensorIndex" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
-    var idxs = [_]Dim{ 0, 1, 4, 9, 11, 13, 16, 91 };
-    var size = idxs.len;
+    const idxs = [_]Dim{ 0, 1, 4, 9, 11, 13, 16, 91 };
+    const size = idxs.len;
     var tensor_indices = try full(allocator, &.{@as(i64, @intCast(size))}, f64, 0, .f32);
     defer tensor_indices.deinit();
     for (0..size) |i| {

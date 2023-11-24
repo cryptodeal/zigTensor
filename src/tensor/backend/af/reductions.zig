@@ -54,7 +54,7 @@ pub fn isAllAxisReduction(allocator: std.mem.Allocator, input: Tensor, axes: []c
         return false;
     }
     // Check that all dims are present
-    var _axes: []i64 = @constCast(axes);
+    const _axes: []i64 = @constCast(axes);
     std.mem.sort(i64, _axes, {}, lessThan);
     for (0.._axes.len) |i| {
         if (_axes[i] != @as(i64, @intCast(i))) {

@@ -52,7 +52,7 @@ pub const ArrayFireTensor = struct {
 
         pub fn get(self: *const IndexedArrayComponent, allocator: std.mem.Allocator, inst: *ArrayFireTensor) !*af.Array {
             var arr = inst.arrayHandle_.value.*;
-            var n_dims: i64 = if (!self.isFlat_) @intCast(try arr.getNumDims()) else 1;
+            const n_dims: i64 = if (!self.isFlat_) @intCast(try arr.getNumDims()) else 1;
             var tmp_arrs = [_]af.af_array{null} ** 4;
             // if idx == bool type array, use where to get indices
             for (inst.indices_.?, 0..) |v, i| {
@@ -65,7 +65,7 @@ pub const ArrayFireTensor = struct {
                     inst.indices_.?[i].idx.arr = tmp_arrs[i];
                 }
             }
-            var res = try af.ops.indexGen(
+            const res = try af.ops.indexGen(
                 allocator,
                 arr,
                 n_dims,
@@ -209,7 +209,7 @@ pub const ArrayFireTensor = struct {
     }
 
     pub fn afDimsToZtShape(self: *ArrayFireTensor, af_dims: *const af.Dim4) !void {
-        var num_dims = self.numDims();
+        const num_dims = self.numDims();
         if (num_dims > @as(usize, @intCast(af.AF_MAX_DIMS))) {
             std.log.debug("afToZtDims: num_dims ({d}) > af.AF_MAX_DIMS ({d} )", .{ num_dims, af.AF_MAX_DIMS });
             return error.ExceedsArrayFireMaxDims;
@@ -287,13 +287,13 @@ pub const ArrayFireTensor = struct {
 
     pub fn initHandle(allocator: std.mem.Allocator, _shape: Shape, data_type: DType) !*ArrayFireTensor {
         var af_dims = try af.ops.ztToAfDims(_shape);
-        var arr = try af.Array.initHandle(allocator, @intCast(af_dims.ndims()), af_dims, af.ops.ztToAfType(data_type));
+        const arr = try af.Array.initHandle(allocator, @intCast(af_dims.ndims()), af_dims, af.ops.ztToAfType(data_type));
         return ArrayFireTensor.initFromArray(allocator, arr, zt.tensor.shape.ndim(_shape));
     }
 
     pub fn initEmpty(allocator: std.mem.Allocator) !*ArrayFireTensor {
-        var af_dims = af.Dim4.init(&.{0});
-        var arr = try af.Array.initHandle(allocator, @intCast(af.AF_MAX_DIMS), af_dims, af.Dtype.f32);
+        const af_dims = af.Dim4.init(&.{0});
+        const arr = try af.Array.initHandle(allocator, @intCast(af.AF_MAX_DIMS), af_dims, af.Dtype.f32);
         return ArrayFireTensor.initFromArray(allocator, arr, 1);
     }
 
@@ -308,7 +308,7 @@ pub const ArrayFireTensor = struct {
         ptr: ?*anyopaque,
         loc: Location,
     ) !*ArrayFireTensor {
-        var self = try allocator.create(ArrayFireTensor);
+        const self = try allocator.create(ArrayFireTensor);
         var arr: *af.Array = undefined;
         switch (loc) {
             .Host => arr = try af.Array.initFromPtr(
@@ -382,13 +382,13 @@ pub const ArrayFireTensor = struct {
     pub fn getHandle(self: *ArrayFireTensor, allocator: std.mem.Allocator) GetHandleErrors!*af.Array {
         if (@as(ComponentTypeTag, self.handle_) != .array) {
             const idxComp: IndexedArrayComponent = self.handle_.indexedArray;
-            var idxTypes: ?[]IndexType = if (self.indexTypes_ != null) self.indexTypes_.?.items else null;
+            const idxTypes: ?[]IndexType = if (self.indexTypes_ != null) self.indexTypes_.?.items else null;
 
             //std.debug.print("attempting IndexedArrayComponent.get()\n", .{});
             var oldHandle = self.arrayHandle_;
             defer oldHandle.releaseWithFn(af.Array.deinit);
             var used_arr = try idxComp.get(allocator, self);
-            var condensed = try condenseIndices(
+            const condensed = try condenseIndices(
                 allocator,
                 used_arr,
                 false,
@@ -424,7 +424,7 @@ pub const ArrayFireTensor = struct {
     }
 
     pub fn clone(self: *ArrayFireTensor, allocator: std.mem.Allocator) !TensorAdapterBase {
-        var arr = try self.getHandle(allocator); // increment internal AF refcount
+        const arr = try self.getHandle(allocator); // increment internal AF refcount
         return TensorAdapterBase.init(try ArrayFireTensor.initFromArray(
             allocator,
             arr,
@@ -434,13 +434,13 @@ pub const ArrayFireTensor = struct {
 
     pub fn copy(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Tensor {
         _ = try self.getHandle(allocator); // if this tensor was a view, run indexing and promote
-        var copiedArr = try self.arrayHandle_.value.*.copy(allocator);
+        const copiedArr = try self.arrayHandle_.value.*.copy(allocator);
         return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, copiedArr, self.numDims())));
     }
 
     pub fn shallowCopy(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Tensor {
         _ = try self.getHandle(allocator); // if this tensor was a view, run indexing and promote
-        var sharedArr = self.arrayHandle_.retain();
+        const sharedArr = self.arrayHandle_.retain();
         return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromShared(allocator, sharedArr, self.numDims())));
     }
 
@@ -482,12 +482,12 @@ pub const ArrayFireTensor = struct {
     }
 
     pub fn scalar(self: *ArrayFireTensor, allocator: std.mem.Allocator, out: ?*anyopaque) !void {
-        var arr = try self.getHandle(allocator);
+        const arr = try self.getHandle(allocator);
         try af.AF_CHECK(af.af_get_scalar(out, arr.array_), @src());
     }
 
     pub fn device(self: *ArrayFireTensor, allocator: std.mem.Allocator, out: *?*anyopaque) !void {
-        var arr = try self.getHandle(allocator);
+        const arr = try self.getHandle(allocator);
         try af.AF_CHECK(af.af_get_device_ptr(out, arr.array_), @src());
     }
 
@@ -526,7 +526,7 @@ pub const ArrayFireTensor = struct {
 
     pub fn astype(self: *ArrayFireTensor, allocator: std.mem.Allocator, dType: DType) !Tensor {
         var arr = try self.getHandle(allocator);
-        var convertedArr = try arr.cast(allocator, af.ops.ztToAfType(dType));
+        const convertedArr = try arr.cast(allocator, af.ops.ztToAfType(dType));
         return Tensor.init(TensorAdapterBase.init(try ArrayFireTensor.initFromArray(allocator, convertedArr, self.numDims())));
     }
 
@@ -593,7 +593,7 @@ pub const ArrayFireTensor = struct {
 
     pub fn flatten(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Tensor {
         var arr = try self.getHandle(allocator);
-        var flattenedArr = try arr.flat(allocator);
+        const flattenedArr = try arr.flat(allocator);
         return Tensor.init(
             TensorAdapterBase.init(
                 try ArrayFireTensor.initFromArray(
@@ -632,7 +632,7 @@ pub const ArrayFireTensor = struct {
     pub fn asContiguousTensor(self: *ArrayFireTensor, allocator: std.mem.Allocator) !Tensor {
         if (try self.isContiguous(allocator)) {
             _ = try self.getHandle(allocator);
-            var other = self.arrayHandle_.retain();
+            const other = self.arrayHandle_.retain();
             return Tensor.init(
                 TensorAdapterBase.init(
                     try ArrayFireTensor.initFromShared(
@@ -645,9 +645,9 @@ pub const ArrayFireTensor = struct {
         }
 
         var arr = try self.getHandle(allocator);
-        var newDims = af.Dim4.init(&.{@as(af.dim_t, @intCast(try arr.getElements()))});
-        var linearArr = try af.Array.initHandle(allocator, 1, newDims, try arr.getType());
-        var indices = try af.ops.createIndexers();
+        const newDims = af.Dim4.init(&.{@as(af.dim_t, @intCast(try arr.getElements()))});
+        const linearArr = try af.Array.initHandle(allocator, 1, newDims, try arr.getType());
+        const indices = try af.ops.createIndexers();
         try af.ops.setSeqIndexer(indices, &af.af_span, 0, false);
         try af.ops.copy(linearArr, arr, indices);
         try af.ops.releaseIndexers(indices);
@@ -787,7 +787,7 @@ fn allClose(allocator: std.mem.Allocator, a: *const af.Array, b: *const af.Array
     defer sub.deinit();
     var abs = try af.ops.abs(allocator, sub);
     defer abs.deinit();
-    var max = try af.ops.maxAll(abs);
+    const max = try af.ops.maxAll(abs);
     return max.real < abs_tolerance;
 }
 
@@ -798,13 +798,13 @@ test "ArrayFireTensorBaseTest -> AfRefCountBasic" {
 
     // Sanity check that af.af_array moved into zt.Tensors don't have their
     // refcount inrcremented/show proper usage of refs in tensor ops
-    var qDims = af.Dim4.init(&.{ 2, 2 });
+    const qDims = af.Dim4.init(&.{ 2, 2 });
     var q = try af.ops.constant(allocator, 1, 2, qDims, af.Dtype.f32);
     defer q.deinit();
     // without eval/sync, no refcount
     try std.testing.expect(try getRefCount(q, false) == 0);
 
-    var a = try af.ops.constant(allocator, 1, 2, qDims, af.Dtype.f32);
+    const a = try af.ops.constant(allocator, 1, 2, qDims, af.Dtype.f32);
     try std.testing.expect(try getRefCount(q, true) == 1);
 
     var tensor = Tensor.init(
@@ -813,7 +813,7 @@ test "ArrayFireTensorBaseTest -> AfRefCountBasic" {
         ),
     );
     defer tensor.deinit();
-    var aRef = try toArray(allocator, tensor);
+    const aRef = try toArray(allocator, tensor);
     try std.testing.expect(try getRefCount(aRef, true) == 1);
 
     // TODO: verify copy works and increments ref count
@@ -838,7 +838,7 @@ test "ArrayFireTensorBaseTest -> AfRefCountModify" {
     try std.testing.expect(try getRefCount(try toArray(allocator, a), true) == 1);
     try std.testing.expect(try getRefCount(try toArray(allocator, b), true) == 1);
 
-    var res1Data = (try res1.allocHost(allocator, f32)).?;
+    const res1Data = (try res1.allocHost(allocator, f32)).?;
     defer allocator.free(res1Data);
     for (res1Data) |v| try std.testing.expect(v == 2);
 
@@ -933,7 +933,7 @@ test "ArrayFireTensorBaseTest -> full" {
 
     try std.testing.expect(zt.tensor.shape.eql(&.{ 3, 4 }, try a.shape(allocator)));
     try std.testing.expect(try a.dtype(allocator) == .f32);
-    var aAfDim = af.Dim4.init(&.{ 3, 4 });
+    const aAfDim = af.Dim4.init(&.{ 3, 4 });
     var aArray = try af.ops.constant(allocator, 3, 2, aAfDim, .f32);
     defer aArray.deinit();
     try std.testing.expect(try allClose(allocator, try toArray(allocator, a), aArray, 1e-5));
@@ -942,7 +942,7 @@ test "ArrayFireTensorBaseTest -> full" {
     defer b.deinit();
     try std.testing.expect(zt.tensor.shape.eql(&.{ 1, 1, 5, 4 }, try b.shape(allocator)));
     try std.testing.expect(try b.dtype(allocator) == .f32);
-    var bAfDim = af.Dim4.init(&.{ 1, 1, 5, 4 });
+    const bAfDim = af.Dim4.init(&.{ 1, 1, 5, 4 });
     var bArray = try af.ops.constant(allocator, 4.5, 4, bAfDim, .f32);
     defer bArray.deinit();
     try std.testing.expect(try allClose(allocator, try toArray(allocator, b), bArray, 1e-5));
@@ -959,7 +959,7 @@ test "ArrayFireTensorBaseTest -> identity" {
 
     try std.testing.expect(zt.tensor.shape.eql(&.{ 6, 6 }, try a.shape(allocator)));
     try std.testing.expect(try a.dtype(allocator) == .f32);
-    var afDim = af.Dim4.init(&.{ 6, 6 });
+    const afDim = af.Dim4.init(&.{ 6, 6 });
     var arrIdentity = try af.ops.identity(allocator, 2, afDim, .f32);
     defer arrIdentity.deinit();
     try std.testing.expect(try allClose(allocator, try toArray(allocator, a), arrIdentity, 1e-5));
@@ -981,7 +981,7 @@ test "ArrayFireTensorBaseTest -> randn" {
 
     try std.testing.expect(zt.tensor.shape.eql(&.{ s, s }, try a.shape(allocator)));
     try std.testing.expect(try a.dtype(allocator) == .f32);
-    var afDim = af.Dim4.init(&.{@as(af.dim_t, @intCast(s * s))});
+    const afDim = af.Dim4.init(&.{@as(af.dim_t, @intCast(s * s))});
     var moddimsArr = try af.ops.moddims(allocator, try toArray(allocator, a), 1, afDim);
     defer moddimsArr.deinit();
     var meanArr = try af.ops.mean(allocator, moddimsArr, -1);
@@ -1007,7 +1007,7 @@ test "ArrayFireTensorBaseTest -> rand" {
     try std.testing.expect(zt.tensor.shape.eql(&.{ s, s }, try a.shape(allocator)));
     try std.testing.expect(try a.dtype(allocator) == .f32);
 
-    var afDims = af.Dim4.init(&.{ @as(af.dim_t, @intCast(s)), @as(af.dim_t, @intCast(s)) });
+    const afDims = af.Dim4.init(&.{ @as(af.dim_t, @intCast(s)), @as(af.dim_t, @intCast(s)) });
     var tmpConst1 = try af.ops.constant(allocator, 1, 2, afDims, .f32);
     defer tmpConst1.deinit();
     var lteArr = try af.ops.le(allocator, try toArray(allocator, a), tmpConst1, false);
@@ -1037,8 +1037,8 @@ test "ArrayFireTensorBaseTest -> amin" {
     var tensorRes1 = try amin(allocator, a, &.{}, false);
     defer tensorRes1.deinit();
 
-    var tensorScalar1 = try tensorRes1.scalar(allocator, f32);
-    var afRes1 = try af.ops.minAll(try toArray(allocator, a));
+    const tensorScalar1 = try tensorRes1.scalar(allocator, f32);
+    const afRes1 = try af.ops.minAll(try toArray(allocator, a));
     try std.testing.expect(tensorScalar1 == @as(f32, @floatCast(afRes1.real)));
 
     var tensorRes2 = try amin(allocator, a, &.{0}, false);
@@ -1063,8 +1063,8 @@ test "ArrayFireTensorBaseTest -> amax" {
     var tensorRes1 = try amax(allocator, a, &.{}, false);
     defer tensorRes1.deinit();
 
-    var tensorScalar1 = try tensorRes1.scalar(allocator, f32);
-    var afRes1 = try af.ops.maxAll(try toArray(allocator, a));
+    const tensorScalar1 = try tensorRes1.scalar(allocator, f32);
+    const afRes1 = try af.ops.maxAll(try toArray(allocator, a));
     try std.testing.expect(tensorScalar1 == @as(f32, @floatCast(afRes1.real)));
 
     var tensorRes2 = try amax(allocator, a, &.{0}, false);
@@ -1089,8 +1089,8 @@ test "ArrayFireTensorBaseTest -> sum" {
     var aSum = try sum(allocator, a, &.{}, false);
     defer aSum.deinit();
 
-    var aSumScalar = try aSum.scalar(allocator, f32);
-    var aAfSum = try af.ops.sumAll(try toArray(allocator, a));
+    const aSumScalar = try aSum.scalar(allocator, f32);
+    const aAfSum = try af.ops.sumAll(try toArray(allocator, a));
     try std.testing.expectApproxEqAbs(aSumScalar, @as(f32, @floatCast(aAfSum.real)), 1e-5);
 
     var tensorSum = try sum(allocator, a, &.{0}, false);
@@ -1107,8 +1107,8 @@ test "ArrayFireTensorBaseTest -> sum" {
     var bSum = try sum(allocator, b, &.{}, false);
     defer bSum.deinit();
 
-    var bSumScalar = try bSum.scalar(allocator, f32);
-    var bAfSum = try af.ops.sumAll(try toArray(allocator, b));
+    const bSumScalar = try bSum.scalar(allocator, f32);
+    const bAfSum = try af.ops.sumAll(try toArray(allocator, b));
     try std.testing.expectApproxEqAbs(bSumScalar, @as(f32, @floatCast(bAfSum.real)), 1e-5);
 
     var bTensorSum = try sum(allocator, b, &.{ 1, 2 }, false);
@@ -1358,7 +1358,7 @@ test "ArrayFireTensorBaseTest -> variance" {
 
     var aVarTensor = try variance(allocator, a, &.{}, false, false);
     defer aVarTensor.deinit();
-    var aVarScalar = try aVarTensor.scalar(allocator, f32);
+    const aVarScalar = try aVarTensor.scalar(allocator, f32);
     try std.testing.expect(
         @as(f32, @floatCast(
             (try af.ops.varAllV2(
@@ -1420,7 +1420,7 @@ test "ArrayFireTensorBaseTest -> variance" {
     );
     var biasedTensor = try variance(allocator, a, &.{ 0, 1 }, true, false);
     defer biasedTensor.deinit();
-    var biasedScalar = try biasedTensor.scalar(allocator, f32);
+    const biasedScalar = try biasedTensor.scalar(allocator, f32);
     try std.testing.expectEqual(
         @as(
             f32,
@@ -1476,8 +1476,8 @@ test "ArrayFireTensorBaseTest -> stdev" {
 
     var tensor_res_3 = try stdev(allocator, a, &.{ 0, 1 }, false);
     defer tensor_res_3.deinit();
-    var tensor_res_3_scalar = try tensor_res_3.scalar(allocator, f32);
-    var expected = @sqrt((try af.ops.varAllV2(try toArray(allocator, a), .Population)).real);
+    const tensor_res_3_scalar = try tensor_res_3.scalar(allocator, f32);
+    const expected = @sqrt((try af.ops.varAllV2(try toArray(allocator, a), .Population)).real);
     try std.testing.expectEqual(tensor_res_3_scalar, @floatCast(expected));
 }
 
@@ -1494,7 +1494,7 @@ test "ArrayFireTensorBaseTest -> norm" {
     var res_tensor = try norm(allocator, a, &.{}, 2, false);
     defer res_tensor.deinit();
 
-    var arr_norm = try af.ops.norm(try toArray(allocator, a), af.NormType.Vector2, 1, 1);
+    const arr_norm = try af.ops.norm(try toArray(allocator, a), af.NormType.Vector2, 1, 1);
     try std.testing.expectApproxEqAbs(
         @as(f32, @floatCast(arr_norm)),
         try res_tensor.scalar(allocator, f32),
@@ -1597,10 +1597,10 @@ test "ArrayFireTensorBaseTest -> device" {
 
     var a = try rand(allocator, &.{ 5, 5 }, .f32);
     defer a.deinit();
-    var zt_ptr = try a.device(allocator, []f32);
+    const zt_ptr = try a.device(allocator, []f32);
     var arr = try toArray(allocator, a);
     var tmp_ptr: [*c]f32 = @ptrCast(@alignCast(try arr.getDevicePtr()));
-    var af_ptr = tmp_ptr[0..@intCast(try a.elements(allocator))];
+    const af_ptr = tmp_ptr[0..@intCast(try a.elements(allocator))];
     try std.testing.expect(zt_ptr.ptr == af_ptr.ptr);
     try a.unlock(allocator);
     try af.AF_CHECK(af.af_unlock_array(arr.get()), @src()); // safety

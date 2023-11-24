@@ -27,7 +27,7 @@ pub fn batchFunc(allocator: std.mem.Allocator, lhs: *const af.Array, rhs: *const
         return error.BatchFuncFailed;
     }
     gforSet(true);
-    var res: *af.Array = try func(allocator, lhs, rhs, gforGet());
+    const res: *af.Array = try func(allocator, lhs, rhs, gforGet());
     errdefer gforSet(false); // if errors, still need to set false
     gforSet(false); // if no error, set false
     return res;
@@ -49,7 +49,7 @@ pub fn inPlaceBatchFunc(lhs: *af.Array, rhs: *const af.Array, func: inPlaceBatch
 test "gforToggle" {
     var lastStatus = false;
     for (0..10) |_| {
-        var status = gforToggle();
+        const status = gforToggle();
         try std.testing.expect(status != lastStatus);
         lastStatus = status;
     }
