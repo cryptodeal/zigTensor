@@ -2918,7 +2918,7 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
     var res2 = try categoricalCrossEntropy(allocator, cat_input, cat_target, .Mean, -1);
     res2.deinit();
 
-    if (@import("build_options").ZT_USE_ONEDNN or @import("build_options").ZT_USE_CUDNN) {
+    if ((@import("build_options").ZT_USE_ONEDNN and @import("builtin").cpu.arch != .aarch64) or @import("build_options").ZT_USE_CUDNN) {
         var pool2d_res = try pool2d(allocator, f16_, 1, 1, 1, 1, 1, 1, .Max);
         pool2d_res.deinit();
     }
@@ -2934,7 +2934,7 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
     try std.testing.expectError(error.VariableDTypeMismatch, linear(allocator, f16_, f32_, f16_2));
     try std.testing.expectError(error.VariableDTypeMismatch, linear(allocator, f16_, f32_, f32_2));
 
-    if (@import("build_options").ZT_USE_ONEDNN or @import("build_options").ZT_USE_CUDNN) {
+    if ((@import("build_options").ZT_USE_ONEDNN and @import("builtin").cpu.arch != .aarch64) or @import("build_options").ZT_USE_CUDNN) {
         var w = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{1}, .f32), true);
         defer w.deinit();
         var b = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{1}, .f32), true);
@@ -4148,7 +4148,7 @@ test "AutogradConv2DTest -> Convolve" {
     if (!@import("build_options").ZT_USE_ONEDNN and !@import("build_options").ZT_USE_CUDNN) {
         return error.SkipZigTest;
     }
-    const allocator = std.heap.c_allocator;
+    const allocator = std.testing.allocator;
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 

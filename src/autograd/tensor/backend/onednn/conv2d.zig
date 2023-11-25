@@ -250,11 +250,11 @@ pub inline fn conv2d(
 
     // Create memory
     var input_mem_init = try DnnlMemoryWrapper.init(allocator, input, conv2d_data.input_dims, format_nchw);
-    defer input_mem_init.deinit();
+    defer input_mem_init.deinitAll();
     var output_mem_init = try DnnlMemoryWrapper.init(allocator, output, conv2d_data.output_dims, format_nchw);
-    defer output_mem_init.deinit();
+    defer output_mem_init.deinitAll();
     var weights_mem = try DnnlMemoryWrapper.init(allocator, weights, conv2d_data.weight_dims, format_weight);
-    defer weights_mem.deinit();
+    defer weights_mem.deinitAll();
 
     // Network for execution
     var network = std.ArrayList(dnnl.dnnl_primitive_t).init(allocator);
@@ -281,11 +281,14 @@ pub inline fn conv2d(
     const weights_mem_allocated, const weights_memory = try dnnlAlignOrdering(allocator, &network, &fwd_args, weights_mem.getMemory(), weights_desc);
     defer if (weights_mem_allocated) dnnl.DNNL_CHECK(dnnl.dnnl_memory_destroy(weights_memory), @src()) catch unreachable;
     // Output - adds a reorder after the conv if needed
+    var output_memory_allocated = false;
     var output_memory = output_mem_init.getMemory();
+    defer if (output_memory_allocated) dnnl.DNNL_CHECK(dnnl.dnnl_memory_destroy(output_memory), @src()) catch unreachable;
     var out_desc: dnnl.const_dnnl_memory_desc_t = null;
     try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(output_memory, &out_desc), @src());
     if (dnnl.dnnl_memory_desc_equal(out_desc, output_desc) == 0) {
         try dnnl.DNNL_CHECK(dnnl.dnnl_memory_create(&output_memory, output_desc, dnnl_engine, dnnl.DNNL_MEMORY_ALLOCATE), @src());
+        output_memory_allocated = true;
     }
 
     // Create convolution
@@ -313,18 +316,14 @@ pub inline fn conv2d(
 
     // Add output reordering if needed
     if (output_memory != output_mem_init.getMemory()) {
-        var reorder_prim_desc: dnnl.dnnl_primitive_desc_t = null;
-        var src_engine: dnnl.dnnl_engine_t = null;
-        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_engine(output_memory, &src_engine), @src());
-        var dst_engine: dnnl.dnnl_engine_t = null;
-        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_engine(output_mem_init.getMemory(), &dst_engine), @src());
-        var out_mem_init_desc: dnnl.const_dnnl_memory_desc_t = null;
-        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(output_mem_init.getMemory(), &out_mem_init_desc), @src());
-        try dnnl.DNNL_CHECK(dnnl.dnnl_reorder_primitive_desc_create(&reorder_prim_desc, out_desc, src_engine, out_mem_init_desc, dst_engine, null), @src());
-        var reorder_prim: dnnl.dnnl_primitive_t = null;
-        try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_create(&reorder_prim, reorder_prim_desc), @src());
-        try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_desc_destroy(reorder_prim_desc), @src());
-        try network.append(reorder_prim);
+        var reorder_pd: dnnl.dnnl_primitive_desc_t = null;
+        var src_desc: dnnl.const_dnnl_memory_desc_t = null;
+        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(output_memory, &src_desc), @src());
+        try dnnl.DNNL_CHECK(dnnl.dnnl_reorder_primitive_desc_create(&reorder_pd, src_desc, dnnl_engine, output_mem_init.getDescriptor(), dnnl_engine, null), @src());
+        var reorder: dnnl.dnnl_primitive_t = null;
+        try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_create(&reorder, reorder_pd), @src());
+        try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_desc_destroy(reorder_pd), @src());
+        try network.append(reorder);
         try fwd_args.append(try createArgs(allocator, &.{ .{ dnnl.DNNL_ARG_FROM, output_memory }, .{ dnnl.DNNL_ARG_TO, output_mem_init.getMemory() } }, null));
     }
 
@@ -398,11 +397,11 @@ pub inline fn conv2dBackwardData(
 
     // Create memory
     var grad_output_mem_init = try DnnlMemoryWrapper.init(allocator, grad_output, conv2d_data.output_dims, format_nchw);
-    defer grad_output_mem_init.deinit();
+    defer grad_output_mem_init.deinitAll();
     var grad_input_mem_init = try DnnlMemoryWrapper.init(allocator, grad_input, conv2d_data.input_dims, format_nchw);
-    defer grad_input_mem_init.deinit();
+    defer grad_input_mem_init.deinitAll();
     var weights_mem_init_bwd = try DnnlMemoryWrapper.init(allocator, weights, conv2d_data.weight_dims, format_weight);
-    defer weights_mem_init_bwd.deinit();
+    defer weights_mem_init_bwd.deinitAll();
 
     var network_backwards = std.ArrayList(dnnl.dnnl_primitive_t).init(allocator);
     defer {
@@ -423,12 +422,13 @@ pub inline fn conv2dBackwardData(
     defer if (grad_out_allocated) dnnl.DNNL_CHECK(dnnl.dnnl_memory_destroy(grad_output_memory), @src()) catch unreachable;
     const weights_mem_allocated, const weights_memory_backward = try dnnlAlignOrdering(allocator, &network_backwards, &bwd_data_args, weights_mem_init_bwd.getMemory(), weights_desc);
     defer if (weights_mem_allocated) dnnl.DNNL_CHECK(dnnl.dnnl_memory_destroy(weights_memory_backward), @src()) catch unreachable;
+    var grad_input_memory_allocated = false;
     var grad_input_memory = grad_input_mem_init.getMemory();
+    defer if (grad_input_memory_allocated) dnnl.DNNL_CHECK(dnnl.dnnl_memory_destroy(grad_input_memory), @src()) catch unreachable;
     // Don't reorder the gradient until after the conv
-    var tmp_input_desc: dnnl.const_dnnl_memory_desc_t = null;
-    try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(grad_input_memory, &tmp_input_desc), @src());
-    if (dnnl.dnnl_memory_desc_equal(tmp_input_desc, grad_input_desc) == 0) {
+    if (dnnl.dnnl_memory_desc_equal(grad_input_mem_init.getDescriptor(), grad_input_desc) == 0) {
         try dnnl.DNNL_CHECK(dnnl.dnnl_memory_create(&grad_input_memory, grad_input_desc, dnnl_engine_bwd, dnnl.DNNL_MEMORY_ALLOCATE), @src());
+        grad_input_memory_allocated = true;
     }
 
     // Convolution backwards primitive
@@ -443,18 +443,14 @@ pub inline fn conv2dBackwardData(
 
     // Reorder the output (which is grad_input here) if necessary
     if (grad_input_memory != grad_input_mem_init.getMemory()) {
-        var reorder_prim_desc: dnnl.dnnl_primitive_desc_t = null;
-        var src_engine: dnnl.dnnl_engine_t = null;
-        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_engine(grad_input_memory, &src_engine), @src());
-        var dst_engine: dnnl.dnnl_engine_t = null;
-        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_engine(grad_input_mem_init.getMemory(), &dst_engine), @src());
-        var comp_input_mem: dnnl.const_dnnl_memory_desc_t = null;
-        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(grad_input_mem_init.getMemory(), &comp_input_mem), @src());
-        try dnnl.DNNL_CHECK(dnnl.dnnl_reorder_primitive_desc_create(&reorder_prim_desc, tmp_input_desc, src_engine, comp_input_mem, dst_engine, null), @src());
-        var reorder_prim: dnnl.dnnl_primitive_t = null;
-        try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_create(&reorder_prim, reorder_prim_desc), @src());
-        try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_desc_destroy(reorder_prim_desc), @src());
-        try network_backwards.append(reorder_prim);
+        var reorder_pd: dnnl.dnnl_primitive_desc_t = null;
+        var tmp_input_desc: dnnl.dnnl_memory_desc_t = null;
+        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(grad_input_memory, &tmp_input_desc), @src());
+        try dnnl.DNNL_CHECK(dnnl.dnnl_reorder_primitive_desc_create(&reorder_pd, tmp_input_desc, dnnl_engine_bwd, grad_input_mem_init.getDescriptor(), dnnl_engine_bwd, null), @src());
+        var reorder: dnnl.dnnl_primitive_t = null;
+        try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_create(&reorder, reorder_pd), @src());
+        try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_desc_destroy(reorder_pd), @src());
+        try network_backwards.append(reorder);
         try bwd_data_args.append(try createArgs(allocator, &.{
             .{ dnnl.DNNL_ARG_FROM, grad_input_memory },
             .{ dnnl.DNNL_ARG_TO, grad_input_mem_init.getMemory() },
@@ -515,45 +511,24 @@ pub inline fn conv2dBackwardFilterBias(
 
     // Weight backward primitive descriptor
     var bwd_weight_primitive_desc: dnnl.dnnl_primitive_desc_t = null;
-    if (compute_bias_grad) {
-        try dnnl.DNNL_CHECK(
-            dnnl.dnnl_convolution_backward_weights_primitive_desc_create(
-                &bwd_weight_primitive_desc,
-                dnnl_engine_bwd,
-                dnnl.dnnl_convolution_direct,
-                conv2d_data.input_mem_desc,
-                conv2d_data.weight_mem_desc,
-                conv2d_data.bias_mem_desc,
-                conv2d_data.output_mem_desc,
-                conv2d_data.stride_dims.ptr,
-                conv2d_data.dilation_dims.ptr,
-                conv2d_data.padding_dims.ptr,
-                conv2d_data.padding_dims.ptr,
-                conv2d_data.fwd_prim_desc,
-                null,
-            ),
-            @src(),
-        );
-    } else {
-        try dnnl.DNNL_CHECK(
-            dnnl.dnnl_convolution_backward_weights_primitive_desc_create(
-                &bwd_weight_primitive_desc,
-                dnnl_engine_bwd,
-                dnnl.dnnl_convolution_direct,
-                conv2d_data.input_mem_desc,
-                conv2d_data.weight_mem_desc,
-                null, // TODO: verify this is correct (maybe just need to pass mem_desc anyways?)
-                conv2d_data.output_mem_desc,
-                conv2d_data.stride_dims.ptr,
-                conv2d_data.dilation_dims.ptr,
-                conv2d_data.padding_dims.ptr,
-                conv2d_data.padding_dims.ptr,
-                conv2d_data.fwd_prim_desc,
-                null,
-            ),
-            @src(),
-        );
-    }
+    try dnnl.DNNL_CHECK(
+        dnnl.dnnl_convolution_backward_weights_primitive_desc_create(
+            &bwd_weight_primitive_desc,
+            dnnl_engine_bwd,
+            dnnl.dnnl_convolution_direct,
+            conv2d_data.input_mem_desc,
+            conv2d_data.weight_mem_desc,
+            if (compute_bias_grad) conv2d_data.bias_mem_desc else null,
+            conv2d_data.output_mem_desc,
+            conv2d_data.stride_dims.ptr,
+            conv2d_data.dilation_dims.ptr,
+            conv2d_data.padding_dims.ptr,
+            conv2d_data.padding_dims.ptr,
+            conv2d_data.fwd_prim_desc,
+            null,
+        ),
+        @src(),
+    );
 
     // Weight backward primitive
     var bwd_weights: dnnl.dnnl_primitive_t = null;
@@ -562,11 +537,11 @@ pub inline fn conv2dBackwardFilterBias(
 
     // Create memory
     var input_raw_mem_init = try DnnlMemoryWrapper.init(allocator, input, conv2d_data.input_dims, format_nchw);
-    defer input_raw_mem_init.deinit();
+    defer input_raw_mem_init.deinitAll();
     var grad_output_mem_init = try DnnlMemoryWrapper.init(allocator, grad_output, conv2d_data.output_dims, format_nchw);
-    defer grad_output_mem_init.deinit();
+    defer grad_output_mem_init.deinitAll();
     var grad_weights_mem_init = try DnnlMemoryWrapper.init(allocator, grad_weights, conv2d_data.weight_dims, format_weight);
-    defer grad_weights_mem_init.deinit();
+    defer grad_weights_mem_init.deinitAll();
 
     var network_backwards = std.ArrayList(dnnl.dnnl_primitive_t).init(allocator);
     defer {
@@ -588,13 +563,14 @@ pub inline fn conv2dBackwardFilterBias(
     const grad_output_memory_allocated, const grad_output_memory = try dnnlAlignOrdering(allocator, &network_backwards, &bwd_weights_args, grad_output_mem_init.getMemory(), grad_output_desc);
     defer if (grad_output_memory_allocated) dnnl.DNNL_CHECK(dnnl.dnnl_memory_destroy(grad_output_memory), @src()) catch unreachable;
     var grad_bias_mem: DnnlMemoryWrapper = if (compute_bias_grad) try DnnlMemoryWrapper.init(allocator, grad_bias, conv2d_data.bias_dims, format_bias) else .{};
-    defer grad_bias_mem.deinit();
+    defer grad_bias_mem.deinitAll();
     // Don't reorder the grads until after the conv bwd
+    var grad_weights_memory_allocated = false;
     var grad_weights_memory = grad_weights_mem_init.getMemory();
-    var tmp_weights_desc: dnnl.dnnl_memory_desc_t = null;
-    try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(grad_weights_memory, &tmp_weights_desc), @src());
-    if (dnnl.dnnl_memory_desc_equal(tmp_weights_desc, grad_weights_desc) == 0) {
+    defer if (grad_weights_memory_allocated) dnnl.DNNL_CHECK(dnnl.dnnl_memory_destroy(grad_weights_memory), @src()) catch unreachable;
+    if (dnnl.dnnl_memory_desc_equal(grad_weights_mem_init.getDescriptor(), grad_weights_desc) == 0) {
         try dnnl.DNNL_CHECK(dnnl.dnnl_memory_create(&grad_weights_memory, grad_weights_desc, dnnl_engine_bwd, dnnl.DNNL_MEMORY_ALLOCATE), @src());
+        grad_weights_memory_allocated = true;
     }
 
     // Create the convolution backward weight
@@ -618,14 +594,14 @@ pub inline fn conv2dBackwardFilterBias(
     var grad_weights_md: dnnl.dnnl_memory_desc_t = null;
     try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(grad_weights_memory, &grad_weights_md), @src());
     if (grad_weights_memory != grad_weights_mem_init.getMemory()) {
-        var reorder_prim: dnnl.dnnl_primitive_t = null;
-        var reorder_prim_desc: dnnl.dnnl_primitive_desc_t = null;
-        var grad_weights_mem_init_md: dnnl.dnnl_memory_desc_t = null;
-        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(grad_weights_mem_init.getMemory(), &grad_weights_mem_init_md), @src());
-        try dnnl.DNNL_CHECK(dnnl.dnnl_reorder_primitive_desc_create(&reorder_prim_desc, grad_weights_md, (try DnnlEngine.getInstance(allocator)).getEngine(), grad_weights_mem_init_md, (try DnnlEngine.getInstance(allocator)).getEngine(), null), @src());
-        try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_create(&reorder_prim, reorder_prim_desc), @src());
-        try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_desc_destroy(reorder_prim_desc), @src());
-        try network_backwards.append(reorder_prim);
+        var reorder: dnnl.dnnl_primitive_t = null;
+        var reorder_pd: dnnl.dnnl_primitive_desc_t = null;
+        var grad_weights_new_md: dnnl.const_dnnl_memory_desc_t = null;
+        try dnnl.DNNL_CHECK(dnnl.dnnl_memory_get_memory_desc(grad_weights_memory, &grad_weights_new_md), @src());
+        try dnnl.DNNL_CHECK(dnnl.dnnl_reorder_primitive_desc_create(&reorder_pd, grad_weights_new_md, (try DnnlEngine.getInstance(allocator)).getEngine(), grad_weights_mem_init.getDescriptor(), (try DnnlEngine.getInstance(allocator)).getEngine(), null), @src());
+        try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_create(&reorder, reorder_pd), @src());
+        try dnnl.DNNL_CHECK(dnnl.dnnl_primitive_desc_destroy(reorder_pd), @src());
+        try network_backwards.append(reorder);
         try bwd_weights_args.append(try createArgs(allocator, &.{ .{ dnnl.DNNL_ARG_FROM, grad_weights_memory }, .{ dnnl.DNNL_ARG_TO, grad_weights_mem_init.getMemory() } }, null));
     }
 
