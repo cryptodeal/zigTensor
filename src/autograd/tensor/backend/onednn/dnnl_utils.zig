@@ -20,7 +20,7 @@ pub const DnnlStream = struct {
         var self = try allocator.create(DnnlStream);
         self.* = .{ .allocator = allocator };
         if (build_options.ZT_BACKEND_OPENCL) {
-            // TODO: self.stream_
+            try dnnl.DNNL_CHECK(dnnl.dnnl_ocl_interop_stream_create(&self.stream_, engine, @ptrCast(try zt.common.ocl.getQueue(false))), @src());
         } else {
             try dnnl.DNNL_CHECK(dnnl.dnnl_stream_create(&self.stream_, engine, dnnl.dnnl_stream_default_flags), @src());
         }
@@ -62,7 +62,7 @@ pub const DnnlEngine = struct {
         var self = try allocator.create(DnnlEngine);
         self.* = .{ .allocator = allocator };
         if (build_options.ZT_BACKEND_OPENCL) {
-            // TODO:
+            try dnnl.DNNL_CHECK(dnnl.dnnl_ocl_interop_engine_create(&self.engine_, @ptrCast(try zt.common.ocl.getDeviceId()), @ptrCast(try zt.common.ocl.getContext(false))), @src());
         } else {
             try dnnl.DNNL_CHECK(dnnl.dnnl_engine_create(&self.engine_, dnnl.dnnl_cpu, 0), @src());
         }
@@ -106,13 +106,9 @@ pub const DnnlMemoryWrapper = struct {
             .dims_ = try allocator.alloc(i64, dims.len),
         };
         @memcpy(self.dims_, dims);
-        var buffer: ?*anyopaque = null;
-        if (build_options.ZT_BACKEND_OPENCL) {
-            // TODO: implement
-        } else {
-            self.device_ptr_ = try DevicePtr.init(allocator, tensor);
-            buffer = self.device_ptr_.?.get();
-        }
+        self.device_ptr_ = try DevicePtr.init(allocator, tensor);
+        const buffer = self.device_ptr_.?.get();
+
         try dnnl.DNNL_CHECK(
             dnnl.dnnl_memory_desc_create_with_tag(&self.descriptor_, @intCast(self.dims_.len), self.dims_.ptr, try dnnlMapToType(try tensor.dtype(allocator)), format),
             @src(),

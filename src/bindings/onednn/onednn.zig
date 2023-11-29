@@ -2,8 +2,8 @@ const std = @import("std");
 
 const dnnl = @cImport({
     @cInclude("oneapi/dnnl/dnnl.h");
-    // conditionally import DNNL OpenCL headers
     if (@import("build_options").ZT_BACKEND_OPENCL) {
+        @cDefine("CL_TARGET_OPENCL_VERSION", "300");
         @cInclude("oneapi/dnnl/dnnl_ocl.h");
     }
 });

@@ -178,16 +178,16 @@ pub inline fn getDeviceCount() !usize {
 }
 
 /// Returns true if the device supports double precision operations; else false.
-pub inline fn getDoubleSupport() !bool {
+pub inline fn getDoubleSupport(device: i32) !bool {
     var support: bool = undefined;
-    try af.AF_CHECK(af.af_get_dbl_support(&support), @src());
+    try af.AF_CHECK(af.af_get_dbl_support(&support, @intCast(device)), @src());
     return support;
 }
 
 /// Returns true if the device supports half precision operations; else false.
 pub inline fn getHalfSupport(device: i32) !bool {
     var support: bool = undefined;
-    try af.AF_CHECK(af.af_get_half_support(&support, device), @src());
+    try af.AF_CHECK(af.af_get_half_support(&support, @intCast(device)), @src());
     return support;
 }
 

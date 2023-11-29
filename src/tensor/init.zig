@@ -43,7 +43,11 @@ pub fn Once(comptime f: fn (allocator: std.mem.Allocator) void) type {
 var init_once = Once(initFn){};
 
 pub fn init(allocator: std.mem.Allocator) void {
-    init_once.call(allocator);
+    if (@import("builtin").is_test) {
+        initFn(allocator);
+    } else {
+        init_once.call(allocator);
+    }
 }
 
 pub fn deinit() void {

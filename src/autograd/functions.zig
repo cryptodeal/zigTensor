@@ -2853,6 +2853,10 @@ test "AutogradTest -> AutogradVariableIndex" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 1, 3, 3 }, .f64), true);
     defer x.deinit();
     var tmp_x_idx1 = try x.index(allocator, &.{ Index.initDim(0), Index.initDim(0) });
@@ -2918,7 +2922,7 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
     var res2 = try categoricalCrossEntropy(allocator, cat_input, cat_target, .Mean, -1);
     res2.deinit();
 
-    if ((@import("build_options").ZT_USE_ONEDNN and @import("builtin").cpu.arch != .aarch64) or @import("build_options").ZT_USE_CUDNN) {
+    if (@import("build_options").ZT_USE_ONEDNN and @import("builtin") or @import("build_options").ZT_USE_CUDNN) {
         var pool2d_res = try pool2d(allocator, f16_, 1, 1, 1, 1, 1, 1, .Max);
         pool2d_res.deinit();
     }
@@ -2934,7 +2938,7 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
     try std.testing.expectError(error.VariableDTypeMismatch, linear(allocator, f16_, f32_, f16_2));
     try std.testing.expectError(error.VariableDTypeMismatch, linear(allocator, f16_, f32_, f32_2));
 
-    if ((@import("build_options").ZT_USE_ONEDNN and @import("builtin").cpu.arch != .aarch64) or @import("build_options").ZT_USE_CUDNN) {
+    if (@import("build_options").ZT_USE_ONEDNN or @import("build_options").ZT_USE_CUDNN) {
         var w = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{1}, .f32), true);
         defer w.deinit();
         var b = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{1}, .f32), true);
@@ -3115,6 +3119,10 @@ test "AutogradTest -> Concatenate" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+
     const ConcatT1Ctx = struct { x2: *Variable, x3: *Variable, x4: *Variable };
     const ConcatT2Ctx = struct { x1: *Variable, x2: *Variable, x4: *Variable };
 
@@ -3157,6 +3165,10 @@ test "AutogradTest -> Split" {
     const allocator = std.testing.allocator;
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
+
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
 
     // check output
     var x = try Variable.init(allocator, try zt.tensor.arange(allocator, &.{ 7, 2 }, 0, .f32), true);
@@ -3338,6 +3350,10 @@ test "AutogradTest -> Indexing" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 6, 7, 4 }, .f64), true);
     defer x.deinit();
     const funcCol = (struct {
@@ -3425,6 +3441,10 @@ test "AutogradTest -> Embedding" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+
     const n_words: i64 = 10;
     var input_tensor = try zt.tensor.rand(allocator, &.{ 4, 2 }, .f32);
     try input_tensor.inPlaceMul(allocator, i64, n_words);
@@ -3489,6 +3509,10 @@ test "AutogradBinaryOpsTest -> BasicOps" {
     const allocator = std.testing.allocator;
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
+
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
 
     // test add
     const funcAdd1 = (struct {
@@ -3624,6 +3648,10 @@ test "AutogradBinaryOpsTest -> CrossEntropy" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+
     const CrossEntropyCtx = struct { y: *Variable, mode: zt.common.ReduceMode = undefined, ignore_idx: i64 };
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 7, 10, 4 }, .f64), true);
@@ -3701,6 +3729,10 @@ test "AutogradBinaryOpsTest -> Linear" {
     const allocator = std.testing.allocator;
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
+
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
 
     const LinkCtx = struct { in: *Variable, wt: *Variable, bs: *Variable };
 
@@ -3919,6 +3951,10 @@ test "AutogradBinaryOpsTest -> DivideAdd" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f64), true);
     defer x.deinit();
     var y = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{5}, .f64), true);
@@ -3952,6 +3988,10 @@ test "AutogradBinaryOpsTest -> matmul" {
     const allocator = std.testing.allocator;
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
+
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
 
     const MatMulCtx = struct { other: *Variable };
 
@@ -4201,6 +4241,10 @@ test "AutogradNormalizationTest -> Normalize" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 3 }, .f64), true);
     defer x.deinit();
     const funcNormalize2 = (struct {
@@ -4251,7 +4295,7 @@ test "AutogradNormalizationTest -> Normalize" {
 
 // TODO: debug - test hangs/never finished (on OSx aarch64)
 test "AutogradNormalizationTest -> LayerNormJacobian" {
-    if (!(@import("build_options").ZT_USE_ONEDNN and @import("builtin").cpu.arch != .aarch64) or !@import("build_options").ZT_USE_CUDNN) {
+    if (!@import("build_options").ZT_USE_ONEDNN and !@import("build_options").ZT_USE_CUDNN) {
         return error.SkipZigTest;
     }
     const allocator = std.heap.c_allocator;
@@ -4407,6 +4451,10 @@ test "AutogradReductionTest -> Mean" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+
     const TestCtx = struct { keep_dims: bool };
 
     const handle_dims: []const bool = &.{ false, true };
@@ -4478,6 +4526,10 @@ test "AutogradReductionTest -> Variance" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+
     const TestCtx = struct { b: bool, keep_dims: bool };
 
     const biased: []const bool = &.{ true, false };
@@ -4519,6 +4571,10 @@ test "AutogradReductionTest -> Norm" {
     const allocator = std.testing.allocator;
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
+
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
 
     const TestCtx = struct { keep_dims: bool };
 
@@ -4572,6 +4628,10 @@ test "AutogradUnaryOpsTest -> Clamp" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+
     var in_tensor = try zt.tensor.rand(allocator, &.{ 5, 6, 7, 4 }, .f64);
     try in_tensor.inPlaceMul(allocator, f64, 3);
     var input = try Variable.init(allocator, in_tensor, true);
@@ -4617,6 +4677,10 @@ test "AutogradUnaryOpsTest -> Glu" {
     const allocator = std.testing.allocator;
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
+
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
 
     var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 3, 4, 5 }, .f64), true);
     defer in.deinit();
@@ -4804,6 +4868,10 @@ test "AutogradUnaryOpsTest -> Softmax" {
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
 
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
+
     var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 3, 5, 1 }, .f64), true);
     defer in.deinit();
     const funcSm = (struct {
@@ -4840,6 +4908,10 @@ test "AutogradUnaryOpsTest -> LogSoftmax" {
     const allocator = std.testing.allocator;
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
+
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
 
     var in = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 3, 5, 1 }, .f64), true);
     defer in.deinit();
@@ -4912,6 +4984,10 @@ test "AutogradUnaryOpsTest -> Sqrt" {
     const allocator = std.testing.allocator;
     zt.tensor.init(allocator);
     defer zt.tensor.deinit();
+
+    if (!try zt.common.f64Supported(allocator)) {
+        return error.SkipZigTest;
+    }
 
     var x = try Variable.init(allocator, try zt.tensor.rand(allocator, &.{ 5, 3 }, .f64), true);
     defer x.deinit();

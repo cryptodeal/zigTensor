@@ -24,7 +24,7 @@ jobs:
       - name: Setup Zig
         uses: goto-bus-stop/setup-zig@v2
       - name: Cache ArrayFire
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         id: arrayfire
         with:
           path: /opt/ArrayFire-${AF_VER}-Linux
@@ -42,7 +42,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
       - name: Run Zig Tests
-        run: zig build test --summary all -DZT_ARRAYFIRE_USE_CPU -DZT_INCLUDE_PATHS=/opt/ArrayFire-${AF_VER}-Linux/include -DZT_LIBRARY_PATHS=/opt/ArrayFire-${AF_VER}-Linux/lib64
+        run: zig build test --summary all -DZT_ARRAYFIRE_USE_CPU -DZT_ARRAYFIRE_INCLUDE_PATH=/opt/ArrayFire-${AF_VER}-Linux/include -DZT_ARRAYFIRE_LIBRARY_PATH=/opt/ArrayFire-${AF_VER}-Linux/lib64
   lint:
     runs-on: macos-latest
     steps:

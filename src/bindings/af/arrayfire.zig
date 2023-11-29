@@ -2,6 +2,10 @@ const std = @import("std");
 const af = @cImport({
     @cInclude("arrayfire.h");
     @cInclude("af/internal.h");
+    if (@import("build_options").ZT_BACKEND_OPENCL) {
+        @cDefine("CL_TARGET_OPENCL_VERSION", "300");
+        @cInclude("af/opencl.h");
+    }
 });
 
 pub usingnamespace af;

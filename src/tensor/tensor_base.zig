@@ -220,6 +220,63 @@ pub const Tensor = struct {
         return self.impl_.scalar(allocator, T);
     }
 
+    pub fn asScalar(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type) !T {
+        const TypeInfo = @typeInfo(T);
+        const is_float = TypeInfo == .Float;
+        const is_bool = TypeInfo == .Bool;
+        if (TypeInfo != .Int and !is_float and !is_bool) {
+            @compileError("Tensor.asScalar: unsupported type");
+        }
+        return switch (self.dtype(allocator)) {
+            .f16 => {
+                const tmp = try self.astype(allocator, .f32);
+                defer tmp.deinit();
+                const v = try tmp.scalar(allocator, f32);
+                return if (is_bool) v != 0 else if (is_float) @floatCast(v) else @intFromFloat(v);
+            },
+            .f32 => {
+                const v = try self.scalar(allocator, f32);
+                return if (is_bool) v != 0 else if (is_float) @floatCast(v) else @intFromFloat(v);
+            },
+            .f64 => {
+                const v = try self.scalar(allocator, f64);
+                return if (is_bool) v != 0 else if (is_float) @floatCast(v) else @intFromFloat(v);
+            },
+            .s32 => {
+                const v = try self.scalar(allocator, i32);
+                return if (is_bool) v != 0 else if (is_float) @floatFromInt(v) else @intCast(v);
+            },
+            .u32 => {
+                const v = try self.scalar(allocator, u32);
+                return if (is_bool) v != 0 else if (is_float) @floatFromInt(v) else @intCast(v);
+            },
+            .b8 => {
+                const v = try self.scalar(allocator, i8);
+                return if (is_bool) v != 0 else if (is_float) @floatFromInt(v) else @intCast(v);
+            },
+            .u8 => {
+                const v = try self.scalar(allocator, u8);
+                return if (is_bool) v != 0 else if (is_float) @floatFromInt(v) else @intCast(v);
+            },
+            .s64 => {
+                const v = try self.scalar(allocator, i64);
+                return if (is_bool) v != 0 else if (is_float) @floatFromInt(v) else @intCast(v);
+            },
+            .u64 => {
+                const v = try self.scalar(allocator, u64);
+                return if (is_bool) v != 0 else if (is_float) @floatFromInt(v) else @intCast(v);
+            },
+            .s16 => {
+                const v = try self.scalar(allocator, i16);
+                return if (is_bool) v != 0 else if (is_float) @floatFromInt(v) else @intCast(v);
+            },
+            .u16 => {
+                const v = try self.scalar(allocator, u16);
+                return if (is_bool) v != 0 else if (is_float) @floatFromInt(v) else @intCast(v);
+            },
+        };
+    }
+
     pub fn device(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type) !T {
         var ptr: ?*anyopaque = null;
         if (T == ?*anyopaque) {

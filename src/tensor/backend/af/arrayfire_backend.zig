@@ -31,6 +31,7 @@ const ZT_BACKEND_CUDA = build_options.ZT_BACKEND_CUDA;
 const ZT_BACKEND_CPU = build_options.ZT_BACKEND_CPU;
 const ZT_ARRAYFIRE_USE_CUDA = build_options.ZT_ARRAYFIRE_USE_CUDA;
 const ZT_ARRAYFIRE_USE_CPU = build_options.ZT_ARRAYFIRE_USE_CPU;
+const ZT_ARRAYFIRE_USE_OPENCL = build_options.ZT_ARRAYFIRE_USE_OPENCL;
 const SortMode = zt.tensor.SortMode;
 const PadType = zt.tensor.PadType;
 const MatrixProperty = zt.tensor.MatrixProperty;
@@ -75,7 +76,7 @@ fn getOrWrapAfDeviceStream(
         return iter.?.value.*;
     }
 
-    if (ZT_ARRAYFIRE_USE_CPU) {
+    if (ZT_ARRAYFIRE_USE_CPU or ZT_ARRAYFIRE_USE_OPENCL) {
         const stream = try ArrayFireCPUStream.create(allocator);
         try afIdToStream.put(afId, stream);
         return stream.value.*;
@@ -224,12 +225,8 @@ pub const ArrayFireBackend = struct {
 
     fn supportsDataType(_: *const ArrayFireBackend, dtype: DType) !bool {
         return switch (dtype) {
-            .f16 => {
-                const half_support: bool = try af.ops.getHalfSupport(try af.ops.getDevice());
-                // f16 isn't (yet) supported with the CPU backend per OneDNN
-                // limitations
-                return half_support and !ZT_BACKEND_CPU;
-            },
+            .f16 => af.ops.getHalfSupport(try af.ops.getDevice()),
+            .f64 => af.ops.getDoubleSupport(try af.ops.getDevice()),
             else => true,
         };
     }

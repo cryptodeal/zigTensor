@@ -1,4 +1,6 @@
 const types = @import("types.zig");
+const ZT_BACKEND_OPENCL = @import("build_options").ZT_BACKEND_OPENCL;
+pub const ocl = if (ZT_BACKEND_OPENCL) @import("opencl_utils.zig") else undefined;
 
 pub usingnamespace @import("defines.zig");
 pub const kOptimLevelTypeExclusionMappings = types.kOptimLevelTypeExclusionMappings;
