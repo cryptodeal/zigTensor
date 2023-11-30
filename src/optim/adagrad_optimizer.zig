@@ -97,7 +97,7 @@ pub const AdagradOptimizer = struct {
     /// Generates a stringified representation of the optimizer.
     pub fn prettyString(self: *AdagradOptimizer, allocator: std.mem.Allocator) ![]const u8 {
         var buffer = std.ArrayList(u8).init(allocator);
-        try buffer.writer().write("Adagrad");
+        try buffer.writer().writeAll("Adagrad");
         if (self.eps_ != 0) {
             try buffer.writer().print(" (epsilon={d})", .{self.eps_});
         }

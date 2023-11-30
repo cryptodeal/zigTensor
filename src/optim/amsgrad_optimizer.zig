@@ -135,7 +135,7 @@ pub const AMSgradOptimizer = struct {
     /// Generates a stringified representation of the optimizer.
     pub fn prettyString(self: *AMSgradOptimizer, allocator: std.mem.Allocator) []const u8 {
         var buffer = std.ArrayList(u8).init(allocator);
-        try buffer.writer().write("AMSgrad from ");
+        try buffer.writer().writeAll("AMSgrad from ");
         if (self.wd_ != 0) {
             try buffer.writer().print(" (weight decay={d})", .{self.wd_});
         }

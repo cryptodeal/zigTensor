@@ -7,7 +7,7 @@ const Variable = zt.autograd.Variable;
 /// An implementation of the Adadelta optimizer.
 ///
 /// For more details see the paper [Adadelta: An Adaptive Learning Rate Method](https://arxiv.org/pdf/1212.5701.pdf).
-const AdadeltaOptimizer = struct {
+pub const AdadeltaOptimizer = struct {
     allocator: std.mem.Allocator,
     parameters_: []*Variable,
     lr_: f64,
@@ -54,7 +54,7 @@ const AdadeltaOptimizer = struct {
         self.allocator.free(self.acc_grad_);
         for (self.acc_delta_) |t| t.deinit();
         self.allocator.free(self.acc_delta_);
-        self.allocator.free(self);
+        self.allocator.destroy(self);
     }
 
     /// Zero the gradients for all the parameters being optimized. Typically
@@ -88,16 +88,16 @@ const AdadeltaOptimizer = struct {
                 // Weight decay term
                 var tmp = try zt.tensor.mul(allocator, f32, self.wd_, Tensor, data);
                 defer tmp.deinit();
-                try data.inPlaceSub(allocator, tmp);
+                try data.inPlaceSub(allocator, Tensor, tmp);
             }
 
             const acc_grad = self.acc_grad_[i];
             const acc_delta = self.acc_delta_[i];
 
             var tmp1 = try zt.tensor.mul(allocator, f32, 1 - self.rho_, Tensor, grad);
-            try tmp1.inPlaceMul(allocator, grad);
+            try tmp1.inPlaceMul(allocator, Tensor, grad);
             try acc_grad.inPlaceMul(allocator, f32, self.rho_);
-            try acc_grad.inPlaceAdd(allocator, tmp1);
+            try acc_grad.inPlaceAdd(allocator, Tensor, tmp1);
             tmp1.deinit();
             try zt.tensor.eval(allocator, acc_grad);
 
@@ -108,20 +108,20 @@ const AdadeltaOptimizer = struct {
             tmp1 = try zt.tensor.add(allocator, Tensor, acc_delta, f32, self.eps_);
             const tmp3 = try zt.tensor.sqrt(allocator, tmp1);
             tmp1.deinit();
-            const delta = try zt.tensor.div(allocator, tmp3, tmp2);
+            const delta = try zt.tensor.div(allocator, Tensor, tmp3, Tensor, tmp2);
             defer delta.deinit();
             tmp2.deinit();
             tmp3.deinit();
 
             tmp1 = try zt.tensor.mul(allocator, f64, self.lr_, Tensor, delta);
-            try data.inPlaceSub(allocator, tmp1);
+            try data.inPlaceSub(allocator, Tensor, tmp1);
             tmp1.deinit();
             try zt.tensor.eval(allocator, data);
 
             tmp1 = try zt.tensor.mul(allocator, f32, 1 - self.rho_, Tensor, delta);
-            try tmp1.inPlaceMul(allocator, delta);
+            try tmp1.inPlaceMul(allocator, Tensor, delta);
             try acc_delta.inPlaceMul(allocator, f32, self.rho_);
-            try acc_delta.inPlaceAdd(allocator, tmp1);
+            try acc_delta.inPlaceAdd(allocator, Tensor, tmp1);
             tmp1.deinit();
             try zt.tensor.eval(allocator, acc_delta);
         }
@@ -130,7 +130,7 @@ const AdadeltaOptimizer = struct {
     /// Generates a stringified representation of the optimizer.
     pub fn prettyString(self: *AdadeltaOptimizer, allocator: std.mem.Allocator) ![]const u8 {
         var buffer = std.ArrayList(u8).init(allocator);
-        try buffer.writer().write("Adadelta");
+        try buffer.writer().writeAll("Adadelta");
         if (self.wd_ != 0) {
             try buffer.writer().print(" (weight decay={d});", .{self.wd_});
         }

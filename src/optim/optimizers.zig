@@ -11,8 +11,8 @@ pub const FirstOrderOptimizer = struct {
     pub const VTable = struct {
         deinit: *const fn (ctx: *anyopaque) void,
         zeroGrad: *const fn (ctx: *anyopaque) void,
-        getLr: *const fn (ctx: *anyopaque) f32,
-        setLr: *const fn (ctx: *anyopaque, lr: f32) void,
+        getLr: *const fn (ctx: *anyopaque) f64,
+        setLr: *const fn (ctx: *anyopaque, lr: f64) void,
         step: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!void,
         prettyString: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror![]const u8,
     };
@@ -65,12 +65,12 @@ pub const FirstOrderOptimizer = struct {
                 self.zeroGrad();
             }
 
-            fn getLr(ctx: *anyopaque) f32 {
+            fn getLr(ctx: *anyopaque) f64 {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 return self.getLr();
             }
 
-            fn setLr(ctx: *anyopaque, lr: f32) void {
+            fn setLr(ctx: *anyopaque, lr: f64) void {
                 const self: Ptr = @ptrCast(@alignCast(ctx));
                 self.setLr(lr);
             }
@@ -98,3 +98,5 @@ pub const FirstOrderOptimizer = struct {
         };
     }
 };
+
+// TODO: test "SerializationTest -> OptimizerSerialize" {}

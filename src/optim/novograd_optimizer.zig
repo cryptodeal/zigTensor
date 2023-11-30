@@ -113,7 +113,7 @@ pub const NovogradOptimizer = struct {
 
     pub fn prettyString(self: *NovogradOptimizer, allocator: std.mem.Allocator) ![]const u8 {
         var buffer = std.ArrayList(u8).init(allocator);
-        try buffer.writer().write("Novograd");
+        try buffer.writer().writeAll("Novograd");
         if (self.wd_ != 0) {
             try buffer.writer().print(" (weight decay={d})", .{self.wd_});
         }

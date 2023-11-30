@@ -132,7 +132,7 @@ pub const AdamOptimizer = struct {
     /// Generates a stringified representation of the optimizer.
     pub fn prettyString(self: *AdamOptimizer, allocator: std.mem.Allocator) ![]const u8 {
         var buffer = std.ArrayList(u8).init(allocator);
-        try buffer.writer().write("Adam");
+        try buffer.writer().writeAll("Adam");
         if (self.wd_ != 0) {
             try buffer.writer().print(" (weight decay={d})", .{self.wd_});
         }

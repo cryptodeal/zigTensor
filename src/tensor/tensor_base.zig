@@ -227,7 +227,7 @@ pub const Tensor = struct {
         if (TypeInfo != .Int and !is_float and !is_bool) {
             @compileError("Tensor.asScalar: unsupported type");
         }
-        return switch (self.dtype(allocator)) {
+        return switch (try self.dtype(allocator)) {
             .f16 => {
                 const tmp = try self.astype(allocator, .f32);
                 defer tmp.deinit();
