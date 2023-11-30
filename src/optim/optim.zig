@@ -16,7 +16,7 @@ pub usingnamespace @import("utils.zig");
 // Benchmarking
 fn time(alloc: std.mem.Allocator, fn_name: []const u8, func: *const fn (allocator: std.mem.Allocator) anyerror!f64) !void {
     std.debug.print("Timing {s} ... ", .{fn_name});
-    std.debug.print("{d:.5} msec\n", .{try func(alloc)});
+    std.debug.print("{d:.5} msec\n", .{try func(alloc) * 1000});
 }
 
 const Ctx = struct {

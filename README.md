@@ -62,18 +62,19 @@ defer c.deinit();
 ### Roadmap
 
 - [ ] bindings
-  - [x] ArrayFire // TODO: optimize to remove unnecessary allocations
+  - [x] ArrayFire // TODO: optimize
+  - [ ] oneDNN (WIP)
 - [ ] autograd (WIP)
-  - [ ] Functions (WIP)
-  - [ ] Utils
-  - [x] Variable TODO: optimize/allocate less
+  - [x] Functions // TODO: debug oneDNN (TensorExtension) fns
+  - [x] Utils
+  - [x] Variable // TODO: optimize
 - [ ] common (WIP)
 - [ ] contrib
 - [ ] dataset
 - [ ] distributed
 - [ ] meter
 - [ ] nn
-- [ ] optim
+- [x] optim
 - [ ] runtime (WIP)
   - [ ] CUDADevice
   - [ ] CUDAStream
@@ -107,7 +108,7 @@ defer c.deinit();
     - [ ] Stub
   - [ ] CUDAProfile
   - [x] Compute
-  - [ ] DefaultTensorType (WIP)
+  - [x] DefaultTensorType
   - [x] Index
   - [x] Init
   - [ ] Profile
@@ -116,7 +117,7 @@ defer c.deinit();
   - [x] TensorAdapter
   - [x] TensorBackend
   - [x] TensorBase
-  - [ ] TensorExtension
+  - [x] TensorExtension
   - [x] Types
 
 ### Backend Roadmap

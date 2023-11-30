@@ -2156,9 +2156,6 @@ pub fn conv2d(
         pub fn call(alloc: std.mem.Allocator, inputs: []const *Variable, grad_output: *Variable, c: ?*anyopaque) !void {
             const context: *Ctx = @ptrCast(@alignCast(c));
 
-            const autograd_extension = try (try inputs[0].tensor().backend(alloc)).getExtension(alloc, AutogradExtension);
-            _ = autograd_extension;
-
             // TODO: Create benchmarks if needed
             const data_bench: ?zigrc.Arc(DynamicBenchmark) = null;
             const filter_bench: ?zigrc.Arc(DynamicBenchmark) = null;
@@ -2196,7 +2193,7 @@ pub fn conv2d(
                     data_bench,
                     context.payload,
                 );
-                var tmp_var = try Variable.init(alloc, data_grad, false);
+                var tmp_var = try Variable.init(alloc, data_grad, false); // input/data
                 defer tmp_var.deinit();
                 try inputs[0].addGrad(alloc, tmp_var);
             }
@@ -2922,7 +2919,7 @@ test "AutogradTest -> AutogradOperatorTypeCompatibility" {
     var res2 = try categoricalCrossEntropy(allocator, cat_input, cat_target, .Mean, -1);
     res2.deinit();
 
-    if (@import("build_options").ZT_USE_ONEDNN and @import("builtin") or @import("build_options").ZT_USE_CUDNN) {
+    if (@import("build_options").ZT_USE_ONEDNN and @import("build_options").ZT_USE_CUDNN) {
         var pool2d_res = try pool2d(allocator, f16_, 1, 1, 1, 1, 1, 1, .Max);
         pool2d_res.deinit();
     }
