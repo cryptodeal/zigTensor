@@ -305,6 +305,7 @@ pub const Tensor = struct {
     pub fn host(self: *const Tensor, allocator: std.mem.Allocator, comptime T: type, val: []T) !void {
         if (!try self.isEmpty(allocator)) {
             try self.impl_.host(allocator, val.ptr);
+            val.len = @intCast(try self.elements(allocator));
         }
     }
 

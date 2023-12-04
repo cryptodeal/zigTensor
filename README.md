@@ -93,7 +93,7 @@ defer c.deinit();
         - [ ] MemoryManagerAdapter
         - [ ] MemoryManagerAdapterDeviceInterface
         - [ ] MemoryManagerInstaller
-      - [ ] AdvancedIndex
+      - [ ] AdvancedIndex (CUDA specific API)
       - [x] ArrayFireBLAS
       - [x] ArrayFireBackend
       - [x] ArrayFireBinaryOps
@@ -127,5 +127,14 @@ defer c.deinit();
   - [ ] OpenCL
   - [ ] CUDA
 - [ ] JIT
-- [ ] oneDNN
+- [ ] oneDNN (WIP - first implementing for use with Autograd ops)
 - [ ] Stub
+
+### Other TODOs:
+
+- [ ] Language APIs
+  - [ ] C compatible API
+  - [ ] JS Bindings
+    - [ ] FFI
+    - [ ] NAPI
+    - [ ] WASM
