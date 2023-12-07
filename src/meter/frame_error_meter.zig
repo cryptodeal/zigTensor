@@ -49,3 +49,26 @@ pub const FrameErrorMeter = struct {
         return if (self.accuracy) 100 - err else err;
     }
 };
+
+test "MeterTest -> FrameErrorMeter" {
+    const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
+    var meter: FrameErrorMeter = .{};
+    const a_data: []const i32 = &.{ 1, 2, 3, 4, 5 };
+    const b_data: []const i32 = &.{ 1, 1, 3, 3, 5, 6 };
+    const a = try Tensor.fromSlice(allocator, &.{5}, i32, a_data, .s32);
+    defer a.deinit();
+    const b = try Tensor.fromSlice(allocator, &.{5}, i32, b_data, .s32);
+    defer b.deinit();
+    try meter.add(allocator, a, b);
+    try std.testing.expectEqual(@as(f64, 40), meter.value()); // 2 / 5
+    const a2 = try Tensor.fromSlice(allocator, &.{4}, i32, a_data[1..], .s32);
+    defer a2.deinit();
+    const b2 = try Tensor.fromSlice(allocator, &.{4}, i32, b_data[2..], .s32);
+    defer b2.deinit();
+    try meter.add(allocator, a2, b2);
+    try std.testing.expect(@abs(55.5555555 - meter.value()) < 1e-5); // 2 + 3 / 5 + 4
+
+}

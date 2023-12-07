@@ -28,3 +28,17 @@ pub fn CountMeter(comptime num: usize) type {
         }
     };
 }
+
+test "MeterTest -> CountMeter" {
+    const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+    var meter: CountMeter(3) = .{};
+    meter.add(0, 10);
+    meter.add(1, 11);
+    meter.add(0, 12);
+    const val = meter.value();
+    try std.testing.expectEqual(@as(i64, 22), val[0]);
+    try std.testing.expectEqual(@as(i64, 11), val[1]);
+    try std.testing.expectEqual(@as(i64, 0), val[2]);
+}

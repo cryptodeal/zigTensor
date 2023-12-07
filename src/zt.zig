@@ -3,6 +3,7 @@ pub const common = @import("common/common.zig");
 pub const runtime = @import("runtime/runtime.zig");
 pub const autograd = @import("autograd/autograd.zig");
 pub const optim = @import("optim/optim.zig");
+pub const meter = @import("meter/meter.zig");
 
 test {
     _ = autograd;
@@ -10,4 +11,5 @@ test {
     _ = tensor;
     _ = runtime;
     _ = optim;
+    _ = meter;
 }

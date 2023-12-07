@@ -48,11 +48,11 @@ pub const EditDistanceMeter = struct {
         }
 
         const in1_raw = try output.allocHost(allocator, i32);
-        defer allocator.free(in1_raw);
+        defer allocator.free(in1_raw.?);
         const in2_raw = try target.allocHost(allocator, i32);
-        defer allocator.free(in2_raw);
+        defer allocator.free(in2_raw.?);
 
-        const err_state = try levensteinDistance(allocator, i32, in1_raw, in2_raw);
+        const err_state = try self.levensteinDistance(allocator, i32, in1_raw.?, in2_raw.?);
         self.addErrorState(&err_state, try target.dim(allocator, 0));
     }
 
@@ -89,10 +89,10 @@ pub const EditDistanceMeter = struct {
     /// Returns an array of five values: error rate, total length,
     /// deletion rate, insertion rate, substitution rate.
     pub fn errorRate(self: *const EditDistanceMeter) [5]f64 {
-        const val: f64 = undefined;
-        const val_del: f64 = undefined;
-        const val_ins: f64 = undefined;
-        const val_sub: f64 = undefined;
+        var val: f64 = undefined;
+        var val_del: f64 = undefined;
+        var val_ins: f64 = undefined;
+        var val_sub: f64 = undefined;
         if (self.n > 0) {
             val = @as(f64, @floatFromInt(self.sumErr() * 100)) / @as(f64, @floatFromInt(self.n));
             val_del = @as(f64, @floatFromInt(self.ndel * 100)) / @as(f64, @floatFromInt(self.n));
@@ -112,7 +112,7 @@ pub const EditDistanceMeter = struct {
         defer allocator.free(column);
         @memset(column, .{});
         var i: usize = 0;
-        while (i <= in2_begin.len) : (i += 1) {
+        while (i <= in1_begin.len) : (i += 1) {
             column[i].nins = @intCast(i);
         }
 
@@ -125,7 +125,7 @@ pub const EditDistanceMeter = struct {
             var y: usize = 1;
             while (y <= in1_begin.len) : (y += 1) {
                 const old_diagonal = column[y];
-                var possibilities = [_]i64{ column[y].sum() + 1, column[y - 1].sum() + 1, last_diagonal.sum() + (if (in1_begin[curin1] == in2_begin[curin2]) 0 else 1) };
+                var possibilities = [_]i64{ column[y].sum() + 1, column[y - 1].sum() + 1, last_diagonal.sum() + (if (in1_begin[curin1] == in2_begin[curin2]) @as(i64, 0) else @as(i64, 1)) };
                 const min_it = std.mem.min(i64, &possibilities);
                 var distance: usize = 0;
                 for (possibilities) |p| {
@@ -158,3 +158,34 @@ pub const EditDistanceMeter = struct {
         return column[in1_begin.len];
     }
 };
+
+test "MeterTest -> EditDistanceMeter" {
+    const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
+    var meter: EditDistanceMeter = .{};
+    const a_data: []const i32 = &.{ 1, 2, 3, 4, 5 };
+    const b_data: []const i32 = &.{ 1, 1, 3, 3, 5, 6 };
+    const a = try Tensor.fromSlice(allocator, &.{5}, i32, a_data, .s32);
+    defer a.deinit();
+    const b = try Tensor.fromSlice(allocator, &.{6}, i32, b_data, .s32);
+    defer b.deinit();
+    try meter.addTensor(allocator, a, b);
+    try std.testing.expectEqual(@as(f64, 50), meter.errorRate()[0]); // 3 / 6
+    try std.testing.expectEqual(@as(i64, 3), meter.value()[0]); // 3 / 6
+    try std.testing.expect(@abs(16.6666667 - meter.errorRate()[2]) < 1e-5); // deletion = 1 / 6
+    try std.testing.expectEqual(@as(i64, 1), meter.value()[2]);
+    try std.testing.expectEqual(@as(f64, 0), meter.errorRate()[3]); // insertion error
+    try std.testing.expectEqual(@as(i64, 0), meter.value()[3]);
+    try std.testing.expect(@abs(33.3333333 - meter.errorRate()[4]) < 1e-5); // substitution error = 2 / 6
+    try std.testing.expectEqual(@as(i64, 2), meter.value()[4]);
+
+    const a2 = try Tensor.fromSlice(allocator, &.{3}, i32, a_data[1..], .s32);
+    defer a2.deinit();
+    const b2 = try Tensor.fromSlice(allocator, &.{3}, i32, b_data, .s32);
+    defer b2.deinit();
+    try meter.addTensor(allocator, a2, b2);
+    try std.testing.expect(@abs(66.666666 - meter.errorRate()[0]) < 1e-5); // 3 + 3 / 6 + 3
+    try std.testing.expectEqual(@as(i64, 6), meter.value()[0]);
+}

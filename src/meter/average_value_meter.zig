@@ -60,3 +60,26 @@ pub const AverageValueMeter = struct {
         return [4]f64{ self.cur_mean, variance, self.cur_weight_sum, self.cur_weight_sum_squared };
     }
 };
+
+test "MeterTest -> AverageValueMeter" {
+    const allocator = std.testing.allocator;
+    zt.tensor.init(allocator);
+    defer zt.tensor.deinit();
+
+    var meter: AverageValueMeter = .{};
+    meter.add(1, 0);
+    meter.add(2, 1);
+    meter.add(3, 1);
+    meter.add(4, 1);
+    var val = meter.value();
+    try std.testing.expectEqual(@as(f64, 3), val[0]);
+    try std.testing.expectApproxEqAbs(@as(f64, 1), val[1], 1e-10);
+    try std.testing.expectEqual(@as(f64, 3), val[2]);
+    const a = try Tensor.fromSlice(allocator, &.{3}, f32, &.{ 2, 3, 4 }, .f32);
+    defer a.deinit();
+    try meter.addTensor(allocator, a);
+    val = meter.value();
+    try std.testing.expectEqual(@as(f64, 3), val[0]);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.8), val[1], 1e-10);
+    try std.testing.expectEqual(@as(f64, 6), val[2]);
+}
