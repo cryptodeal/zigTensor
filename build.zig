@@ -68,39 +68,40 @@ pub fn build(b: *std.Build) !void {
     shared_opts.addOption(bool, "ZT_USE_ONEDNN", ZT_USE_ONEDNN);
     shared_opts.addOption(bool, "ZT_USE_CUDNN", ZT_USE_CUDNN);
 
-    var dependencies = std.ArrayList(std.Build.ModuleDependency).init(b.allocator);
-    defer dependencies.deinit();
-    try dependencies.append(.{ .name = "build_options", .module = shared_opts.createModule() });
-    try dependencies.append(.{ .name = "zigrc", .module = zigrc_module });
+    // var dependencies = std.ArrayList(struct { name: []const u8, module: *std.Build.Module }).init(b.allocator);
+    // defer dependencies.deinit();
+    // try dependencies.append(.{ .name = "build_options", .module = shared_opts.createModule() });
+    // try dependencies.append(.{ .name = "zigrc", .module = zigrc_module });
 
     // TODO: add optional deps based on build flags (e.g. link to backend (ArrayFire))
 
-    const main_module = b.addModule("zigTensor", .{
-        .source_file = .{ .path = "src/zt.zig" },
-        .dependencies = dependencies.items,
-    });
+    const main_module = b.addModule("zigTensor", .{ .root_source_file = .{ .path = "src/zt.zig" }, .imports = &.{ .{ .name = "build_options", .module = shared_opts.createModule() }, .{ .name = "zigrc", .module = zigrc_module } } });
+    // for (dependencies.items) |module| {
+    //     main_module.addImport(module.name, module.module);
+    // }
 
     const lib = b.addStaticLibrary(.{
         .name = "zigTensor",
-        .root_source_file = main_module.source_file,
+        .root_source_file = main_module.root_source_file,
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
+
     try linkBackends(b.allocator, lib, &backend_opts);
     b.installArtifact(lib);
 
     // Unit Tests
     const main_tests = b.addTest(.{
-        .root_source_file = main_module.source_file,
+        .root_source_file = main_module.root_source_file.?,
         .target = target,
         .optimize = optimize,
         .link_libc = true,
     });
     try linkBackends(b.allocator, main_tests, &backend_opts);
 
-    main_tests.addOptions("build_options", shared_opts);
-    main_tests.addModule("zigrc", zigrc_module);
+    main_tests.root_module.addOptions("build_options", shared_opts);
+    main_tests.root_module.addImport("zigrc", zigrc_module);
 
     const run_main_tests = b.addRunArtifact(main_tests);
 
@@ -110,12 +111,12 @@ pub fn build(b: *std.Build) !void {
     // Docs
     const zigTensor_docs = b.addStaticLibrary(.{
         .name = "zigTensor",
-        .root_source_file = std.build.LazyPath.relative("src/zt.zig"),
+        .root_source_file = std.Build.LazyPath.relative("src/zt.zig"),
         .target = target,
         .optimize = optimize,
     });
-    zigTensor_docs.addOptions("build_options", shared_opts);
-    zigTensor_docs.addModule("zigrc", zigrc_module);
+    zigTensor_docs.root_module.addOptions("build_options", shared_opts);
+    zigTensor_docs.root_module.addImport("zigrc", zigrc_module);
     try linkBackends(b.allocator, zigTensor_docs, &backend_opts);
 
     const build_docs = b.addInstallDirectory(.{
@@ -171,9 +172,9 @@ fn addDefaultPaths(target: std.Target, opts: *BackendOptions) void {
 fn linkBackends(allocator: std.mem.Allocator, compile: *std.Build.Step.Compile, opts: *LinkerOpts) !void {
     var maps = BindingMaps.init(allocator);
     defer maps.deinit();
-    const target = (std.zig.system.NativeTargetInfo.detect(compile.target) catch @panic("failed to detect native target info!")).target;
+    const target = compile.rootModuleTarget();
     if (opts.arrayfire.backend_type == .OpenCL or opts.onednn.backend_type == .OpenCL) {
-        compile.addIncludePath(std.build.LazyPath.relative("headers"));
+        compile.addIncludePath(std.Build.LazyPath.relative("headers"));
     }
     if (opts.arrayfire.backend_type != .None) {
         const lib_name: []const u8 = if (opts.arrayfire.backend_type == .Cuda) "afcuda" else if (opts.arrayfire.backend_type == .OpenCL) "afopencl" else "afcpu";

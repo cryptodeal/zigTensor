@@ -1297,7 +1297,7 @@ test "ArrayFireTensorBaseTest -> mean" {
 
     try std.testing.expectApproxEqAbs(
         try meanTensor.scalar(allocator, f32),
-        @floatCast((try af.ops.meanAll(try toArray(allocator, a))).real),
+        @as(f32, @floatCast((try af.ops.meanAll(try toArray(allocator, a))).real)),
         1e-4,
     );
 
@@ -1414,9 +1414,9 @@ test "ArrayFireTensorBaseTest -> variance" {
     // Make sure multidimension matches computing for all
     try std.testing.expectEqual(
         (try toArray(allocator, aVarTensor)).getScalar(f32),
-        @floatCast(
+        @as(f32, @floatCast(
             (try af.ops.varAllV2(try toArray(allocator, a), bias_mode)).real,
-        ),
+        )),
     );
     var biasedTensor = try variance(allocator, a, &.{ 0, 1 }, true, false);
     defer biasedTensor.deinit();
@@ -1478,7 +1478,7 @@ test "ArrayFireTensorBaseTest -> stdev" {
     defer tensor_res_3.deinit();
     const tensor_res_3_scalar = try tensor_res_3.scalar(allocator, f32);
     const expected = @sqrt((try af.ops.varAllV2(try toArray(allocator, a), .Population)).real);
-    try std.testing.expectEqual(tensor_res_3_scalar, @floatCast(expected));
+    try std.testing.expectEqual(tensor_res_3_scalar, @as(f32, @floatCast(expected)));
 }
 
 test "ArrayFireTensorBaseTest -> norm" {
