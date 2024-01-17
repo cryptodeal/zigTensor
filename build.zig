@@ -68,17 +68,9 @@ pub fn build(b: *std.Build) !void {
     shared_opts.addOption(bool, "ZT_USE_ONEDNN", ZT_USE_ONEDNN);
     shared_opts.addOption(bool, "ZT_USE_CUDNN", ZT_USE_CUDNN);
 
-    // var dependencies = std.ArrayList(struct { name: []const u8, module: *std.Build.Module }).init(b.allocator);
-    // defer dependencies.deinit();
-    // try dependencies.append(.{ .name = "build_options", .module = shared_opts.createModule() });
-    // try dependencies.append(.{ .name = "zigrc", .module = zigrc_module });
-
     // TODO: add optional deps based on build flags (e.g. link to backend (ArrayFire))
 
     const main_module = b.addModule("zigTensor", .{ .root_source_file = .{ .path = "src/zt.zig" }, .imports = &.{ .{ .name = "build_options", .module = shared_opts.createModule() }, .{ .name = "zigrc", .module = zigrc_module } } });
-    // for (dependencies.items) |module| {
-    //     main_module.addImport(module.name, module.module);
-    // }
 
     const lib = b.addStaticLibrary(.{
         .name = "zigTensor",
